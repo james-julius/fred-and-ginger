@@ -1,4 +1,4 @@
-// Model or harness? Replays the two turns from Erin's chat that went wrong, from the exact same
+// Model or harness? Replays the two turns from a real chat that went wrong, from the exact same
 // starting point every time, across harness versions × models, and counts each failure type.
 //
 //   v1 = the harness deployed before the fixes (old prompt, text-only history, every text part saved)
@@ -26,6 +26,9 @@ const CELLS = [
   { harness: 'v2', model: 'anthropic/claude-haiku-5-5', effort: 'medium' },
   { harness: 'v1', model: 'anthropic/claude-sonnet-5-5', effort: 'low' },
   { harness: 'v2', model: 'anthropic/claude-sonnet-5-5', effort: 'low' },
+  // Gemini (needs GOOGLE_GENERATIVE_AI_API_KEY in cloud/.dev.vars); effort becomes its thinking level
+  { harness: 'v2', model: 'google/gemini-3.8-flash', effort: 'low' },
+  { harness: 'v2', model: 'google/gemini-3.1-pro-preview', effort: 'low' },
 ];
 // $ per million tokens: input, output, cache read, cache write (5 min)
 const PRICE: Record<string, number[]> = { 'claude-haiku-5-5': [0.10, 0.50, 0.01, 0.125], 'claude-sonnet-5-5': [2, 10, 0.2, 2.5] };
@@ -36,7 +39,7 @@ const cookie = `nest_s=james.${exp}.${createHmac('sha256', vars.SESSION_KEY).upd
 const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
   fetch(BASE + path, { method: path === '/api/search' ? 'PATCH' : 'POST', headers: { cookie, 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
 
-const erin = JSON.parse(readFileSync(new URL('./fixtures/erin-thread.json', import.meta.url), 'utf8')).messages as { role: string; parts: any[] }[];
+const sample = JSON.parse(readFileSync(new URL('./fixtures/dog-friendly-thread.json', import.meta.url), 'utf8')).messages as { role: string; parts: any[] }[];
 const textOf = (m: { parts: any[] }) => m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(' ');
 
 type Turn = { text: string; texts: number; seq: string[]; tools: { name: string; input: any; output?: any }[]; parts: string[]; meta: any };
@@ -87,31 +90,31 @@ const cost = (m: any) => {
 const rows: any[] = [];
 const seed = async (n: number) => {
   await post('/api/mock/reset', {});
-  // Erin's search at that point, so the place she had open (op_469) is in her inbox for getPlace
+  // the search at that point, so the place that was open (op_469) is in the inbox for getPlace
   await post('/api/search', { dealbreakers: { areas: ['manhattan'], maxTotalMonthly: 5000, minBeds: 1, minBaths: 1.5, pets: null } });
   const threadId = `iso_${randomUUID().slice(0, 8)}`;
-  const r = await post('/api/mock/thread', { threadId, messages: erin.slice(0, n) });
+  const r = await post('/api/mock/thread', { threadId, messages: sample.slice(0, n) });
   if (!r.ok) throw new Error(`seeding failed (${r.status}); is FRED_DEV=1 in cloud/.dev.vars?`);
   return threadId;
 };
-const seededKnown = (n: number) => JSON.stringify(erin.slice(0, n).flatMap((m) => m.parts.filter((p) => String(p.type).startsWith('tool-')).map((p) => p.output))) + ' ' + erin.slice(0, n).filter((m) => m.role === 'user').map(textOf).join(' ');
+const seededKnown = (n: number) => JSON.stringify(sample.slice(0, n).flatMap((m) => m.parts.filter((p) => String(p.type).startsWith('tool-')).map((p) => p.output))) + ' ' + sample.slice(0, n).filter((m) => m.role === 'user').map(textOf).join(' ');
 
 for (const cell of CELLS) {
   const label = `${cell.harness} · ${cell.model.split('/')[1]} · ${cell.effort}`;
   // Turn A: "I like natural light..." (where "847 Riverside" happened). History: messages 0-5.
   for (let i = 0; i < RUNS; i++) {
     const thread = await seed(6);
-    const t = await say(cell, thread, textOf(erin[6]));
+    const t = await say(cell, thread, textOf(sample[6]));
     if (t.meta && (t.meta.harness !== cell.harness || t.meta.model !== cell.model || t.meta.effort !== cell.effort)) throw new Error(`override ignored: asked ${label}, got ${JSON.stringify(t.meta)}`);
-    const s = score(t, seededKnown(6) + JSON.stringify(t.tools.map((x) => x.output)) + textOf(erin[6]));
+    const s = score(t, seededKnown(6) + JSON.stringify(t.tools.map((x) => x.output)) + textOf(sample[6]));
     rows.push({ cell: label, ...cell, turn: 'address', ms: t.meta?.ms, cost: cost(t.meta), ...s, tools: t.tools.map((x) => x.name), reply: t.text });
     process.stdout.write(`${label} address #${i + 1}: ${s.inventedAddress ? 'INVENTED ' + s.invented.join('/') : 'ok'}${s.textBeforeTool ? ' text-before-tool' : ''}${s.multipleReplies ? ' multi-reply' : ''}\n`);
   }
   // Turn B: "does it come furnished or unfurnished?" with op_469 (47 W 84th St) open. History: messages 0-7.
   for (let i = 0; i < RUNS_FURNISHED; i++) {
     const thread = await seed(8);
-    const t = await say(cell, thread, textOf(erin[8]), 'op_469');
-    const s = score(t, seededKnown(8) + JSON.stringify(t.tools.map((x) => x.output)) + textOf(erin[8]));
+    const t = await say(cell, thread, textOf(sample[8]), 'op_469');
+    const s = score(t, seededKnown(8) + JSON.stringify(t.tools.map((x) => x.output)) + textOf(sample[8]));
     const nextStep = t.parts.includes('data-suggestions') || t.tools.some((x) => x.name === 'updatePlace') || /\b(want me to|I can|I'll|shall I|should I|here's a (message|draft))\b/i.test(t.text);
     rows.push({ cell: label, ...cell, turn: 'furnished', ms: t.meta?.ms, cost: cost(t.meta), ...s, deadEnd: !nextStep, lookedUp: t.tools.some((x) => x.name === 'getPlace'), tools: t.tools.map((x) => x.name), reply: t.text });
     process.stdout.write(`${label} furnished #${i + 1}: ${nextStep ? 'offers next step' : 'DEAD END'}\n`);

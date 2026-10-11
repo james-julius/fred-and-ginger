@@ -24,7 +24,7 @@ export type Facts = {
   scam: string[];                // scam signs a crawler saw, in plain words
 };
 
-// the craigslist actor's flags (actor/craigslist), as a cousin would say them
+// the craigslist actor's flags (the craigslist crawler), as a cousin would say them
 const SCAM: Record<string, string> = {
   price_far_below_norm: 'Rent is far below what the area goes for',
   deposit_before_viewing: 'Wants money before you see it',
@@ -133,7 +133,7 @@ export function factsFrom(raw: any): Facts {
 
   if (Array.isArray(raw.subwayLines)) f.trains = raw.subwayLines.map(String);
 
-  // the listing's own page (actor/SCHEMA.md, raw.detail) says more than any card: it goes first
+  // the listing's own page (docs/crawlers.md, raw.detail) says more than any card: it goes first
   const d = raw.detail && typeof raw.detail === 'object' ? raw.detail : null;
   const seen = new Set<string>();
   for (const a of Array.isArray(d?.amenities) ? d.amenities : []) {
