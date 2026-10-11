@@ -1,0 +1,45 @@
+# Every push and pull request: the Worker typechecks and its tests pass, the API contract and
+# the generated types agree, and the web app typechecks and lints. Nothing here needs secrets.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  worker:
+    name: Worker, tests and API contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22   # the tests use node:sqlite
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -p cloud
+      - run: npm test --workspace cloud
+      - name: openapi.json and schema.gen.ts are up to date
+        run: npm run check:api
+
+  web:
+    name: Web app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint .
