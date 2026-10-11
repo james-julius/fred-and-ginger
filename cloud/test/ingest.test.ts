@@ -3,34 +3,13 @@
 // Run: npm test (from cloud/)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DatabaseSync } from 'node:sqlite';
-import { readFileSync, readdirSync } from 'node:fs';
+import type { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
 import { upsert, specs, keyOf } from '../src/ingest';
+import { d1 } from './d1';
 
 const here = new URL('.', import.meta.url);
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`fixtures/${name}`, here), 'utf8'));
-
-// the slice of D1 that upsert uses
-function d1() {
-  const sql = new DatabaseSync(':memory:');
-  const dir = new URL('../migrations/', here);
-  for (const f of readdirSync(dir).sort()) sql.exec(readFileSync(new URL(f, dir), 'utf8'));
-  const prepare = (q: string) => {
-    let args: any[] = [];
-    const st = {
-      bind: (...a: any[]) => ((args = a), st),
-      first: async () => sql.prepare(q).get(...args) ?? null,
-      all: async () => ({ results: sql.prepare(q).all(...args) }),
-      run: async () => {
-        const r = sql.prepare(q).run(...args);
-        return { meta: { last_row_id: Number(r.lastInsertRowid), changes: Number(r.changes) } };
-      },
-    };
-    return st;
-  };
-  const db = { prepare, batch: async (sts: any[]) => { for (const s of sts) await s.run(); } };
-  return { env: { DB: db } as any, sql };
-}
 
 const listing = (sql: DatabaseSync, id: number) => sql.prepare('SELECT * FROM listings WHERE id=?').get(id) as any;
 const count = (sql: DatabaseSync) => (sql.prepare('SELECT count(*) n FROM listings').get() as any).n;
