@@ -43,3 +43,6 @@ next-env.d.ts
 # OpenNext / Cloudflare
 /.open-next/
 /.wrangler/
+
+# MapLibre worker, copied from node_modules by scripts/copy-maplibre-worker.mjs
+/public/maplibre/
