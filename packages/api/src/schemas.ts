@@ -66,6 +66,7 @@ export const MemoryPatch = z.object({
 
 export const Dealbreakers = z.object({
   areas: z.array(z.string()).openapi({ example: ['manhattan'], description: 'Borough or neighbourhood slugs' }),
+  excludeAreas: z.array(z.string()).optional().openapi({ example: ['central-harlem'], description: 'Borough or neighbourhood slugs to leave out, even inside `areas`' }),
   maxTotalMonthly: money.nullable().openapi({ description: 'Budget including required monthly fees' }),
   minBeds: z.number().nullable(),
   minBaths: z.number().nullable(),
