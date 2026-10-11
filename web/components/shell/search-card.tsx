@@ -34,8 +34,8 @@ function useOpenPlace() {
 
 /**
  * Fred's search, the way Jack & Jill show a job search: numbered steps and a lit-up skyline while
- * Fred works, then the places it picked, to save or pass on without leaving the chat. Fred's
- * written answer follows the card.
+ * Fred works, then the places it picked, to save or pass on without leaving the chat. The steps and
+ * skyline stay above the places once Fred's done. Fred's written answer follows the card.
  */
 export function SearchCard({ tools, scans, places = [], running }: { tools: ToolCall[]; scans: S["DataScan"][]; places?: DataPlaces[]; running: boolean }) {
   const [open, setOpen] = useState(true);
@@ -99,10 +99,8 @@ export function SearchCard({ tools, scans, places = [], running }: { tools: Tool
         </button>
       </header>
 
-      {open &&
-        (ids.length ? (
-          <Results ids={ids} scams={scams} />
-        ) : (
+      {open && (
+        <>
           <div className="px-4 pt-3 pb-4">
             <div className="flex justify-between text-[12.5px] text-muted-foreground">
               <span>Step</span>
@@ -113,10 +111,12 @@ export function SearchCard({ tools, scans, places = [], running }: { tools: Tool
                 <StepRow key={label} n={i + 1} label={label} phase={phase(i)} detail={details[i]} count={i === 0 && checked > 0 ? checked : null} live={running} />
               ))}
             </ol>
-            {running && step < 3 && <Skyline labels={labels} />}
+            <Skyline labels={labels} live={running && step < 3} />
             {!running && step === 1 && <p className="mt-2 text-[13px] text-muted-foreground">Nothing worth adding this time.</p>}
           </div>
-        ))}
+          {ids.length > 0 && <Results ids={ids} scams={scams} />}
+        </>
+      )}
     </section>
   );
 }
@@ -215,40 +215,54 @@ function useCountUp(target: number, live: boolean) {
   return value;
 }
 
-/** A skyline whose windows light up as Fred looks: the Fred mark's lit panes, as a city. */
-function Skyline({ labels }: { labels: string[] }) {
+type City = { w: number; h: number; towers: { x: number; y: number; w: number; h: number }[]; wins: { x: number; y: number; glow: number }[] };
+
+/**
+ * A skyline whose windows light up as Fred looks: the Fred mark's lit panes, as a city. When Fred's
+ * done, the lights hold where they were.
+ */
+function Skyline({ labels, live }: { labels: string[]; live: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  // Kept when Fred finishes, so the same city freezes instead of a new one being drawn.
+  const city = useRef<City | null>(null);
   useEffect(() => {
     const el = canvas.current, ctx = el?.getContext("2d");
     if (!el || !ctx) return;
-    const still = reducedMotion();
-    const css = getComputedStyle(el), color = (v: string) => css.getPropertyValue(v).trim();
-    const tower = color("--border"), unlit = color("--muted-foreground"), lit = color("--highlight");
+    const moving = live && !reducedMotion();
     const W = 3, H = 4, GX = 3, GY = 4, PAD = 4, GAP = 5; // window size, the gaps between them, tower padding, street width
-    let towers: { x: number; y: number; w: number; h: number }[] = [], wins: { x: number; y: number; glow: number }[] = [];
-    let w = 0, h = 0, raf = 0, last = 0;
+    let tower = "", unlit = "", lit = "", raf = 0, last = 0;
+    const colors = () => {
+      const css = getComputedStyle(el), color = (v: string) => css.getPropertyValue(v).trim();
+      tower = color("--border");
+      unlit = color("--muted-foreground");
+      lit = color("--highlight");
+    };
 
     const layout = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      if (city.current?.w === w && city.current.h === h) return;
       const dpr = devicePixelRatio || 1;
-      w = el.clientWidth;
-      h = el.clientHeight;
       el.width = w * dpr;
       el.height = h * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      towers = [];
-      wins = [];
+      const towers: City["towers"] = [], wins: City["wins"] = [];
       const most = Math.floor((h - PAD * 2 + GY) / (H + GY));
       for (let x = GAP; ; ) {
         const cols = 2 + Math.floor(Math.random() * 4), rows = Math.max(3, Math.round(most * (0.35 + Math.random() * 0.65)));
         const tw = PAD * 2 + cols * (W + GX) - GX, th = PAD * 2 + rows * (H + GY) - GY;
         if (x + tw > w - GAP) break;
         towers.push({ x, y: h - th, w: tw, h: th });
+        // A still city has some lights on, some brighter than others.
         for (let r = 0; r < rows; r++)
-          for (let c = 0; c < cols; c++) wins.push({ x: x + PAD + c * (W + GX), y: h - th + PAD + r * (H + GY), glow: still && Math.random() < 0.08 ? 1 : 0 });
+          for (let c = 0; c < cols; c++)
+            wins.push({ x: x + PAD + c * (W + GX), y: h - th + PAD + r * (H + GY), glow: !moving && Math.random() < 0.12 ? 0.35 + Math.random() * 0.65 : 0 });
         x += tw + GAP;
       }
+      city.current = { w, h, towers, wins };
     };
     const draw = () => {
+      if (!city.current) return;
+      const { w, h, towers, wins } = city.current;
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = tower;
       for (const t of towers) ctx.fillRect(t.x, t.y, t.w, t.h);
@@ -266,6 +280,7 @@ function Skyline({ labels }: { labels: string[] }) {
     };
     // Each frame, lit windows fade (half-life a little over a second) and new ones light up, about 50 a second.
     const frame = (t: number) => {
+      const wins = city.current?.wins ?? [];
       const dt = last ? Math.min(t - last, 100) : 16;
       last = t;
       const fade = 0.5 ** (dt / 1200);
@@ -275,31 +290,40 @@ function Skyline({ labels }: { labels: string[] }) {
       raf = requestAnimationFrame(frame);
     };
 
+    colors();
     const resized = new ResizeObserver(() => {
       layout();
-      if (still) draw();
+      if (!moving) draw();
     });
     resized.observe(el);
-    if (!still) raf = requestAnimationFrame(frame);
+    // A finished skyline stays in the chat, so repaint it if the system switches light/dark.
+    const scheme = matchMedia("(prefers-color-scheme: dark)");
+    const recolor = () => {
+      colors();
+      if (!moving) draw();
+    };
+    scheme.addEventListener("change", recolor);
+    if (moving) raf = requestAnimationFrame(frame);
     return () => {
       cancelAnimationFrame(raf);
       resized.disconnect();
+      scheme.removeEventListener("change", recolor);
     };
-  }, []);
+  }, [live]);
 
-  // One label at a time, somewhere over the skyline.
+  // One label at a time, somewhere over the skyline, while Fred works.
   const [chip, setChip] = useState<{ n: number; x: number; y: number } | null>(null);
   const count = labels.length;
   useEffect(() => {
-    if (!count) return;
+    if (!count || !live) return;
     const next = () => setChip((c) => ({ n: (c?.n ?? -1) + 1, x: 6 + Math.random() * 40, y: 12 + Math.random() * 46 }));
     const first = setTimeout(next, 300), every = setInterval(next, 1800);
     return () => {
       clearTimeout(first);
       clearInterval(every);
     };
-  }, [count]);
-  const text = chip && count ? labels[chip.n % count] : null;
+  }, [count, live]);
+  const text = live && chip && count ? labels[chip.n % count] : null;
 
   return (
     <div className="relative mt-3 h-36 overflow-hidden rounded-lg bg-muted" aria-hidden>
@@ -386,7 +410,7 @@ function Results({ ids, scams }: { ids: string[]; scams: number }) {
   };
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 pb-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 border-t pb-4">
       <div className="flex items-baseline justify-between px-4 pt-3 text-[12px] font-medium tracking-wide text-muted-foreground uppercase">
         <span>
           Found {plural(ids.length, "place")}
