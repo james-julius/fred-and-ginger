@@ -340,17 +340,18 @@ function usePicked(ids: string[]) {
 
 /**
  * The places Fred picked, one at a time, with Save and Pass. The next one peeks in from the right.
- * Passing asks what put you off, then the place leaves the card; places passed earlier aren't shown.
+ * Saving or passing moves on to the next place. A passed place stays, marked passed, with Undo and
+ * a one-tap "what put you off?".
  */
 function Results({ ids, scams }: { ids: string[]; scams: number }) {
   const router = useRouter();
   const track = useRef<HTMLDivElement>(null);
   const { data: places } = usePicked(ids);
   const [at, setAt] = useState(0);
-  const [asking, setAsking] = useState<string | null>(null); // just passed: asking why, with Undo
-  const [leaving, setLeaving] = useState<string | null>(null); // fading out
+  // A vote shows the moment you tap it, before the refreshed places come back.
+  const [voted, setVoted] = useState<Record<string, S["OpportunityStatus"]>>({});
 
-  const shown = places?.filter((p): p is Place => !!p && (p.status !== "passed" || p.id === asking)) ?? null;
+  const shown = places?.filter((p): p is Place => !!p).map((p) => (voted[p.id] ? { ...p, status: voted[p.id] } : p)) ?? null;
   const count = shown?.length ?? ids.length;
   const current = Math.min(at, Math.max(0, count - 1));
 
@@ -368,27 +369,20 @@ function Results({ ids, scams }: { ids: string[]; scams: number }) {
     if (nearest !== at) setAt(nearest);
   };
 
-  // Tapping Saved again puts the place back in New, like the listing's own buttons.
-  const save = async (place: Place, i: number) => {
-    const undo = place.status === "saved";
-    await updateOpportunity(place.id, { status: undo ? "new" : "saved" });
-    if (!undo && i + 1 < count) setTimeout(() => go(i + 1), 350);
-  };
-  const pass = async (place: Place) => {
-    setAsking(place.id); // before the refresh lands, so the place stays to ask why
-    await updateOpportunity(place.id, { status: "passed" });
-  };
-  const undo = async (place: Place) => {
-    await updateOpportunity(place.id, { status: "new" });
-    setAsking(null);
-  };
-  // After a reason or Skip: fade out, then the next place slides into its spot.
-  const done = (place: Place) => {
-    setLeaving(place.id);
-    setTimeout(() => {
-      setAsking(null);
-      setLeaving(null);
-    }, reducedMotion() ? 0 : 250);
+  // Saving or passing moves on to the next place. Tapping Saved again, or Undo on a pass, puts the
+  // place back in New, like the listing's own buttons.
+  const vote = async (place: Place, i: number, status: S["OpportunityStatus"]) => {
+    setVoted((v) => ({ ...v, [place.id]: status }));
+    if (status !== "new" && i + 1 < count) setTimeout(() => go(i + 1), 350);
+    try {
+      await updateOpportunity(place.id, { status });
+    } finally {
+      setVoted((v) => {
+        const rest = { ...v };
+        delete rest[place.id];
+        return rest;
+      });
+    }
   };
 
   return (
@@ -406,7 +400,7 @@ function Results({ ids, scams }: { ids: string[]; scams: number }) {
       </div>
 
       {shown?.length === 0 ? (
-        <p className="px-4 text-[13.5px] text-muted-foreground">You passed on {ids.length === 1 ? "it" : "all of them"}.</p>
+        <p className="px-4 text-[13.5px] text-muted-foreground">{ids.length === 1 ? "This place isn’t" : "These places aren’t"} available anymore.</p>
       ) : (
         <div className="bg-muted/60 py-4">
           <div
@@ -420,12 +414,9 @@ function Results({ ids, scams }: { ids: string[]; scams: number }) {
                     key={place.id}
                     place={place}
                     solo={count === 1}
-                    asking={asking === place.id}
-                    leaving={leaving === place.id}
-                    onSave={() => save(place, i)}
-                    onPass={() => pass(place)}
-                    onUndo={() => undo(place)}
-                    onDone={() => done(place)}
+                    onSave={() => vote(place, i, place.status === "saved" ? "new" : "saved")}
+                    onPass={() => vote(place, i, "passed")}
+                    onUndo={() => vote(place, i, "new")}
                   />
                 ))
               : ids.map((id) => <Loading key={id} solo={count === 1} />)}
@@ -467,49 +458,30 @@ function Loading({ solo }: { solo: boolean }) {
   );
 }
 
-function Slide({ place, solo, asking, leaving, onSave, onPass, onUndo, onDone }: {
+function Slide({ place, solo, onSave, onPass, onUndo }: {
   place: Place;
   solo: boolean;
-  /** Just passed: ask what put them off. */
-  asking: boolean;
-  leaving: boolean;
   onSave: () => void;
   onPass: () => void;
   onUndo: () => void;
-  onDone: () => void;
 }) {
   const openPlace = useOpenPlace();
-  const slide = `${slideClass(solo)} transition-opacity duration-200 ${leaving ? "opacity-0" : ""}`;
   const where = place.address ? `${place.address}${place.unit ? ` #${place.unit}` : ""}` : place.area;
-
-  if (asking)
-    return (
-      <article className={slide}>
-        <div className="flex items-center gap-3 border-b px-4 py-3 text-[13.5px]">
-          <X size={14} strokeWidth={1.75} className="shrink-0 text-muted-foreground" aria-hidden />
-          <span className="min-w-0 flex-1 truncate">
-            <b className="font-semibold">Passed</b> · {where}
-          </span>
-          <button type="button" onClick={onUndo} className="font-semibold underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground">
-            Undo
-          </button>
-        </div>
-        <div className="p-4">
-          <PassReasons place={place} onDone={onDone} />
-        </div>
-        <button type="button" onClick={onDone} className="mt-auto self-start px-4 pb-4 text-[13px] text-muted-foreground hover:text-foreground">
-          Skip
-        </button>
-      </article>
-    );
+  const passed = place.status === "passed";
+  // Ask what put them off until they've said, in this card or the listing (PassReasons writes "Passed: …" to the note).
+  const said = /^Passed: /m.test(place.note ?? "");
 
   const photo = place.thumbnail ?? place.photos[0] ?? null;
   const size = `${place.beds === 0 ? "Studio" : `${place.beds} bed`}${place.baths != null ? `, ${place.baths} bath` : ""}`;
   const take = place.highlight ?? place.verdict.reason;
 
   return (
-    <article className={slide}>
-      <button type="button" onClick={() => openPlace(place.id)} className="text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground">
+    <article className={slideClass(solo)}>
+      <button
+        type="button"
+        onClick={() => openPlace(place.id)}
+        className={`text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground ${passed ? "opacity-50" : ""}`}
+      >
         {photo ? (
           <Image src={photoAt(photo, 640)} alt="" width={640} height={360} className="aspect-[16/9] w-full bg-muted object-cover" />
         ) : (
@@ -526,25 +498,38 @@ function Slide({ place, solo, asking, leaving, onSave, onPass, onUndo, onDone }:
           </span>
         </span>
       </button>
-      <p className="px-4 pt-2 text-[13.5px] leading-snug">
+      <p className={`px-4 pt-2 text-[13.5px] leading-snug ${passed ? "opacity-50" : ""}`}>
         <span className={`font-medium ${toneClass[place.verdict.tone]}`}>{place.verdict.label}</span>
         {take && <span className="text-muted-foreground"> · {take}</span>}
       </p>
-      <div className="mt-auto grid grid-cols-2 gap-2 p-4 pt-3">
-        <button type="button" onClick={onPass} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-muted py-2 text-[13.5px] font-semibold hover:bg-muted/70">
-          <X size={14} strokeWidth={1.75} aria-hidden />
-          Pass
-        </button>
-        <button
-          type="button"
-          aria-pressed={place.status === "saved"}
-          onClick={onSave}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-[13.5px] font-semibold text-primary-foreground hover:bg-primary/90"
-        >
-          <Check size={14} strokeWidth={1.75} aria-hidden />
-          {place.status === "saved" ? "Saved" : "Save"}
-        </button>
-      </div>
+      {passed ? (
+        <div className="mt-auto grid gap-3 p-4 pt-3">
+          {!said && <PassReasons place={place} onDone={() => {}} />}
+          <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-[13.5px]">
+            <X size={14} strokeWidth={1.75} className="shrink-0 text-muted-foreground" aria-hidden />
+            <span className="flex-1 font-semibold">Passed</span>
+            <button type="button" onClick={onUndo} className="font-semibold underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground">
+              Undo
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-auto grid grid-cols-2 gap-2 p-4 pt-3">
+          <button type="button" onClick={onPass} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-muted py-2 text-[13.5px] font-semibold hover:bg-muted/70">
+            <X size={14} strokeWidth={1.75} aria-hidden />
+            Pass
+          </button>
+          <button
+            type="button"
+            aria-pressed={place.status === "saved"}
+            onClick={onSave}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-[13.5px] font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            <Check size={14} strokeWidth={1.75} aria-hidden />
+            {place.status === "saved" ? "Saved" : "Save"}
+          </button>
+        </div>
+      )}
     </article>
   );
 }
