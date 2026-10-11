@@ -6,6 +6,7 @@
 import { Env, enrich, finishRun, ingestBatch, startRuns, SOURCES } from './ingest';
 import { report } from './building';
 import { v2 } from './v2';
+import { sendDueAlerts } from './alerts';
 import { refreshFacts } from './facts';
 import { checkAreas } from './safety';
 
@@ -198,8 +199,9 @@ export default {
   },
   async scheduled(ev: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     await env.DB.prepare(`INSERT OR REPLACE INTO meta VALUES ('cron:' || ?, ?)`).bind(ev.cron, new Date().toISOString()).run();
-    // area safety: two NYPD queries per ~100 m cell, on its own trigger so it has its own request budget
-    if (ev.cron === '*/5 * * * *') ctx.waitUntil(checkAreas(env.DB, 20));
+    // area safety: two NYPD queries per ~100 m cell, on its own trigger so it has its own request budget;
+    // and strong-fit email alerts (src/alerts.ts)
+    if (ev.cron === '*/5 * * * *') ctx.waitUntil(Promise.all([checkAreas(env.DB, 20), sendDueAlerts(env).then((r) => r.some((x) => x.sent || x.error) && console.log('alerts', JSON.stringify(r)))]));
     // ~50 outbound requests per invocation: one dataset page, then geocodes, then building checks
     else ctx.waitUntil((async () => {
       const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3);
