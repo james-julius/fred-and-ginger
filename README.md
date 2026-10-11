@@ -54,7 +54,7 @@ Counts are scaled by building size, then rolled into a 0–100 score with the re
 - **Every 2 minutes:** a cron stores a batch of finished-run rows, geocodes new addresses, and runs building checks. It does a few at a time to stay under Workers' per-invocation request limits.
 - **Same apartment, several sites:** it becomes one listing, matched by normalised street + unit, then by BBL + unit after geocoding.
 - **The UI:** New / Both like / I like / Erin likes / Passed, notes, filters and a map.
-- **Deploy:** `cd cloud && npx wrangler deploy`. Migrations: `npx wrangler d1 migrations apply nest --remote`.
+- **Deploy:** merge to `main`. CI (`.github/workflows/ci.yml`) runs the checks, then applies migrations and deploys, one deploy at a time. That needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets and the `DEPLOY_FROM_CI=true` variable on the repo. By hand, only if CI can't: `cd cloud && npx wrangler d1 migrations apply nest --remote && npx wrangler deploy`.
 
 ## The new app (web/)
 
