@@ -50,7 +50,12 @@ export function fixtures(now = new Date()) {
     op_hudson: {
       ...cards[0], address: '180 Cabrini Blvd', unit: '4F', sqft: 950, available: '2026-11-15',
       description: 'Pre-war two bed, two bath with washer/dryer, renovated kitchen and park views. Dogs welcome.',
-      photos: [], amenities: ['Washer/dryer in unit', 'Dishwasher', 'Elevator', 'Pets allowed'], pets: 'Dogs and cats allowed',
+      // Free Unsplash photos so the gallery has something to show; real listings bring their own.
+      photos: ['https://images.unsplash.com/photo-1722650272764-08d92d193a9c?auto=format&fit=crop&q=75',
+               'https://images.unsplash.com/photo-1757742690834-aa581b9f53b2?auto=format&fit=crop&q=75',
+               'https://images.unsplash.com/photo-1630699376167-3870469e7598?auto=format&fit=crop&q=75',
+               'https://images.unsplash.com/photo-1649068559107-e5d936141e44?auto=format&fit=crop&q=75'],
+      amenities: ['Washer/dryer in unit', 'Dishwasher', 'Elevator', 'Pets allowed'], pets: 'Dogs and cats allowed',
       costs: { rent: 4750, netEffective: null, monthsFree: null, leaseMonths: 12, monthlyFees: 0, totalMonthly: 4750,
                brokerFee: 'none', moveInEstimate: 9520,
                fees: [{ kind: 'security_deposit', label: 'Security deposit', amount: 4750, period: 'once', required: true, source: 'listing' },
