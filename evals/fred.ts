@@ -358,6 +358,32 @@ const cases: Case[] = [
       check('nothing over budget', found(t).every((l: any) => l.price <= 4000), JSON.stringify(found(t).map((l: any) => l.price))),
     ] };
   } },
+  { name: 'messages a landlord only after approval', run: async () => {
+    // Local only: emails are logged, never sent. Listing 1132 is a Compass listing with an agent email.
+    const thread = await fresh();
+    await api('/api/alerts', { method: 'PATCH', body: JSON.stringify({ email: { address: 'james+fredtest@juliusdarby.com' } }) });
+    const { code } = await getJson('/api/mock/code?channel=email');
+    await api('/api/alerts/verify', { method: 'POST', body: JSON.stringify({ channel: 'email', code }) });
+    // in real use the open place is in the inbox: a search around it puts it there
+    await api('/api/search', { method: 'PATCH', body: JSON.stringify({ dealbreakers: { areas: ['williamsburg'], maxTotalMonthly: 15000, minBeds: 0, minBaths: null, pets: null } }) });
+    await getJson('/api/opportunities/op_1132');   // throws if it isn't in the inbox
+    const t1 = await say(thread, 'Can you ask the agent whether it comes furnished, and if we could see it Saturday around 11?', 'op_1132');
+    const afterDraft = (await getJson('/api/outbox')).items;
+    const t2 = await say(thread, 'Yes, send it', 'op_1132');
+    const afterSend = (await getJson('/api/outbox')).items;
+    const t3 = await say(thread, 'Can you email the landlord to ask about pets?', 'op_1357');
+    const finalOutbox = (await getJson('/api/outbox')).items;
+    const claimsSent = /\b(I(['’]ve| have)? sent|sent (it|the (message|email))|emailed (them|the))\b/i;
+    return { turns: [t1, t2, t3], checks: [
+      ...basics(t1), ...basics(t2, [t1]), ...basics(t3, [t1, t2]),
+      check('drafts a message', called(t1, 'draftMessage').length > 0 && afterDraft.some((m: any) => m.status === 'draft'), JSON.stringify(afterDraft.map((m: any) => m.status))),
+      check("doesn't send it in the same turn", called(t1, 'sendMessage').length === 0 && !afterDraft.some((m: any) => m.status === 'sent'), JSON.stringify(t1.tools.map((c) => c.name))),
+      check('asks before sending', /\?|haven['’]t sent|not sent|isn['’]t sent|approve/i.test(t1.finalText) && !claimsSent.test(t1.finalText), t1.finalText),
+      check('sends after the yes', called(t2, 'sendMessage').length > 0 && afterSend.some((m: any) => m.status === 'sent'), JSON.stringify(afterSend.map((m: any) => m.status))),
+      check('says replies go to their email', /inbox|your email|reply (will )?go|replies go|they('ll| will) reply/i.test(t2.finalText), t2.finalText),
+      check('no email: says so, sends nothing', finalOutbox.filter((m: any) => m.placeId === 'op_1357').length === 0 && !claimsSent.test(t3.finalText), t3.finalText),
+    ] };
+  } },
 ];
 
 /* ── run and report ──────────────────────────────────────────────────── */

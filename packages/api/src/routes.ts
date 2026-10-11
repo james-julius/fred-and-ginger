@@ -95,3 +95,13 @@ export const chat = createRoute({ method: 'post', path: '/api/chat', tags: ['cha
 /* live */
 export const events = createRoute({ method: 'get', path: '/api/events', tags: ['live'],
   responses: { 200: stream('Server-sent events; each data line is one Event'), ...errors } });
+
+/* messages to landlords: Fred drafts, the person approves */
+export const listOutbox = createRoute({ method: 'get', path: '/api/outbox', tags: ['messages'],
+  responses: { 200: json(z.object({ items: z.array(S.OutboxMessage) }), 'Newest first'), ...errors } });
+export const sendOutbox = createRoute({ method: 'post', path: '/api/outbox/{id}', tags: ['messages'],
+  request: { params: idParam },
+  responses: { 200: json(S.OutboxMessage, 'Sent (or failed, with error)'), 400: json(S.ErrorBody, 'Not a draft any more'), 429: json(S.ErrorBody, 'Daily limit, or already messaged about this place today'), ...errors } });
+export const cancelOutbox = createRoute({ method: 'delete', path: '/api/outbox/{id}', tags: ['messages'],
+  request: { params: idParam },
+  responses: { 200: json(S.OutboxMessage, 'Cancelled'), 400: json(S.ErrorBody, 'Not a draft any more'), ...errors } });

@@ -13,6 +13,7 @@ import { factsFrom, mergeFacts, type Facts } from '../facts';
 import { canonicalArea, knownArea } from '../areas';
 import { checkMusts, mustsOf } from '../musts';
 import { checkSites, crawlStatus } from './crawl';
+import * as outbox from '../outbox';
 import { AlertError, examplePlaces, patchAlerts, sendTest, verifyCode } from '../alerts';
 import { write as writeMemory } from '../memory';
 import { search as searchChats } from '../recall';
@@ -184,6 +185,49 @@ export const getPlace = createTool({
     const card = (await real(db, user)).cards.find((x) => x.id === id);
     if (!card) return { error: `No place ${id} in the inbox` };
     return (await detail(db, card)) ?? { error: `Listing for ${id} is gone` };
+  },
+});
+
+export const draftMessage = createTool({
+  id: 'draftMessage',
+  description: "Write an email to the leasing office or agent of a place in the inbox, for the user to approve. It is NOT sent: show it to them and wait for a yes in their next message. Works only when the listing has a published email (Compass agents, some landlord leasing offices); otherwise it says so. Replies go straight to the user's verified email.",
+  inputSchema: z.object({
+    placeId: z.string().regex(/^op_\d+$/).describe('The place, like op_469'),
+    subject: z.string().max(120).describe('Short and specific, e.g. "Question about 47 W 84th St #3S"'),
+    message: z.string().max(2000).describe("The email body, in the user's voice: a greeting, the question(s) or tour request with times, and their first name. No signature block; one is added."),
+  }),
+  execute: async ({ placeId, subject, message }, c) => {
+    const { env } = who(c as Ctx), rc = (c as Ctx).requestContext;
+    try {
+      const d = await outbox.draft(env, env.ME, { listingId: Number(placeId.slice(3)), subject, body: message, turn: (rc?.get('turn') as string) ?? null });
+      await (c as Ctx).writer?.custom({ type: 'data-draft', id: d.id, data: d } as never);
+      return { draft: d, next: 'Show it to them (to, subject, message) and ask whether to send it. Send only after they say yes in their next message.' };
+    } catch (e) { if (e instanceof AlertError) return { error: e.message }; throw e; }
+  },
+});
+
+export const sendMessage = createTool({
+  id: 'sendMessage',
+  description: 'Send a draft the user has approved in this message ("yes", "send it"). Never in the same turn you drafted it.',
+  inputSchema: z.object({ draftId: z.string().regex(/^msg_[a-z0-9]+$/) }),
+  execute: async ({ draftId }, c) => {
+    const { env } = who(c as Ctx), rc = (c as Ctx).requestContext;
+    try {
+      const m = await outbox.send(env, env.ME, draftId, { turn: (rc?.get('turn') as string) ?? null, senderName: (rc?.get('senderName') as string) ?? 'the renter' });
+      await (c as Ctx).writer?.custom({ type: 'data-draft', id: m.id, data: m } as never);
+      return m.status === 'sent' ? { sent: true, to: m.to, note: 'Their reply goes to the user’s email, not to you.' } : { sent: false, error: m.error };
+    } catch (e) { if (e instanceof AlertError) return { sent: false, error: e.message }; throw e; }
+  },
+});
+
+export const cancelMessage = createTool({
+  id: 'cancelMessage',
+  description: "Drop a draft the user doesn't want sent.",
+  inputSchema: z.object({ draftId: z.string().regex(/^msg_[a-z0-9]+$/) }),
+  execute: async ({ draftId }, c) => {
+    const { env } = who(c as Ctx);
+    try { const m = await outbox.cancel(env.DB, env.ME, draftId); await (c as Ctx).writer?.custom({ type: 'data-draft', id: m.id, data: m } as never); return { cancelled: true }; }
+    catch (e) { if (e instanceof AlertError) return { error: e.message }; throw e; }
   },
 });
 
@@ -412,4 +456,4 @@ export const updateTour = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, recallChats, updateProfile, listTours, updateTour };
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, draftMessage, sendMessage, cancelMessage, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, recallChats, updateProfile, listTours, updateTour };

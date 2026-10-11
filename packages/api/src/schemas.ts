@@ -325,6 +325,19 @@ export const DataPlaces = z.object({
   hidden: z.array(z.string()).openapi({ description: 'Of those, the ones he hid as likely scams' }),
 }).openapi('DataPlaces', { description: 'Chat part data-places: emitted by addToInbox' });
 
+export const OutboxMessage = z.object({
+  id: z.string().openapi({ example: 'msg_1a2b3c4d' }),
+  placeId: z.string().openapi({ example: 'op_469' }),
+  to: z.object({ email: z.string(), name: z.string().nullable().openapi({ example: 'The Smile leasing' }) }),
+  subject: z.string(),
+  body: z.string(),
+  replyTo: z.string().openapi({ description: "The person's verified email: the landlord's reply goes straight to them" }),
+  status: z.enum(['draft', 'sent', 'failed', 'cancelled']).openapi({ description: 'draft until approved; sent drafts are never resent' }),
+  createdAt: z.string().openapi({ format: 'date-time' }),
+  sentAt: z.string().nullable().openapi({ format: 'date-time' }),
+  error: z.string().nullable(),
+}).openapi('OutboxMessage', { description: 'A message Fred wrote to a leasing office or agent. Also the chat part data-draft: show it with Send and Cancel.' });
+
 export const DataSuggestions = z.object({
   options: z.array(z.object({ label: z.string(), patch: SearchPatch.nullable() })),
 }).openapi('DataSuggestions', { description: 'Chat part data-suggestions: quick replies. Tapping one sends its label as a message.' });

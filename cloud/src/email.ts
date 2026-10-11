@@ -100,13 +100,13 @@ ${p.photo ? `<tr><td style="padding:0;font-size:0;line-height:0"><a href="${APP_
 }
 
 /** Send through the EMAIL binding. Locally (FRED_DEV=1) nothing is sent: it's logged instead. */
-export async function sendEmail(env: { EMAIL?: SendEmail; FRED_DEV?: string }, to: string, e: Email): Promise<{ messageId: string | null; error?: string }> {
+export async function sendEmail(env: { EMAIL?: SendEmail; FRED_DEV?: string }, to: string, e: Email, o: { replyTo?: string; fromName?: string } = {}): Promise<{ messageId: string | null; error?: string }> {
   if (env.FRED_DEV === '1' || !env.EMAIL) {
-    console.log(`[email not sent: local dev] to=${to} subject=${e.subject}`);
+    console.log(`[email not sent: local dev] to=${to} subject=${e.subject}${o.replyTo ? ` replyTo=${o.replyTo}` : ''}`);
     return { messageId: null };
   }
   try {
-    const r = await env.EMAIL.send({ from: FROM, to, subject: e.subject, html: e.html, text: e.text });
+    const r = await env.EMAIL.send({ from: { ...FROM, name: o.fromName ?? FROM.name }, to, subject: e.subject, html: e.html, text: e.text, ...(o.replyTo && { replyTo: o.replyTo }) });
     return { messageId: r.messageId };
   } catch (err) {
     const code = (err as { code?: string }).code;

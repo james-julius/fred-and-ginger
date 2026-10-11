@@ -15,6 +15,7 @@ import { toAISdkStream } from '@mastra/ai-sdk';
 import { fred, DEFAULT_MODEL, type Harness } from './agent/fred';
 import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
+import * as outbox from './outbox';
 import { AlertError, examplePlaces, getAlerts, patchAlerts, sendCode, sendDueAlerts, sendTest, verifyCode } from './alerts';
 import { recall, taste } from './memory';
 import { backfill, exchanges, forget, placesIn, remember, worthRemembering } from './recall';
@@ -103,6 +104,16 @@ v2.openapi(R.verifyAlerts, async (c) => {
 v2.openapi(R.resendAlertCode, async (c) => {
   try { return c.json(await sendCode(c.env, c.env.ME, c.req.valid('json').channel), 200); }
   catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400 | 429 | 501); }
+});
+/* messages to landlords (src/outbox.ts): Fred drafts in chat; Send here is the person's approval */
+v2.openapi(R.listOutbox, async (c) => c.json({ items: await outbox.list(c.env.DB, c.env.ME) }, 200));
+v2.openapi(R.sendOutbox, async (c) => {
+  try { return c.json(await outbox.send(c.env, c.env.ME, c.req.valid('param').id, { turn: null, senderName: meFor(await state(c), c.env.ME).user.name }), 200); }
+  catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400 | 429); }
+});
+v2.openapi(R.cancelOutbox, async (c) => {
+  try { return c.json(await outbox.cancel(c.env.DB, c.env.ME, c.req.valid('param').id), 200); }
+  catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400); }
 });
 v2.openapi(R.testAlert, async (c) => {
   try {
@@ -286,6 +297,9 @@ v2.openapi(R.chat, async (c) => {
     const note = [
       `(Now: ${now}, New York.)`,
       `(Alerts: ${alertsLine(await getAlerts(c.env.DB, c.env.ME))})`,
+      // tool results aren't replayed, so Fred learns the drafts waiting for a yes from here
+      ...(await outbox.list(c.env.DB, c.env.ME, 10)).filter((m) => m.status === 'draft')
+        .map((m) => `(Draft waiting for their approval: ${m.id} to ${m.to.name ?? m.to.email} <${m.to.email}> about ${m.placeId}, subject "${m.subject}". If they say yes now, sendMessage with this id.)`),
       `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.weight === 'must' ? `${p.label} (dealbreaker)` : p.weight === 'important' ? `${p.label} (important)` : p.label) })})`,
       context?.opportunityId && `(The user has place ${context.opportunityId} open.)`,
       `(What you remember about them:\n${known ?? 'Nothing yet.'})`,
@@ -295,6 +309,8 @@ v2.openapi(R.chat, async (c) => {
     rc.set('env', c.env);
     rc.set(MASTRA_RESOURCE_ID_KEY, c.env.ME);
     rc.set('said', said);
+    rc.set('turn', userMsg.id);   // a draft can't be sent from the turn that wrote it (src/outbox.ts)
+    rc.set('senderName', meFor(st, c.env.ME).user.name);
     rc.set('threadId', threadId);   // recallChats looks in other chats   // updateMemory turns away notes that just repeat this
     // addToInbox takes ids from this turn's search, and the open place: Fred's verdict on it replaces the first take
     const open = Number(String(context?.opportunityId ?? '').replace(/^op_/, ''));
@@ -452,7 +468,7 @@ v2.post('/api/mock/reset', async (c) => {
   await reset(c.env.DB, c.env.ME);
   // local dev only: alerts and votes (saves and passes keep a place in the inbox) are real data, so production resets leave them alone
   if (c.env.FRED_DEV === '1') {
-    for (const t of ['alert_settings', 'alert_codes', 'alert_log', 'votes']) await c.env.DB.prepare(`DELETE FROM ${t} WHERE user=?`).bind(c.env.ME).run();
+    for (const t of ['alert_settings', 'alert_codes', 'alert_log', 'votes', 'outbox']) await c.env.DB.prepare(`DELETE FROM ${t} WHERE user=?`).bind(c.env.ME).run();
   }
   return c.json({ ok: true });
 });
@@ -470,7 +486,7 @@ export const openapiDoc = {
 
 // Chat parts and live events aren't request or response bodies, so list them to get them into the spec.
 for (const [name, schema] of Object.entries({
-  DataSearchUpdated: S.DataSearchUpdated, DataScan: S.DataScan, DataPlaces: S.DataPlaces, DataSuggestions: S.DataSuggestions, DataWatch: S.DataWatch, Event: S.Event,
+  DataSearchUpdated: S.DataSearchUpdated, DataScan: S.DataScan, DataPlaces: S.DataPlaces, OutboxMessage: S.OutboxMessage, DataSuggestions: S.DataSuggestions, DataWatch: S.DataWatch, Event: S.Event,
 })) v2.openAPIRegistry.register(name, schema);
 
 // The spec, and Swagger UI to browse and call it
