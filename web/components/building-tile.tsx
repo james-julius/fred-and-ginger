@@ -1,4 +1,4 @@
-import type { BuildingType } from "@/lib/places";
+export type BuildingType = "stone" | "brick" | "glass";
 
 // A tiny drawing of the building type, where other apps would show a logo or photo.
 export function BuildingTile({ type }: { type: BuildingType }) {
