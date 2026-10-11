@@ -112,6 +112,13 @@ const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").r
 const title = (s: string) => s.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 const numberOrNull = (s: string) => (s === "" ? null : Number(s));
 
+// Tapping a nice-to-have steps it up: nice, important, dealbreaker, then back to nice.
+type Weight = S["Preference"]["weight"];
+const nextWeight: Record<Weight, Weight> = { nice: "important", important: "must", must: "nice" };
+const weightName: Record<Weight, string> = { nice: "", important: "important", must: "dealbreaker" };
+const tapTo: Record<Weight, string> = { nice: "Tap to mark it important", important: "Tap to make it a dealbreaker", must: "Tap to make it nice to have" };
+const weightClass: Record<Weight, string> = { nice: "", important: "border-foreground font-medium", must: "border-foreground bg-foreground font-medium text-background" };
+
 function LookingFor({ search, status, onStatus }: { search: S["Search"]; status: string | null; onStatus: (s: string | null) => void }) {
   const [d, setD] = useState(search.dealbreakers);
   const [prefs, setPrefs] = useState(search.preferences);
@@ -244,23 +251,19 @@ function LookingFor({ search, status, onStatus }: { search: S["Search"]; status:
         </label>
       </div>
 
-      <Field label="Nice to have" htmlFor="profile-pref" hint="Tap one to mark it important">
+      <Field label="Nice to have" htmlFor="profile-pref" hint="Tap once for important, twice for a dealbreaker">
         <div className="flex flex-wrap items-center gap-1.5">
           {prefs.map((p) => (
-            <span
-              key={p.id}
-              className={`inline-flex items-center gap-1 rounded-full border py-0.5 pr-1 pl-2.5 text-[13px] ${p.weight === "important" ? "border-foreground font-medium" : ""}`}
-            >
+            <span key={p.id} className={`inline-flex items-center gap-1 rounded-full border py-0.5 pr-1 pl-2.5 text-[13px] ${weightClass[p.weight]}`}>
               <button
                 type="button"
-                aria-pressed={p.weight === "important"}
-                title={p.weight === "important" ? "Important" : "Nice to have"}
-                onClick={() => setPrefs((all) => all.map((x) => (x.id === p.id ? { ...x, weight: x.weight === "important" ? "nice" : "important" } : x)))}
+                title={tapTo[p.weight]}
+                onClick={() => setPrefs((all) => all.map((x) => (x.id === p.id ? { ...x, weight: nextWeight[x.weight] } : x)))}
               >
                 {p.label}
-                {p.weight === "important" && <span className="text-muted-foreground"> · important</span>}
+                {p.weight !== "nice" && <span className="opacity-70"> · {weightName[p.weight]}</span>}
               </button>
-              <button type="button" aria-label={`Remove ${p.label}`} onClick={() => setPrefs((all) => all.filter((x) => x.id !== p.id))} className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+              <button type="button" aria-label={`Remove ${p.label}`} onClick={() => setPrefs((all) => all.filter((x) => x.id !== p.id))} className="rounded-full p-0.5 opacity-70 hover:opacity-100">
                 <X size={13} strokeWidth={1.5} aria-hidden />
               </button>
             </span>
