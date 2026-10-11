@@ -4,8 +4,9 @@
   // /logout and /hooks and hands every other path here. Deploy this before nest the first time.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "fred-web",
-  "main": ".open-next/worker.js",
+  "main": "worker.ts",   // OpenNext's .open-next/worker.js, wrapped with Sentry
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "alias": { "open-next-worker": "./.open-next/worker.js" },
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" }
 }

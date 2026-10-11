@@ -14,7 +14,8 @@ export interface Env {
   EMAIL?: SendEmail;                      // Cloudflare Email Sending, from fred@jamesjuliusdarby.com
   AI?: Ai;                                // Workers AI: embeddings for chat recall (recall.ts)
   CHATS?: VectorizeIndex;                 // past chat exchanges, by meaning
-  SENTRY_DSN?: string;                    // wrangler vars; Sentry is off without it
+  SENTRY_DSN?: string;
+  SENTRY_DEBUG?: string;                  // '1' logs what the Sentry SDK sends                    // wrangler vars; Sentry is off without it
   CF_VERSION_METADATA?: WorkerVersionMetadata; // the deployed version id, as Sentry's release
   FRED_DEV?: string;                      // '1' only in cloud/.dev.vars: enables eval-only overrides and routes
   ANTHROPIC_API_KEY?: string; OPENAI_API_KEY?: string; GOOGLE_GENERATIVE_AI_API_KEY?: string;

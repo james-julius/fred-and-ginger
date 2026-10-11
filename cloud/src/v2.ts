@@ -317,12 +317,29 @@ v2.openapi(R.chat, async (c) => {
                              google: { thinkingConfig: { thinkingLevel: effort as 'low' } } },
         });
         let firstText: number | null = null;
-        for await (const part of toAISdkStream(out, { from: 'agent', version: 'v7', sendFinish: false })) {
-          if (firstText == null && (part as { type: string }).type === 'text-delta') firstText = Date.now() - t0;
-          writer.write(part as never);
-        }
-        // timing and token usage, for the eval suite and for watching cost
-        const usage = await out.totalUsage;
+        // Sentry's AI view: one gen_ai.invoke_agent span per turn, and a gen_ai.execute_tool child per
+        // tool call, timed from the stream. Mastra runs its own model loop, so the AI SDK integration can't see it.
+        const usage = await Sentry.startSpan({ name: 'invoke_agent Fred', op: 'gen_ai.invoke_agent',
+          attributes: { 'gen_ai.operation.name': 'invoke_agent', 'gen_ai.agent.name': 'Fred', 'gen_ai.request.model': model, 'fred.effort': effort, 'fred.harness': harness } }, async (span) => {
+          const started = new Map<string, { name: string; at: number }>();
+          for await (const part of toAISdkStream(out, { from: 'agent', version: 'v7', sendFinish: false })) {
+            const p = part as { type: string; toolCallId?: string; toolName?: string };
+            if (firstText == null && p.type === 'text-delta') firstText = Date.now() - t0;
+            if ((p.type === 'tool-input-start' || p.type === 'tool-input-available') && p.toolCallId && !started.has(p.toolCallId)) started.set(p.toolCallId, { name: p.toolName ?? 'tool', at: Date.now() });
+            if ((p.type === 'tool-output-available' || p.type === 'tool-output-error') && p.toolCallId && started.has(p.toolCallId)) {
+              const t = started.get(p.toolCallId)!;
+              Sentry.startInactiveSpan({ name: `execute_tool ${t.name}`, op: 'gen_ai.execute_tool', startTime: t.at / 1000,
+                attributes: { 'gen_ai.operation.name': 'execute_tool', 'gen_ai.tool.name': t.name, 'fred.tool.error': p.type === 'tool-output-error' } }).end(Date.now() / 1000);
+            }
+            writer.write(part as never);
+          }
+          // timing and token usage, for the eval suite, for watching cost, and on the span
+          const u = await out.totalUsage;
+          const cached = (u as { cachedInputTokens?: number }).cachedInputTokens ?? (u as { inputTokenDetails?: { cacheReadTokens?: number } }).inputTokenDetails?.cacheReadTokens;
+          span.setAttributes({ 'gen_ai.response.model': model, 'gen_ai.usage.input_tokens': u.inputTokens ?? 0, 'gen_ai.usage.output_tokens': u.outputTokens ?? 0,
+            'gen_ai.usage.input_tokens.cached': cached ?? 0, 'fred.tool_calls': started.size, 'fred.ms_to_first_text': firstText ?? -1 });
+          return u;
+        });
         writer.write({ type: 'message-metadata', messageMetadata: { model, effort, harness, ms: Date.now() - t0, msToFirstText: firstText, usage } } as never);
         writer.write({ type: 'finish' });
       },

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // James's Worker (cloud/) serves the data API and login. Locally, set
 // FRED_API_URL=http://localhost:8787 in .env.local to use `wrangler dev` instead.
@@ -30,4 +31,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry wraps the build to add its instrumentation. Source maps aren't uploaded (no auth token),
+// so stack traces show the built code.
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  telemetry: false,
+  sourcemaps: { disable: true },
+});
