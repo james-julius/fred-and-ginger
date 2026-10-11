@@ -47,6 +47,7 @@ export const updateSearch = createTool({
   inputSchema: z.object({
     dealbreakers: S.Dealbreakers.partial().optional().describe('Hard filters to change'),
     addPreferences: z.array(z.string()).optional().describe('Nice-to-haves to add, e.g. "Washer/dryer in unit"'),
+    importantPreferences: z.array(z.string()).optional().describe('Preferences the user says matter a lot; adds them or raises existing ones to important'),
     removePreferences: z.array(z.string()).optional(),
   }),
   execute: async (input, c) => {
@@ -54,10 +55,14 @@ export const updateSearch = createTool({
     const st = await load(db, user), cur = view(st).search;
     const prefs = cur.preferences.filter((p) => !(input.removePreferences ?? []).some((r) => r.toLowerCase() === p.label.toLowerCase()));
     for (const label of input.addPreferences ?? []) if (!prefs.some((p) => p.label.toLowerCase() === label.toLowerCase())) prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'nice' });
+    for (const label of input.importantPreferences ?? []) {
+      const p = prefs.find((x) => x.label.toLowerCase() === label.toLowerCase());
+      if (p) p.weight = 'important'; else prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'important' });
+    }
     st.search = applySearch(cur, { dealbreakers: input.dealbreakers, preferences: prefs });
     await save(db, user, st);
     await emit(c as Ctx, 'data-search-updated', { changed: Object.keys(input.dealbreakers ?? {}), dealbreakers: st.search.dealbreakers });
-    return { summary: summarize(st.search), dealbreakers: st.search.dealbreakers, preferences: prefs.map((p) => p.label) };
+    return { summary: summarize(st.search), dealbreakers: st.search.dealbreakers, preferences: prefs.map((p) => `${p.label} (${p.weight})`) };
   },
 });
 

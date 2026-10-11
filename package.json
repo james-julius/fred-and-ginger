@@ -9,7 +9,8 @@
   "scripts": {
     "gen:api": "tsx scripts/gen-api.ts && openapi-typescript packages/api/openapi.json -o web/lib/api/schema.gen.ts",
     "check:api": "npm run gen:api && git diff --exit-code packages/api/openapi.json web/lib/api/schema.gen.ts",
-    "eval": "tsx evals/fred.ts"
+    "eval": "tsx evals/fred.ts",
+    "isolate": "tsx evals/isolate.ts"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0",
