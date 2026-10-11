@@ -135,3 +135,26 @@ test('a search in the same step as a search change sees the new search', async (
   ]);
   assert.deepEqual((found as any).listings.map((l: any) => l.id), ['op_3']);
 });
+
+// Regression: ISSUE-003 — "What about Williamsburg?" replaced the saved Upper West Side, because
+// updateSearch only took the whole area list. Found by the evals on 2026-10-11.
+test('adding, removing and leaving out areas keeps the rest of the search', async () => {
+  const db = seed();
+  const { RequestContext } = await import('@mastra/core/request-context');
+  const { updateSearch } = await import('../src/agent/tools');
+  const { load, save } = await import('../src/mock');
+  await save(db, 'james', { cards: {}, threads: {}, search: searchFor({ areas: ['upper-west-side'], excludeAreas: ['central-harlem'] }) });
+  const rc = new RequestContext();
+  rc.set('env', { DB: db, ME: 'james' });
+  const ctx = { requestContext: rc } as any, areas = async () => (await load(db, 'james')).search!.dealbreakers;
+  await updateSearch.execute!({ addAreas: ['Williamsburg'] } as any, ctx);
+  assert.deepEqual((await areas()).areas, ['upper-west-side', 'williamsburg']);
+  await updateSearch.execute!({ excludeAreas: ['Washington Heights'], removeAreas: ['upper west side'] } as any, ctx);
+  assert.deepEqual(await areas().then((d) => [d.areas, d.excludeAreas]), [['williamsburg'], ['central-harlem', 'washington-heights']]);
+  // adding a left-out area back un-excludes it
+  await updateSearch.execute!({ addAreas: ['Harlem'] } as any, ctx);
+  assert.deepEqual(await areas().then((d) => [d.areas, d.excludeAreas]), [['williamsburg', 'central-harlem'], ['washington-heights']]);
+  // "only Chelsea" still replaces
+  await updateSearch.execute!({ dealbreakers: { areas: ['chelsea'] } } as any, ctx);
+  assert.deepEqual((await areas()).areas, ['chelsea']);
+});
