@@ -17,10 +17,14 @@ const flag = (name: string) => { const i = args.indexOf(`--${name}`); return i >
 const BASE = flag('base') ?? 'http://localhost:8787';
 const RUNS = Number(flag('runs') ?? 1);
 const ONLY = flag('case');
+const MODEL = flag('model'), EFFORT = flag('effort');   // e.g. --model anthropic/claude-sonnet-5-5 --effort medium
 if (!/^http:\/\/(localhost|127\.0\.0\.1)/.test(BASE)) throw new Error('The eval resets canned data, so it only runs against localhost');
 
-// Haiku 5.5, per million tokens (prompts under 100K): input, output, cache read (0.1x), 5-minute cache write (1.25x)
-const PRICE = { input: 0.10, output: 0.50, cacheRead: 0.01, cacheWrite: 0.125 };
+// $ per million tokens (prompts under 100K): input, output, cache read (0.1x), 5-minute cache write (1.25x)
+const PRICES: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
+  'claude-haiku-5-5': { input: 0.10, output: 0.50, cacheRead: 0.01, cacheWrite: 0.125 },
+  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+};
 
 /* ── talking to the Worker ───────────────────────────────────────────── */
 
@@ -28,14 +32,14 @@ const vars = Object.fromEntries(readFileSync(new URL('../cloud/.dev.vars', impor
 const exp = Math.floor(Date.now() / 1000) + 3600;
 const cookie = `nest_s=james.${exp}.${createHmac('sha256', vars.SESSION_KEY).update(`james.${exp}`).digest('hex')}`;
 const api = async (path: string, init: RequestInit = {}) => {
-  const r = await fetch(BASE + path, { ...init, headers: { cookie, 'content-type': 'application/json', ...init.headers } });
+  const r = await fetch(BASE + path, { ...init, headers: { cookie, 'content-type': 'application/json', ...(MODEL && { 'x-fred-model': MODEL }), ...(EFFORT && { 'x-fred-effort': EFFORT }), ...init.headers } });
   if (!r.ok) throw new Error(`${init.method ?? 'GET'} ${path}: ${r.status} ${await r.text()}`);
   return r;
 };
 const getJson = async <T = any>(path: string) => (await api(path)).json() as Promise<T>;
 
 type ToolCall = { name: string; input: any; output?: any };
-type Turn = { said: string; text: string; tools: ToolCall[]; parts: string[]; meta: any; ms: number; error?: string };
+type Turn = { said: string; seq: ('text' | 'tool')[]; text: string; finalText: string; tools: ToolCall[]; parts: string[]; meta: any; ms: number; error?: string };
 
 async function say(threadId: string, text: string, opportunityId?: string): Promise<Turn> {
   const t0 = Date.now();
@@ -43,14 +47,15 @@ async function say(threadId: string, text: string, opportunityId?: string): Prom
     threadId, context: opportunityId ? { opportunityId } : null,
     message: { id: randomUUID(), role: 'user', parts: [{ type: 'text', text }] },
   }) });
-  const turn: Turn = { said: text, text: '', tools: [], parts: [], meta: null, ms: 0 };
+  const turn: Turn = { said: text, seq: [], text: '', finalText: '', tools: [], parts: [], meta: null, ms: 0 };
   const byId = new Map<string, ToolCall>();
   const body = await r.text();
   for (const line of body.split('\n')) {
     if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
     const p = JSON.parse(line.slice(6));
-    if (p.type === 'text-delta') turn.text += p.delta;
-    else if (p.type === 'tool-input-available') { const call = { name: p.toolName, input: p.input }; byId.set(p.toolCallId, call); turn.tools.push(call); }
+    if (p.type === 'text-delta') { turn.text += p.delta; turn.finalText += p.delta; if (turn.seq.at(-1) !== 'text') turn.seq.push('text'); }
+    else if (p.type === 'tool-input-available') { turn.seq.push('tool'); turn.finalText = '';  // the app shows only text after the last tool call
+      const call = { name: p.toolName, input: p.input }; byId.set(p.toolCallId, call); turn.tools.push(call); }
     else if (p.type === 'tool-output-available') { const call = byId.get(p.toolCallId); if (call) call.output = p.output; }
     else if (p.type === 'message-metadata') turn.meta = p.messageMetadata;
     else if (p.type === 'error') turn.error = p.errorText;
@@ -68,12 +73,23 @@ const called = (t: Turn, name: string) => t.tools.filter((c) => c.name === name)
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
 /** Checks every turn gets: answered, no invented prices, no invented listings, brief. */
-function basics(t: Turn): Check[] {
-  const seen = JSON.stringify(t.tools.map((c) => c.output ?? null));
+// "113 W 130th St", "47 W 84th", "847 Riverside": a house number and the street that follows
+const ADDRESS = /\b\d{1,5}(?:-\d{1,3})?\s+(?:(?:[NSEW]\.?|North|South|East|West)\s+)?(?:\d{1,3}(?:st|nd|rd|th)\b|(?:[A-Z][a-z]+\s){0,2}(?:St|Street|Ave|Avenue|Blvd|Boulevard|Pl|Place|Rd|Road|Dr|Drive|Way|Pkwy|Ter|Ct|Sq)\b|(?:Broadway|Bowery|Riverside|Fort Washington|Central Park West|Park Avenue)\b)/g;
+const norm = (s: string) => s.toLowerCase().replace(/\./g, '').replace(/\b(street)\b/g, 'st').replace(/\b(avenue)\b/g, 'ave').replace(/\s+/g, ' ');
+
+function basics(t: Turn, earlier: Turn[] = []): Check[] {
+  const seen = JSON.stringify([...earlier, t].flatMap((x) => x.tools.map((c) => c.output ?? null)));
+  const knownText = norm(seen + ' ' + [...earlier, t].map((x) => x.said).join(' '));
+  const badAddresses = [...t.text.matchAll(ADDRESS)].map((m) => m[0]).filter((a) => !knownText.includes(norm(a).replace(/ (st|ave)$/, '')));
+  const textThenTool = t.seq.indexOf('text') >= 0 && t.seq.lastIndexOf('tool') > t.seq.indexOf('text');
   // numbers from tool results, plus ones the user said ("$5k" counts as 5000)
   const fromUser = (t.said.match(/\d[\d,.]*k?/gi) ?? []).map((n) => /k$/i.test(n) ? String(Number(n.slice(0, -1).replace(/,/g, '')) * 1000) : n.replace(/,/g, ''));
   const nums = new Set([...(seen.match(/\d[\d,]*(\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, '')), ...fromUser]);
-  const dollars = (t.text.match(/\$\s?\d[\d,]*(\.\d+)?k?/gi) ?? []).map((d) => d.replace(/[$\s,]/g, ''));
+  // amounts Fred works out ("about $1,000 over the area's usual", "$600 under") are differences, not listing prices
+  const relative = /^\s*(under|over|below|above|less|more|cheaper|off|a month (under|over|less|more))\b/i;
+  const dollars = [...t.text.matchAll(/(about |around |roughly |~)?\$\s?\d[\d,]*(\.\d+)?k?/gi)]
+    .filter((m) => !m[1] && !relative.test(t.text.slice(m.index! + m[0].length)))
+    .map((m) => m[0].replace(/[$\s,]/g, ''));
   // "$5k" or "$5,000" when the user said it is fine; only flag amounts that look like listing prices
   const invented = dollars.filter((d) => !/k$/i.test(d) && Number(d) >= 1000 && !nums.has(d) && !nums.has(String(Number(d))));
   const searchedIds = new Set(called(t, 'searchListings').flatMap((c) => (c.output?.listings ?? []).map((l: any) => l.listingId)));
@@ -83,8 +99,10 @@ function basics(t: Turn): Check[] {
     check('answered without error', !t.error && t.text.trim().length > 0, t.error ?? 'empty reply'),
     check('no invented prices', invented.length === 0, `not in any tool result: ${invented.join(', ')}`),
     check('only adds listings it searched', strays.length === 0, `added ids not from this turn's search: ${strays.join(', ')}`),
-    check('brief (≤ 120 words)', words(t.text) <= 120, `${words(t.text)} words`),
+    check('brief (≤ 120 words)', words(t.finalText) <= 120, `${words(t.finalText)} words`),
     check('says it once', !/(.{40,})[\s\S]*\1/.test(t.text), 'reply repeats itself'),
+    check('no invented addresses', badAddresses.length === 0, `not in any tool result: ${badAddresses.join(', ')}`),
+    check('writes only after its tools', !textThenTool, `order: ${t.seq.join(' → ')}`),
   ];
 }
 
@@ -116,7 +134,8 @@ const cases: Case[] = [
       check('saves the search', !!up, 'no updateSearch call'),
       check('budget is 5000', up?.dealbreakers?.maxTotalMonthly === 5000, JSON.stringify(up?.dealbreakers)),
       check('2 beds', up?.dealbreakers?.minBeds === 2, JSON.stringify(up?.dealbreakers)),
-      check('dogs', ['dogs', 'dogs_and_cats'].includes(up?.dealbreakers?.pets), JSON.stringify(up?.dealbreakers)),
+      // the example search already has dogs, so Fred may rightly leave pets out of updateSearch
+      check('dogs', ['dogs', 'dogs_and_cats'].includes(search.dealbreakers.pets), JSON.stringify(search.dealbreakers)),
       check('Brooklyn', areasInclude(up, 'brooklyn'), JSON.stringify(up?.dealbreakers?.areas)),
       check('searches with the filters', !!sl && sl.maxRent <= 5000 && sl.minBeds === 2 && areasInclude(sl, 'brooklyn'), JSON.stringify(sl)),
       check('adds places to the inbox', inbox.items.some((o: any) => /^op_\d+$/.test(o.id)), 'no Fred-created cards'),
@@ -204,15 +223,34 @@ const cases: Case[] = [
     return { turns: [t], checks: [
       check('answered without error', !t.error && t.text.trim().length > 0, t.error ?? 'empty'),
       check('changes nothing', changes.length === 0, JSON.stringify(changes.map((c) => c.name))),
-      check('brief (≤ 120 words)', words(t.text) <= 120, `${words(t.text)} words`),
+      check('brief (≤ 120 words)', words(t.finalText) <= 120, `${words(t.finalText)} words`),
+    ] };
+  } },
+  { name: "Erin's chat: light, subway, furnished", run: async () => {
+    // replays the conversation where Fred wrote "847 Riverside" and then said it didn't know
+    const thread = await fresh();
+    const t1 = await say(thread, 'I want an apartment in manhattan for under 5k one bedroom and 2 baths or 1.5 baths');
+    const t2 = await say(thread, "I like natural light and lots of windows also I want to be somewhere that's within 2 blocks of a subway stop");
+    const placeId = (await getJson('/api/opportunities?view=all')).items.find((o: any) => /^op_\d+$/.test(o.id))?.id;
+    if (!placeId) return { turns: [t1, t2], checks: [...basics(t1), ...basics(t2, [t1]), check('setup: Fred added a place', false, 'no places added')] };
+    const t3 = await say(thread, 'does it come furnished or unfurnished?', placeId);
+    const offers = t3.parts.includes('data-suggestions') || called(t3, 'updatePlace').length > 0 || /\b(want me to|I can|I'll|shall I|should I)\b/i.test(t3.text);
+    return { turns: [t1, t2, t3], checks: [
+      ...basics(t1).map((c) => ({ ...c, name: `t1 ${c.name}` })),
+      ...basics(t2, [t1]).map((c) => ({ ...c, name: `t2 ${c.name}` })),
+      ...basics(t3, [t1, t2]).map((c) => ({ ...c, name: `t3 ${c.name}` })),
+      check('t2 saves the light and subway preferences', called(t2, 'updateSearch').some((c) => (c.input.addPreferences ?? []).length >= 1), JSON.stringify(called(t2, 'updateSearch').map((c) => c.input))),
+      check('t3 looks the place up', called(t3, 'getPlace').some((c) => c.input.id === placeId), JSON.stringify(t3.tools.map((c) => c.name))),
+      check('t3 offers a next step when the data is missing', offers, t3.text),
     ] };
   } },
 ];
 
 /* ── run and report ──────────────────────────────────────────────────── */
 
-const cost = (u: any) => {
-  if (!u) return 0;
+const cost = (u: any, model?: string) => {
+  const PRICE = PRICES[String(model).split('/')[1]];
+  if (!u || !PRICE) return 0;
   const read = u.cachedInputTokens ?? u.inputTokenDetails?.cacheReadTokens ?? 0;
   const write = u.inputTokenDetails?.cacheWriteTokens ?? 0;
   const fresh = Math.max(0, (u.inputTokens ?? 0) - read - write);
@@ -224,13 +262,20 @@ for (const c of cases.filter((x) => !ONLY || x.name.includes(ONLY))) {
   for (let i = 0; i < RUNS; i++) {
     let r: { turns: Turn[]; checks: Check[] };
     try { r = await c.run(); } catch (e) { r = { turns: [], checks: [check('ran', false, String(e))] }; }
+    // every [address](place:op_id) link Fred wrote must point at a place in the inbox
+    try {
+      const inbox = new Set((await getJson('/api/opportunities?view=all&limit=100')).items.map((o: any) => o.id));
+      const linked = r.turns.flatMap((t) => [...t.text.matchAll(/\]\(place:(op_[\w-]+)\)/g)].map((m) => m[1]));
+      const stray = linked.filter((id) => !inbox.has(id));
+      r.checks.push(check('place links point at real places', stray.length === 0, `not in the inbox: ${stray.join(', ')}`));
+    } catch (e) { r.checks.push(check('place links point at real places', false, String(e))); }
     const last = r.turns.at(-1);
     const passed = r.checks.filter((x) => x.ok).length;
     const row = {
       case: c.name, run: i + 1, passed, total: r.checks.length,
       ms: last?.ms, msToFirstText: last?.meta?.msToFirstText, model: last?.meta?.model,
-      usage: last?.meta?.usage, cost: r.turns.reduce((s, t) => s + cost(t.meta?.usage), 0),
-      tools: last?.tools.map((t) => t.name), failed: r.checks.filter((x) => !x.ok), reply: last?.text,
+      usage: last?.meta?.usage, cost: r.turns.reduce((s, t) => s + cost(t.meta?.usage, t.meta?.model), 0),
+      tools: last?.tools.map((t) => t.name), failed: r.checks.filter((x) => !x.ok), reply: last?.text, replies: r.turns.map((t) => t.text),
     };
     results.push(row);
     const u = row.usage ?? {};
@@ -243,10 +288,10 @@ for (const c of cases.filter((x) => !ONLY || x.name.includes(ONLY))) {
 const passed = results.reduce((s, r) => s + r.passed, 0), total = results.reduce((s, r) => s + r.total, 0);
 const ms = results.map((r) => r.ms ?? 0).sort((a, b) => a - b);
 const totalCost = results.reduce((s, r) => s + r.cost, 0);
-console.log(`\n${passed}/${total} checks passed · ${results.filter((r) => r.passed === r.total).length}/${results.length} cases clean · median turn ${(ms[Math.floor(ms.length / 2)] / 1000).toFixed(1)}s · total $${totalCost.toFixed(4)}`);
+console.log(`\n[${MODEL ?? 'default model'} · effort ${EFFORT ?? 'default'}] ${passed}/${total} checks passed · ${results.filter((r) => r.passed === r.total).length}/${results.length} cases clean · median turn ${(ms[Math.floor(ms.length / 2)] / 1000).toFixed(1)}s · total $${totalCost.toFixed(4)}`);
 
 mkdirSync(new URL('./results/', import.meta.url), { recursive: true });
 const file = new URL(`./results/${new Date().toISOString().replace(/[:.]/g, '-')}.json`, import.meta.url);
-writeFileSync(file, JSON.stringify({ base: BASE, runs: RUNS, passed, total, cost: totalCost, results }, null, 2));
+writeFileSync(file, JSON.stringify({ base: BASE, model: MODEL, effort: EFFORT, runs: RUNS, passed, total, cost: totalCost, results }, null, 2));
 console.log(`results: ${file.pathname}`);
 await api('/api/mock/reset', { method: 'POST' });
