@@ -25,8 +25,8 @@ const LISTS: Record<PlaceList, { title: string; loading: string; empty: string }
 
 /** The places in one list. The API has no passed view yet (board #37), so Passed is every place, filtered. */
 export function usePlaces(list: PlaceList) {
-  const { data, error } = useOpportunities(list === "passed" ? "all" : list, list === "passed" ? 100 : undefined);
-  const items = useMemo(() => (list === "passed" ? data?.items.filter((c) => c.status === "passed") : data?.items), [data, list]);
+  const { data, error } = useOpportunities(list === "passed" ? "all" : list);
+  const items = useMemo(() => (list === "passed" ? data?.filter((c) => c.status === "passed") : data), [data, list]);
   return { items, error };
 }
 
@@ -217,8 +217,12 @@ function SortPills({ sort, onSort }: { sort: Sort; onSort: (sort: Sort) => void 
   );
 }
 
+// Cards don't carry coordinates yet, so every pin costs a lookup of its own. Map the newest ones until they do (board #44).
+const MAP_MAX = 30;
+
 function MapView({ cards, openId, onOpen }: { cards: S["OpportunityCard"][]; openId: string | null; onOpen: (id: string) => void }) {
-  const shown = useMemo(() => cards.filter((c) => !isHidden(c)), [cards]); // a likely scam's address isn't worth mapping
+  const mappable = useMemo(() => cards.filter((c) => !isHidden(c)), [cards]); // a likely scam's address isn't worth mapping
+  const shown = useMemo(() => mappable.slice(0, MAP_MAX), [mappable]);
   const { data: locations } = usePlaceLocations(shown.map((c) => c.id));
   const pins = useMemo<Pin[]>(
     () =>
@@ -254,6 +258,11 @@ function MapView({ cards, openId, onOpen }: { cards: S["OpportunityCard"][]; ope
           <span className="size-2.5 rounded-full border border-warning bg-background" aria-hidden /> Over budget
         </span>
         {missing > 0 && <span>{missing === 1 ? "1 place has" : `${missing} places have`} no map location</span>}
+        {mappable.length > shown.length && (
+          <span>
+            Showing the {shown.length} newest of {mappable.length}. List has them all.
+          </span>
+        )}
       </p>
     </div>
   );

@@ -25,10 +25,23 @@ const get = <T,>(path: string) => api<T>(path);
 // Don't keep retrying when you're signed out; the app shows the sign-in screen instead.
 const opts = { revalidateOnFocus: false, shouldRetryOnError: (err: unknown) => !(err instanceof SignedOutError) };
 
+// The API pages long lists (nextCursor). The inbox sorts, groups and steps through the whole list, so follow the pages to the end.
+async function everyPage(path: string): Promise<S["OpportunityCard"][]> {
+  const items: S["OpportunityCard"][] = [];
+  let cursor: string | null = null;
+  do {
+    const page: S["OpportunityPage"] = await api(cursor ? `${path}&cursor=${encodeURIComponent(cursor)}` : path);
+    items.push(...page.items);
+    cursor = page.items.length ? page.nextCursor : null;
+  } while (cursor);
+  return items;
+}
+
 export const useMe = () => useSWR<S["Me"]>("/api/me", get, opts);
 export const useSearch = () => useSWR<S["Search"]>("/api/search", get, opts);
-export const useOpportunities = (view: "new" | "saved" | "hidden" | "all" = "new", limit?: number) =>
-  useSWR<S["OpportunityPage"]>(`/api/opportunities?view=${view}${limit ? `&limit=${limit}` : ""}`, get, opts);
+/** Every place in a view, newest first. */
+export const useOpportunities = (view: "new" | "saved" | "hidden" | "all" = "new") =>
+  useSWR(`/api/opportunities?view=${view}&limit=100`, everyPage, opts);
 export const useOpportunity = (id: string | null) => useSWR<S["OpportunityDetail"]>(id ? `/api/opportunities/${id}` : null, get, opts);
 export const useTours = (when: "upcoming" | "past" | "all" = "upcoming") => useSWR<S["Tour"][]>(`/api/tours?when=${when}`, get, opts);
 export const usePacket = () => useSWR<S["Packet"]>("/api/packet", get, opts);
