@@ -46,6 +46,16 @@
             ],
             "description": "Borough or neighbourhood slugs"
           },
+          "excludeAreas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "central-harlem"
+            ],
+            "description": "Borough or neighbourhood slugs to leave out, even inside `areas`"
+          },
           "maxTotalMonthly": {
             "type": [
               "integer",
@@ -185,6 +195,16 @@
                   "manhattan"
                 ],
                 "description": "Borough or neighbourhood slugs"
+              },
+              "excludeAreas": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": [
+                  "central-harlem"
+                ],
+                "description": "Borough or neighbourhood slugs to leave out, even inside `areas`"
               },
               "maxTotalMonthly": {
                 "type": [
