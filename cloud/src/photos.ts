@@ -1,7 +1,6 @@
-// Listing photos from sites that won't show them on our pages. RentHop puts a Cloudflare bot check in
-// front of photos.renthop.com: an <img> on our pages gets a 403 challenge page, and so does a deployed
-// Worker, whatever headers it sends. The RentHop crawler (nest-renthop, in the private crawlers repo) opens each new listing's photos
-// in its own cleared browser and keeps them in the Apify store nest-renthop-photos. From there:
+// Listing photos from sites that won't show them on other sites' pages: RentHop's photos don't load
+// on ours. The RentHop crawler (nest-renthop, in the private crawlers repo) saves each new listing's
+// photos in the Apify store nest-renthop-photos. From there:
 // - photoUrl() rewrites those URLs to /api/photo?u=… wherever photos leave the API
 // - /api/photo serves the copy in R2, copying it from the Apify store the first time
 // - savePhotos() copies listings' photos to R2 ahead of time (cron), since the store is the crawler's
