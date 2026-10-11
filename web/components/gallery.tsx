@@ -3,7 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { photoAt } from "@/lib/format";
 
 const overlayButton =
@@ -16,6 +16,16 @@ export function Gallery({ photos, label }: { photos: string[]; label: string }) 
   const [fullScreen, setFullScreen] = useState(false);
   const go = (by: number) => setIndex((i) => (i + by + photos.length) % photos.length);
   const alt = (i: number) => `${label}, photo ${i + 1} of ${photos.length}`;
+
+  // When the strip scrolls, keep the current photo's thumbnail in the middle of it.
+  const strip = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const s = strip.current;
+    const thumb = s?.children[index] as HTMLElement | undefined;
+    if (s && thumb && s.scrollWidth > s.clientWidth) {
+      s.scrollTo({ left: thumb.offsetLeft - (s.clientWidth - thumb.offsetWidth) / 2, behavior: "smooth" });
+    }
+  }, [index]);
 
   if (!photos.length) return null;
   return (
@@ -43,7 +53,12 @@ export function Gallery({ photos, label }: { photos: string[]; label: string }) 
       </div>
 
       {photos.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-0.5">
+        // The thumbnails share the width; when there are too many to fit, it scrolls without a
+        // scrollbar. The padding keeps the ring around the current one from being clipped.
+        <div
+          ref={strip}
+          className="relative -m-1 grid auto-cols-[minmax(4rem,1fr)] grid-flow-col gap-2 overflow-x-auto p-1 scrollbar-none"
+        >
           {photos.map((src, i) => (
             <button
               key={src}
@@ -51,9 +66,9 @@ export function Gallery({ photos, label }: { photos: string[]; label: string }) 
               onClick={() => setIndex(i)}
               aria-label={`Show photo ${i + 1}`}
               aria-current={i === index}
-              className={`shrink-0 overflow-hidden rounded-lg ring-offset-2 ring-offset-background ${i === index ? "ring-2 ring-foreground" : "opacity-70 hover:opacity-100"}`}
+              className={`overflow-hidden rounded-md ring-offset-2 ring-offset-background ${i === index ? "ring-2 ring-foreground" : "opacity-70 hover:opacity-100"}`}
             >
-              <Image src={photoAt(src, 160)} alt="" width={80} height={56} className="h-14 w-20 object-cover" />
+              <Image src={photoAt(src, 320)} alt="" width={160} height={100} className="aspect-[16/10] w-full object-cover" />
             </button>
           ))}
         </div>
@@ -81,7 +96,11 @@ export function Gallery({ photos, label }: { photos: string[]; label: string }) 
                 <X size={18} strokeWidth={1.5} aria-hidden />
               </Dialog.Close>
             </div>
-            <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-6 sm:px-16">
+            {/* Clicking the black around the photo closes it, like clicking outside a dialog. Escape does too. */}
+            <div
+              onClick={(e) => e.target === e.currentTarget && setFullScreen(false)}
+              className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-6 sm:px-16"
+            >
               <Image
                 src={photoAt(photos[index], 2400)}
                 alt={alt(index)}

@@ -122,6 +122,31 @@
   }
 }
 
+/* The desktop shell: sidebar | chat | page, with a zero-width track after the sidebar and after the chat
+   for the resize handles. Dragging one sets --sidebar-w or --chat-share on <html> (lib/panes.ts).
+   The chat's default share is the old 0.95fr : 1.2fr split. 64rem is Tailwind's lg. */
+@media (width >= 64rem) {
+  .fred-shell {
+    grid-template-columns:
+      var(--sidebar-w, 220px) 0 calc((100% - var(--sidebar-w, 220px)) * var(--chat-share, 0.44)) 0
+      minmax(0, 1fr);
+  }
+  /* Each pane scrolls on its own, so it has to hold its absolutely positioned bits, like the sr-only
+     "Unread" on every row. Otherwise they sit where they'd fall on the page, and the page scrolls on
+     past the panes into blank white. */
+  .fred-shell > * {
+    position: relative;
+  }
+}
+/* A collapsed sidebar (toggleSidebar in sidebar.tsx) is a 60px rail you can't resize. Its handle stays in
+   its track, invisible and out of the tab order. Expanding goes back to the width you dragged it to. */
+html[data-sidebar="collapsed"] .fred-shell {
+  --sidebar-w: 60px;
+}
+html[data-sidebar="collapsed"] [data-pane="sidebar"] {
+  visibility: hidden;
+}
+
 /* MapLibre's buttons (zoom, credits) in Fred's colors, so they suit dark mode. Its CSS loads after this, hence the doubled classes. */
 .maplibregl-ctrl.maplibregl-ctrl-group,
 .maplibregl-ctrl.maplibregl-ctrl-attrib.maplibregl-compact {

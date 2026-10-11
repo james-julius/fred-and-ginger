@@ -2,12 +2,15 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { ArrowUp, Mic, Pencil, Plus, X } from "lucide-react";
+import { ArrowUp, Mic, Pencil, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { FredMark } from "@/components/fred-mark";
 import { refreshPlaces, useThread, useThreads, type S } from "@/lib/api/client";
 import { dealbreakerChips } from "@/lib/format";
+import { useDictation } from "./dictation";
+import { linkPlaces, placeIdsIn, usePlaceNames } from "./place-links";
+import type { DataPlaces } from "./search-card";
 import { asTool, changesPlaces, Steps } from "./steps";
 
 // Fred's custom chat parts, as the API streams them (data-<key> in the AI SDK).
@@ -16,6 +19,7 @@ type FredData = {
   scan: S["DataScan"];
   suggestions: S["DataSuggestions"];
   watch: S["DataWatch"];
+  places: DataPlaces;
 };
 type FredMessage = UIMessage<unknown, FredData>;
 type Context = { id: string; label: string } | null;
@@ -31,12 +35,27 @@ export function ChatPanel(props: { context: Context; onClearContext: () => void;
   return (
     <section aria-label="Conversation with Fred" className="flex flex-col border-b bg-chat lg:min-h-0 lg:border-r lg:border-b-0">
       {ready ? (
-        <Thread key={threadId} threadId={threadId} initial={(thread?.messages ?? []) as FredMessage[]} {...props} />
+        <Thread key={threadId} threadId={threadId} initial={asEdited((thread?.messages ?? []) as FredMessage[])} {...props} />
       ) : (
         <p className="p-5 text-sm text-muted-foreground">{error ? "Couldn’t load your conversation." : "Loading…"}</p>
       )}
     </section>
   );
+}
+
+/**
+ * A message id that comes up twice in a saved thread was edited before the server replaced edits properly,
+ * so it kept both copies (two `m1`s break React's keys). Read it the way an edit works now: the later copy
+ * replaces the earlier one, and what came between them goes.
+ */
+function asEdited(messages: FredMessage[]) {
+  const out: FredMessage[] = [];
+  for (const m of messages) {
+    const at = out.findIndex((x) => x.id === m.id);
+    if (at !== -1) out.length = at;
+    out.push(m);
+  }
+  return out;
 }
 
 function Thread({ threadId, initial, context, onClearContext, composerRef }: {
@@ -47,6 +66,7 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
   composerRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const [draft, setDraft] = useState("");
+  const dictation = useDictation(setDraft);
   const router = useRouter();
   // Open a place's modal from a link in Fred's text. On New places, keep the current view (list or map).
   const openPlace = (id: string) => {
@@ -92,6 +112,7 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
   const body = { context: context ? { opportunityId: context.id } : null };
   const send = (text: string) => {
     if (!text.trim() || busy) return;
+    dictation.cancel();
     sendMessage({ text: text.trim() }, { body });
     setDraft("");
   };
@@ -110,7 +131,7 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
 
   return (
     <>
-      <div ref={scroller} className="grid content-start gap-3.5 px-5 pt-5 pb-2 lg:flex-1 lg:overflow-y-auto">
+      <div ref={scroller} className="relative grid content-start gap-3.5 px-5 pt-5 pb-2 lg:flex-1 lg:overflow-y-auto">
         {messages.length === 0 && (
           <p className="max-w-[60ch] text-[15px] leading-relaxed text-muted-foreground">
             Tell Fred what you’re looking for, like “2 bed under $4,000 in Brooklyn, near the L, and I have a dog.”
@@ -167,12 +188,27 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
             className="max-h-40 resize-none bg-transparent outline-none field-sizing-content placeholder:text-muted-foreground"
           />
           <div className="flex items-center gap-3 text-muted-foreground">
-            <button type="button" aria-label="Add a listing link" className="hover:text-foreground">
-              <Plus size={18} strokeWidth={1.25} aria-hidden />
-            </button>
-            <button type="button" aria-label="Talk to Fred" className="ml-auto hover:text-foreground">
-              <Mic size={18} strokeWidth={1.25} aria-hidden />
-            </button>
+            {/* "Add a listing link" comes back once Fred can read a listing you paste (asked on the board). */}
+            <span role="status" className="min-w-0 truncate text-[12.5px]">
+              {dictation.status && <span className={dictation.status.live ? "fred-shimmer" : undefined}>{dictation.status.text}</span>}
+            </span>
+            {dictation.supported && (
+              <button
+                type="button"
+                aria-label={dictation.listening ? "Stop and write it down" : "Talk to Fred"}
+                aria-pressed={dictation.listening}
+                disabled={dictation.writing}
+                onClick={() => {
+                  if (dictation.listening) return dictation.stop();
+                  void dictation.start(draft);
+                  // Keep the composer focused, so Enter sends what you said.
+                  composerRef.current?.focus();
+                }}
+                className={`ml-auto disabled:opacity-40 ${dictation.listening ? "text-destructive" : "hover:text-foreground"}`}
+              >
+                <Mic size={18} strokeWidth={1.25} aria-hidden />
+              </button>
+            )}
             <button
               type="submit"
               aria-label="Send"
@@ -305,6 +341,8 @@ function Reply({ message, latest, busy, streaming, onPick, onPlace }: {
 }) {
   const tools = message.parts.map(asTool).filter((t) => t !== null);
   const scans = message.parts.flatMap((p) => (p.type === "data-scan" ? [p.data] : []));
+  const named = usePlaceNames(placeIdsIn(message.parts)); // so the addresses Fred writes open their places
+  const places = message.parts.flatMap((p) => (p.type === "data-places" ? [p.data] : []));
   // Reply pills and "Watching…" go under the words, even though Fred decides on them before it writes.
   const atEnd = (p: FredMessage["parts"][number]) => p.type === "data-suggestions" || p.type === "data-watch";
   const parts = [...message.parts.filter((p) => !atEnd(p)), ...message.parts.filter(atEnd)];
@@ -322,8 +360,8 @@ function Reply({ message, latest, busy, streaming, onPick, onPlace }: {
   return (
     <div className="grid gap-3.5">
       {parts.map((part, i) => {
-        if (i === firstStep) return <Steps key={i} tools={tools} scans={scans} running={working} />;
-        if (part.type === "data-scan" || asTool(part)) return null;
+        if (i === firstStep) return <Steps key={i} tools={tools} scans={scans} places={places} running={working} />;
+        if (part.type === "data-scan" || part.type === "data-places" || asTool(part)) return null;
         switch (part.type) {
           case "data-search-updated":
             return (
@@ -340,7 +378,7 @@ function Reply({ message, latest, busy, streaming, onPick, onPlace }: {
             if (i < textFrom) return null;
             return part.text.split(/\n{2,}/).map((para, j) => (
               <p key={`${i}-${j}`} className="max-w-[60ch] text-[15px] leading-relaxed">
-                {withLinks(para, onPlace)}
+                {withLinks(linkPlaces(para, named), onPlace)}
               </p>
             ));
           case "data-suggestions":

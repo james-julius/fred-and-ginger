@@ -1,9 +1,11 @@
 "use client";
 
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { FredMark } from "@/components/fred-mark";
 import { SignedOutError, useMe } from "@/lib/api/client";
+import { restorePanes } from "@/lib/panes";
 import { ChatPanel } from "./chat-panel";
+import { PaneHandle } from "./pane-handle";
 import { Sidebar } from "./sidebar";
 
 type Ask = (place: { id: string; label: string }) => void;
@@ -20,14 +22,17 @@ export function Shell({ children }: { children: ReactNode }) {
     setContext(place);
     requestAnimationFrame(() => composerRef.current?.focus());
   };
+  useLayoutEffect(restorePanes, []);
 
   if (error instanceof SignedOutError) return <SignIn />;
 
   return (
     <AskFred.Provider value={ask}>
-      <div className="min-h-dvh lg:grid lg:h-dvh lg:grid-cols-[220px_minmax(0,0.95fr)_minmax(0,1.2fr)]">
+      <div className="fred-shell min-h-dvh lg:grid lg:h-dvh">
         <Sidebar me={me} />
+        <PaneHandle pane="sidebar" label="Resize sidebar" min={180} max={320} />
         <ChatPanel context={context} onClearContext={() => setContext(null)} composerRef={composerRef} />
+        <PaneHandle pane="chat" label="Resize chat" min={320} rest={360} />
         {children}
       </div>
     </AskFred.Provider>
