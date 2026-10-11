@@ -8,6 +8,7 @@ export interface Env {
   PASSWORD_JAMES?: string; PASSWORD_ERIN?: string;
   FRED_MODEL?: string;                    // provider/model for the agent; its API key is a secret too
   FRED_EFFORT?: 'low' | 'medium' | 'high'; // Anthropic effort for chat; default low, for speed
+  NIMBLE_API_KEY?: string;                // web search and page reads for Fred's research tools
   ANTHROPIC_API_KEY?: string; OPENAI_API_KEY?: string; GOOGLE_GENERATIVE_AI_API_KEY?: string;
 }
 
@@ -49,7 +50,8 @@ export async function upsert(env: Env, r: any): Promise<'new' | 'seen' | 'skip'>
       return 'new';
     }
   }
-  // seen before (here or on another site): refresh, and note price moves
+  // seen before (here or on another site): refresh, note price moves, and clear facts so the cron
+  // re-reads them from every sighting (facts.ts)
   const l = await db.prepare('SELECT price, price_history, photos FROM listings WHERE id=?').bind(id).first<any>();
   const hist: [number, number][] = JSON.parse(l?.price_history || '[]');
   if (l && r.price !== l.price && (!hist.length || hist[hist.length - 1][1] !== r.price)) hist.push([t, r.price]);
@@ -57,7 +59,8 @@ export async function upsert(env: Env, r: any): Promise<'new' | 'seen' | 'skip'>
     db.prepare(`UPDATE listings SET price=?, last_seen=?, status='active', price_history=?,
                 photos=CASE WHEN photos IS NULL OR photos='[]' THEN ? ELSE photos END,
                 no_fee=COALESCE(?, no_fee), available=COALESCE(?, available), sqft=COALESCE(sqft, ?),
-                lat=COALESCE(lat, ?), lon=COALESCE(lon, ?), open_house=COALESCE(?, open_house) WHERE id=?`)
+                lat=COALESCE(lat, ?), lon=COALESCE(lon, ?), open_house=COALESCE(?, open_house),
+                facts=NULL WHERE id=?`)
       .bind(r.price, t, JSON.stringify(hist.slice(-20)), photos, r.noFee == null ? null : r.noFee ? 1 : 0, r.available ?? null,
             r.sqft ?? null, r.lat ?? null, r.lon ?? null, r.raw?.upcomingOpenHouse ? JSON.stringify(r.raw.upcomingOpenHouse) : null, id),
     db.prepare(`INSERT INTO sightings VALUES (?,?,?,?,?,?,?,?) ON CONFLICT (source, source_id)
