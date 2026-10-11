@@ -5,9 +5,20 @@ import type * as S from './schemas';
 
 type T<K extends keyof typeof S> = (typeof S)[K] extends z.ZodType ? z.infer<(typeof S)[K]> : never;
 
+// Every listing is in New York, so example times are New York times, whatever zone the Worker runs in.
+function newYorkTime(now: Date, daysAhead: number, hour: number, minute: number) {
+  const ny = (d: Date, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', ...o }).formatToParts(d);
+  const p = Object.fromEntries(ny(now, { year: 'numeric', month: 'numeric', day: 'numeric' }).map((x) => [x.type, x.value]));
+  const guess = Date.UTC(+p.year, +p.month - 1, +p.day + daysAhead, hour, minute);
+  // "GMT-4" in summer, "GMT-5" in winter
+  const zone = ny(new Date(guess), { timeZoneName: 'shortOffset' }).find((x) => x.type === 'timeZoneName')?.value ?? 'GMT';
+  const [, h = '0', m = '0'] = zone.match(/GMT([+-]\d+)(?::(\d+))?/) ?? [];
+  return new Date(guess - (+h * 60 + Math.sign(+h) * +m) * 60_000);
+}
+
 export function fixtures(now = new Date()) {
   const at = (hoursAgo: number) => new Date(now.getTime() - hoursAgo * 3600_000).toISOString();
-  const tomorrow830 = new Date(now); tomorrow830.setDate(now.getDate() + 1); tomorrow830.setHours(8, 30, 0, 0);
+  const tomorrow830 = newYorkTime(now, 1, 8, 30);
 
   const dealbreakers: T<'Dealbreakers'> = {
     areas: ['manhattan'], maxTotalMonthly: 5000, minBeds: 2, minBaths: 2, pets: 'dogs', noBrokerFee: false, moveBy: null,
