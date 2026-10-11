@@ -98,6 +98,32 @@ const apify = (env: Env, path: string, init?: RequestInit) =>
 
 export interface Criteria { maxRent?: number; minBeds?: number; areas?: string[] }
 
+const slug = (a: string) => a.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const MANHATTAN = /^(manhattan|.*village|soho|noho|tribeca|chelsea|.*harlem|.*side|midtown.*|murray-hill|gramercy.*|kips-bay|flatiron|nolita|chinatown|little-italy|financial-district|battery-park.*|hells-kitchen|inwood|washington-heights|hudson-yards|two-bridges|morningside-heights|hamilton-heights|yorkville|roosevelt-island)$/;
+const QUEENS = /^(queens|astoria|long-island-city|sunnyside|woodside|jackson-heights|elmhurst|forest-hills|rego-park|ridgewood|flushing|kew-gardens|corona|bayside|maspeth|ditmars.*)$/;
+function clSubarea(a: string) {
+  const s = slug(a);
+  return MANHATTAN.test(s) ? 'mnh' : QUEENS.test(s) ? 'que' : s === 'bronx' ? 'brx' : 'brk';
+}
+
+// The same search on a site isn't re-run within this window: listings don't move that fast, and runs cost money.
+export const RECHECK_HOURS = 4;
+export const critKey = (c: Criteria) => JSON.stringify({ areas: [...(c.areas ?? [])].map(slug).sort(), maxRent: c.maxRent ?? null, minBeds: c.minBeds ?? null });
+
+// Fred's crawl: only the sites he names, for this search, skipping any that checked it recently
+export async function crawl(env: Env, base: string, c: Criteria, sources: string[]) {
+  const key = critKey(c), out: { source: string; started?: boolean; checkedMinsAgo?: number; error?: string }[] = [];
+  for (const name of sources) {
+    if (!SOURCES[name]) { out.push({ source: name, error: 'unknown site' }); continue; }
+    const last = await env.DB.prepare(`SELECT started, status FROM runs WHERE source=? AND criteria=? AND status NOT IN ('FAILED','ABORTED','TIMED-OUT')
+                                       ORDER BY started DESC LIMIT 1`).bind(name, key).first<any>();
+    if (last && now() - last.started < RECHECK_HOURS * 3600) { out.push({ source: name, checkedMinsAgo: Math.round((now() - last.started) / 60) }); continue; }
+    const [r] = await startRuns(env, base, [name], c);
+    out.push(r.id ? { source: name, started: true } : { source: name, error: r.error });
+  }
+  return out;
+}
+
 // one entry per crawler; input() turns the shared search criteria into that actor's input
 export const SOURCES: Record<string, { actor: string; input: (c: Criteria) => any; everyHours?: number }> = {
   streeteasy: {
@@ -117,6 +143,9 @@ export const SOURCES: Record<string, { actor: string; input: (c: Criteria) => an
       if (c.maxRent) fs.mp = { max: c.maxRent };
       if (c.minBeds) fs.beds = { min: c.minBeds };
       const q = encodeURIComponent(JSON.stringify({ filterState: fs, isListVisible: true }));
+      // a neighbourhood search is small enough to read in full (Williamsburg: 72, two pages)
+      if (c.areas?.length) return { searches: c.areas.map((a) => `https://www.zillow.com/${slug(a)}-new-york-ny/rentals/?searchQueryState=${q}`),
+                                    maxItems: 300 * c.areas.length, maxPages: 8 };
       return { searches: ['manhattan', 'brooklyn', 'queens'].map((b) => `https://www.zillow.com/${b}-new-york-ny/rentals/?searchQueryState=${q}`),
                maxItems: 400, maxPages: 4 };
     },
@@ -147,20 +176,27 @@ export const SOURCES: Record<string, { actor: string; input: (c: Criteria) => an
   },
   craigslist: {
     actor: 'jamesjulius~nest-craigslist',
-    input: (c) => ({ subareas: ['mnh', 'brk', 'que'], maxPrice: c.maxRent, minBedrooms: c.minBeds || undefined, maxItems: 360 }),
+    // Craigslist has no neighbourhood filter: search the areas' boroughs for posts that name them
+    input: (c) => c.areas?.length
+      ? { subareas: [...new Set(c.areas.map(clSubarea))], query: c.areas.map((a) => slug(a).replace(/-/g, ' ')).join(' | '),
+          maxPrice: c.maxRent, minBedrooms: c.minBeds || undefined, maxItems: 200 }
+      : { subareas: ['mnh', 'brk', 'que'], maxPrice: c.maxRent, minBedrooms: c.minBeds || undefined, maxItems: 360 },
   },
 };
 
-export async function startRuns(env: Env, base: string, only?: string[]) {
-  const rows = await env.DB.prepare('SELECT criteria FROM searches WHERE enabled=1').all<any>();
-  const crits: Criteria[] = rows.results.map((x) => JSON.parse(x.criteria));
-  if (!crits.length) return [];
-  // merge searches: union of areas, loosest price/beds
-  const c: Criteria = {
-    maxRent: Math.max(...crits.map((x) => x.maxRent || 0)) || undefined,
-    minBeds: Math.min(...crits.map((x) => x.minBeds ?? 0)),
-    areas: [...new Set(crits.flatMap((x) => x.areas || []))],
-  };
+export async function startRuns(env: Env, base: string, only?: string[], given?: Criteria) {
+  let c = given;
+  if (!c) {
+    const rows = await env.DB.prepare('SELECT criteria FROM searches WHERE enabled=1').all<any>();
+    const crits: Criteria[] = rows.results.map((x) => JSON.parse(x.criteria));
+    if (!crits.length) return [];
+    // merge searches: union of areas, loosest price/beds
+    c = {
+      maxRent: Math.max(...crits.map((x) => x.maxRent || 0)) || undefined,
+      minBeds: Math.min(...crits.map((x) => x.minBeds ?? 0)),
+      areas: [...new Set(crits.flatMap((x) => x.areas || []))],
+    };
+  }
   const hook = btoa(JSON.stringify([{ eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED', 'ACTOR.RUN.TIMED_OUT', 'ACTOR.RUN.ABORTED'],
                                       requestUrl: `${base}/hooks/apify?key=${env.HOOK_SECRET}` }]));
   const out = [];
@@ -173,7 +209,7 @@ export async function startRuns(env: Env, base: string, only?: string[]) {
     const r = await apify(env, `/acts/${s.actor}/runs?webhooks=${encodeURIComponent(hook)}`, { method: 'POST', body: JSON.stringify(s.input(c)) });
     const d: any = await r.json().catch(() => ({}));
     const id = d?.data?.id;
-    if (id) await env.DB.prepare('INSERT OR REPLACE INTO runs (id, source, status, started) VALUES (?,?,?,?)').bind(id, name, 'RUNNING', now()).run();
+    if (id) await env.DB.prepare('INSERT OR REPLACE INTO runs (id, source, status, started, criteria) VALUES (?,?,?,?,?)').bind(id, name, 'RUNNING', now(), critKey(c)).run();
     out.push({ source: name, id, error: id ? undefined : d?.error?.message || `HTTP ${r.status}` });
   }
   return out;
@@ -196,11 +232,11 @@ export async function finishRun(env: Env, runId: string) {
 
 // one batch of one finished run's rows
 export async function ingestBatch(env: Env, size = 60) {
-  const run = await env.DB.prepare(`SELECT id, dataset, ingested, items, added FROM runs WHERE status='INGESTING' ORDER BY finished LIMIT 1`).first<any>();
+  const run = await env.DB.prepare(`SELECT id, dataset, ingested, items, added, criteria FROM runs WHERE status='INGESTING' ORDER BY finished LIMIT 1`).first<any>();
   if (!run) return null;
   const rows: any[] = await (await apify(env, `/datasets/${run.dataset}/items?clean=1&limit=${size}&offset=${run.ingested}`)).json();
   // the landlords crawler returns everything those companies have: keep what fits the search
-  const c = await env.DB.prepare('SELECT criteria FROM searches WHERE enabled=1 LIMIT 1').first<any>();
+  const c = run.criteria ? run : await env.DB.prepare('SELECT criteria FROM searches WHERE enabled=1 LIMIT 1').first<any>();
   const crit: Criteria = c ? JSON.parse(c.criteria) : {};
   const fits = (r: any) => (!crit.maxRent || !r.price || r.price <= crit.maxRent) && (crit.minBeds == null || r.beds == null || r.beds >= crit.minBeds);
   let added = 0;

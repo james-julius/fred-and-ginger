@@ -2,7 +2,7 @@
 //   /login            sign in (one password each, set as Worker secrets)
 //   /api/*            listings, votes, notes, searches, runs
 //   /hooks/apify      Apify calls this when a crawler run finishes
-//   cron              every 4h start the crawlers; every 10 min geocode + building checks
+//   cron              every 2 min ingest + geocode + building checks. Crawls run when Fred asks (agent/crawl.ts)
 import { Env, enrich, finishRun, ingestBatch, startRuns, SOURCES } from './ingest';
 import { report } from './building';
 import { v2 } from './v2';
@@ -178,7 +178,8 @@ export default {
       if (!env.HOOK_SECRET || !same(url.searchParams.get('key') || '', env.HOOK_SECRET)) return new Response('no', { status: 403 });
       const b: any = await req.json().catch(() => ({}));
       const id = b?.resource?.id;
-      if (id) ctx.waitUntil(finishRun(env, id));
+      // read the rows now, so a crawl Fred started lands in a minute or two; the cron reads the rest
+      if (id) ctx.waitUntil(finishRun(env, id).then(async () => { for (let i = 0; i < 2 && (await ingestBatch(env))?.done === false; i++); }));
       return json({ ok: true });
     }
     if (url.pathname === '/login') {
@@ -197,9 +198,8 @@ export default {
   },
   async scheduled(ev: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     await env.DB.prepare(`INSERT OR REPLACE INTO meta VALUES ('cron:' || ?, ?)`).bind(ev.cron, new Date().toISOString()).run();
-    if (ev.cron.startsWith('7 ')) ctx.waitUntil(startRuns(env, 'https://fredandginger.jamesjuliusdarby.com'));
     // area safety: two NYPD queries per ~100 m cell, on its own trigger so it has its own request budget
-    else if (ev.cron.startsWith('4-59/5')) ctx.waitUntil(checkAreas(env.DB, 20));
+    if (ev.cron === '*/5 * * * *') ctx.waitUntil(checkAreas(env.DB, 20));
     // ~50 outbound requests per invocation: one dataset page, then geocodes, then building checks
     else ctx.waitUntil((async () => {
       const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3);

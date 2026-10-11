@@ -10,6 +10,7 @@ import { detail, search, toCard } from './listings';
 import { counts, inbox, vote } from '../places';
 import { readPage, webSearch } from '../nimble';
 import { factsFrom, mergeFacts, type Facts } from '../facts';
+import { checkSites, crawlStatus } from './crawl';
 
 type Ctx = { requestContext?: { get(k: string): unknown }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
@@ -239,4 +240,4 @@ export const readListingPage = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, suggestReplies, researchWeb, readListingPage };
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus };
