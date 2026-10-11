@@ -10,6 +10,8 @@
   // chat recall (src/recall.ts): exchanges embedded with Workers AI, searched in Vectorize, filtered by person
   "ai": { "binding": "AI" },
   "vectorize": [{ "binding": "CHATS", "index_name": "nest-chats" }],
+  // the new app (web/): pages on fredandginger.* go to it; /api, /login, /logout and /hooks stay here
+  "services": [{ "binding": "WEB", "service": "fred-web" }],
   "d1_databases": [{ "binding": "DB", "database_name": "nest", "database_id": "ed551431-d43f-4986-9e5d-7e6124a7aaee" }],
   // every 2 min: ingest, geocode + building checks, a few at a time. Crawls start when Fred asks (src/agent/crawl.ts)
   "triggers": { "crons": ["*/2 * * * *", "*/5 * * * *"] },
