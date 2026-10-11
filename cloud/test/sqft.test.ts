@@ -23,6 +23,9 @@ test("other space isn't the apartment's size", () => {
   assert.equal(sqftFromText('incredible private backyard oasis spanning over 800 square feet', 1), null);
   assert.equal(sqftFromText("exposed piping. But it's an extra 250 sq FT of space, and that counts", 2), null);
   assert.equal(sqftFromText('a 1,200 sq ft roof deck for residents', 1), null);
+  // a Craigslist post that also carries a renter's wish list (listing 1720, Oct 11)
+  assert.equal(sqftFromText('Looking for walkable, near public transit, not by busy/loud streets, 500+ sqft, easy access to a washer and dryer. My budget is $1400', 2), null);
+  assert.equal(sqftFromText("I'm looking for a quiet place. This one is 640 sq ft with a dishwasher.", 1), 640);   // the next sentence is the listing
   // the outdoor space is named in a different clause: the apartment's size still counts
   assert.equal(sqftFromText('Private terrace. The apartment itself is 820 sq ft, with a dishwasher', 1), 820);
 });

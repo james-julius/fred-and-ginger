@@ -199,6 +199,7 @@ export function mergeFacts(list: Facts[]): Facts {
 const SQFT = /(\d{1,2},\d{3}|\d{3,4})(\.\d+)?\s*\+?\s*(?:sq\.?\s*f(?:ee)?t\.?|sq\.?\s*feet|sqft|square\s*f(?:ee|oo)t|sf\b|ft²|ft2\b)/gi;
 // the clause around the number is about something else: outdoor space, the building, an addition
 const NOT_THE_APARTMENT = /yard|garden|terrace|roof|deck|patio|balcon|outdoor|courtyard|amenit|gym|fitness|lobby|lounge|building|retail|commercial|storage|garage|extra|additional|bonus|lot\b|office/i;
+const WANTED = /looking for|seeking|i want|we want|i need|we need|wish ?list|must have|requirements|ideally|my budget|our budget/i;
 // plausible sizes by bedrooms (studio, 1, 2, 3, 4+), so a typo or a building total doesn't stick
 const SQFT_RANGE: [number, number][] = [[200, 1000], [300, 1600], [450, 2500], [600, 3500], [800, 6000]];
 
@@ -212,6 +213,9 @@ export function sqftFromText(text: string | null | undefined, beds: number | nul
     const before = text.slice(Math.max(0, start - 60), start).split(/[,;.!?\n•✨]/).pop() ?? '';
     const after = (text.slice(end, end + 60).split(/[,;.!?\n•✨]/)[0]) ?? '';
     if (NOT_THE_APARTMENT.test(before) || NOT_THE_APARTMENT.test(after)) continue;
+    // a renter's wish list ("Looking for … 500+ sqft … My budget is"), not this apartment
+    const sentence = text.slice(Math.max(0, start - 200), start).split(/[.!?\n]/).pop() ?? '';
+    if (WANTED.test(sentence)) continue;
     const [lo, hi] = SQFT_RANGE[Math.min(4, Math.max(0, Math.floor(beds ?? 1)))];
     if (n >= lo && n <= hi) return n;
   }
