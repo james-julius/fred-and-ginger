@@ -116,7 +116,7 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
 
   return (
     <>
-      <div ref={scroller} className="grid content-start gap-3.5 px-5 pt-5 pb-2 lg:flex-1 lg:overflow-y-auto">
+      <div ref={scroller} className="relative grid content-start gap-3.5 px-5 pt-5 pb-2 lg:flex-1 lg:overflow-y-auto">
         {messages.length === 0 && (
           <p className="max-w-[60ch] text-[15px] leading-relaxed text-muted-foreground">
             Tell Fred what you’re looking for, like “2 bed under $4,000 in Brooklyn, near the L, and I have a dog.”
