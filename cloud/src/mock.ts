@@ -5,6 +5,7 @@
 import { fixtures } from '@fng/api';
 import type * as S from '@fng/api';
 import type { z } from '@hono/zod-openapi';
+import { canonicalArea } from './areas';
 
 type I<T extends z.ZodType> = z.infer<T>;
 export type Card = I<typeof S.OpportunityCard>;
@@ -24,6 +25,8 @@ export type MockState = {
   created?: Card[];
   threads: Record<string, { title: string; updatedAt: string; messages: Message[] }>;
   profile?: { name?: string; photo?: string | null };
+  /** what Fred remembers about this person (memory.ts) */
+  memory?: import('./memory').Memory[];
 };
 
 const empty = (): MockState => ({ cards: {}, threads: {} });
@@ -41,13 +44,15 @@ export async function reset(db: D1Database, user: string) {
 
 const title = (s: string) => s.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 export function summarize(s: Search) {
-  const d = s.dealbreakers, bits = [d.areas.map(title).join(', ') || 'Anywhere'];
+  const d = s.dealbreakers, bits = [(d.areas.map(title).join(', ') || 'Anywhere') + (d.excludeAreas?.length ? ` except ${d.excludeAreas.map(title).join(', ')}` : '')];
   if (d.minBeds != null) bits.push(`${d.minBeds} bed${d.minBaths != null ? `, ${d.minBaths} bath` : ''}`);
   return bits.join(' · ');
 }
 
+/** Areas are stored as standard slugs ("Spanish Harlem" -> east-harlem), once each. */
 export function applySearch(s: Search, p: SearchPatch): Search {
-  return { ...s, ...p, dealbreakers: { ...s.dealbreakers, ...p.dealbreakers }, updatedAt: new Date().toISOString() };
+  const d = { ...s.dealbreakers, ...p.dealbreakers }, slugs = (a: string[] | undefined) => a && [...new Set(a.map(canonicalArea).filter(Boolean))];
+  return { ...s, ...p, dealbreakers: { ...d, areas: slugs(d.areas)!, ...(d.excludeAreas && { excludeAreas: slugs(d.excludeAreas) }) }, updatedAt: new Date().toISOString() };
 }
 
 /** The example data with this person's changes applied. */

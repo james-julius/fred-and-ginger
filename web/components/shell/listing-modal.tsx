@@ -2,10 +2,17 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleCheck, Flag, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import { FredMark } from "@/components/fred-mark";
 import { Gallery } from "@/components/gallery";
 import { updateOpportunity, useOpportunity, useSearch, type S } from "@/lib/api/client";
 import { money, scoreTone, shortDate, siteName, toneClass } from "@/lib/format";
+
+// MapLibre is big, so it loads with the first listing that has a location.
+const MiniMap = dynamic(() => import("./places-map").then((m) => m.MiniMap), {
+  ssr: false,
+  loading: () => <div className="size-full bg-muted" />,
+});
 
 const iconButton =
   "grid size-[30px] place-items-center rounded-lg border bg-background hover:bg-muted focus-visible:outline-2 focus-visible:outline-foreground";
@@ -136,6 +143,26 @@ function Details({ place }: { place: S["OpportunityDetail"] }) {
           {place.take.why.length > 0 && <List label={scam ? "Why Fred flagged it" : "Why this one"} items={place.take.why} />}
           {place.take.concerns.length > 0 && <List label="Worth knowing" items={place.take.concerns} />}
         </div>
+      )}
+
+      {place.location && (
+        <section aria-label="Where it is" className="grid gap-2">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs font-semibold text-muted-foreground">Where it is</span>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lon}`}
+              target="_blank"
+              rel="noopener"
+              className="ml-auto inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Google Maps
+              <ArrowUpRight size={13} strokeWidth={1.25} aria-hidden />
+            </a>
+          </div>
+          <div className="h-44 overflow-hidden rounded-xl border">
+            <MiniMap key={place.id} lat={place.location.lat} lon={place.location.lon} />
+          </div>
+        </section>
       )}
 
       {place.building && (

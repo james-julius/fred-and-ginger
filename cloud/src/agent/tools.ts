@@ -10,10 +10,12 @@ import { detail, search, toCard } from './listings';
 import { counts, inbox, vote } from '../places';
 import { readPage, webSearch } from '../nimble';
 import { factsFrom, mergeFacts, type Facts } from '../facts';
+import { knownArea } from '../areas';
 import { checkSites, crawlStatus } from './crawl';
 import { AlertError, examplePlaces, patchAlerts, sendTest, verifyCode } from '../alerts';
+import { write as writeMemory } from '../memory';
 
-type Ctx = { requestContext?: { get(k: string): unknown }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
+type Ctx = { requestContext?: { get(k: string): unknown; set?(k: string, v: unknown): void }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
   const env = c.requestContext?.get('env') as (Env & { ME: string }) | undefined;
   if (!env) throw new Error('No request context: tools must run inside a signed-in request');
@@ -51,25 +53,34 @@ export const updateSearch = createTool({
     importantPreferences: z.array(z.string()).optional().describe('Preferences the user says matter a lot; adds them or raises existing ones to important'),
     removePreferences: z.array(z.string()).optional(),
   }),
-  execute: async (input, c) => {
-    const { db, user } = who(c as Ctx);
-    const st = await load(db, user), cur = view(st).search;
-    const prefs = cur.preferences.filter((p) => !(input.removePreferences ?? []).some((r) => r.toLowerCase() === p.label.toLowerCase()));
-    for (const label of input.addPreferences ?? []) if (!prefs.some((p) => p.label.toLowerCase() === label.toLowerCase())) prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'nice' });
-    for (const label of input.importantPreferences ?? []) {
-      const p = prefs.find((x) => x.label.toLowerCase() === label.toLowerCase());
-      if (p) p.weight = 'important'; else prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'important' });
-    }
-    st.search = applySearch(cur, { dealbreakers: input.dealbreakers, preferences: prefs });
-    await save(db, user, st);
-    await emit(c as Ctx, 'data-search-updated', { changed: Object.keys(input.dealbreakers ?? {}), dealbreakers: st.search.dealbreakers });
-    return { summary: summarize(st.search), dealbreakers: st.search.dealbreakers, preferences: prefs.map((p) => `${p.label} (${p.weight})`) };
+  execute: (input, c) => {
+    // searchListings in the same step waits for this, so it searches the new search
+    const saving = changeSearch(input, c as Ctx);
+    (c as Ctx).requestContext?.set?.('savingSearch', saving.catch(() => {}));
+    return saving;
   },
 });
 
+async function changeSearch(input: { dealbreakers?: Partial<z.infer<typeof S.Dealbreakers>>; addPreferences?: string[]; importantPreferences?: string[]; removePreferences?: string[] }, c: Ctx) {
+  const { db, user } = who(c);
+  const st = await load(db, user), cur = view(st).search;
+  const prefs = cur.preferences.filter((p) => !(input.removePreferences ?? []).some((r) => r.toLowerCase() === p.label.toLowerCase()));
+  for (const label of input.addPreferences ?? []) if (!prefs.some((p) => p.label.toLowerCase() === label.toLowerCase())) prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'nice' });
+  for (const label of input.importantPreferences ?? []) {
+    const p = prefs.find((x) => x.label.toLowerCase() === label.toLowerCase());
+    if (p) p.weight = 'important'; else prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'important' });
+  }
+  st.search = applySearch(cur, { dealbreakers: input.dealbreakers, preferences: prefs });
+  await save(db, user, st);
+  await emit(c, 'data-search-updated', { changed: Object.keys(input.dealbreakers ?? {}), dealbreakers: st.search.dealbreakers });
+  const d = st.search.dealbreakers, unknown = [...d.areas, ...(d.excludeAreas ?? [])].filter((a) => !knownArea(a));
+  return { summary: summarize(st.search), dealbreakers: d, preferences: prefs.map((p) => `${p.label} (${p.weight})`),
+           ...(unknown.length && { unknownAreas: unknown, note: 'Not neighbourhoods I know; these only match listings whose neighbourhood says exactly that. Check the spelling with the user.' }) };
+}
+
 export const searchListings = createTool({
   id: 'searchListings',
-  description: "Search the real NYC rental listings Fred has collected from StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and landlord sites. Each match comes with highlights (deal vs the area's usual rent, laundry, outdoor space, pets, light), and a buildingWarning only when the city record is bad. Areas are neighbourhood or borough names.",
+  description: "Search the real NYC rental listings Fred has collected from StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and landlord sites. It always searches inside the saved search (areas, excluded areas, budget, beds, baths, pets, fee); your filters can only narrow it. To look outside it, updateSearch first. Results come best fit first. Each match comes with highlights (deal vs the area's usual rent, laundry, outdoor space, pets, light), and a buildingWarning only when the city record is bad. Areas are neighbourhood or borough names.",
   inputSchema: z.object({
     areas: z.array(z.string()).optional().describe('e.g. ["williamsburg", "greenpoint"] or ["brooklyn"]'),
     maxRent: z.number().optional(), minBeds: z.number().optional(), minBaths: z.number().optional(),
@@ -78,14 +89,17 @@ export const searchListings = createTool({
     limit: z.number().optional().describe('Default 15, max 40'),
   }),
   execute: async (input, c) => {
-    const { db } = who(c as Ctx);
-    const r = await search(db, input);
+    const { db, user } = who(c as Ctx);
+    await (c as Ctx).requestContext?.get('savingSearch');
+    const saved = view(await load(db, user)).search, r = await search(db, saved, input);
     for (const l of r.found) seen(c as Ctx).add(l.listingId);
-    const where = input.areas?.length ? input.areas.join(', ') : 'all of NYC';
+    const areas = input.areas?.length ? input.areas : saved.dealbreakers.areas;
+    const where = areas.length ? areas.join(', ') : 'all of NYC';
     await emit(c as Ctx, 'data-scan', { checked: r.total, matched: r.found.length, hidden: 0, steps: [{ label: `Searched ${where}${input.maxRent ? ` up to $${input.maxRent.toLocaleString('en-US')}` : ''}`, toolCallId: null }] });
     // Ids are "op_317", the same as inbox places and place: links. A bare number sat next to
     // addresses like "1584 Bushwick Ave" and Fred mixed the two up.
-    return { matching: r.total, showing: r.found.length, listings: r.found.map(({ listingId, ...l }) => ({ id: `op_${listingId}`, ...l })) };
+    return { matching: r.total, showing: r.found.length, listings: r.found.map(({ listingId, ...l }) => ({ id: `op_${listingId}`, ...l })),
+             ...(r.outside.length && { outsideSearch: r.outside, note: 'These areas are outside the saved search, so nothing there was searched. If the user wants them, updateSearch first.' }) };
   },
 });
 
@@ -287,4 +301,65 @@ export const readListingPage = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus };
+export const updateMemory = createTool({
+  id: 'updateMemory',
+  description: `Keep your notes on this person: what they like, dislike and need in a place, their life (work, partner, pets, commute), timing, and how they like you to work. Your current notes come with each message, with ids.
+Write what you understood, not what they said: "I'm ok with 1 bath" becomes "Prefers 2 baths; 1 is acceptable" (likes, strong). One fact per note, third person, under 160 characters.
+When something refines or contradicts a note, update that note; don't add a second one. Remove notes they take back ("forget that", "actually I don't care about X").
+from: "said" when they told you, "inferred" when you read it from their saves and passes (use mild, and only once the pattern is clear).`,
+  inputSchema: z.object({
+    add: z.array(z.object({ kind: S.MemoryKind, text: z.string(), strength: S.Memory.shape.strength, from: S.Memory.shape.from.optional() })).optional(),
+    update: z.array(z.object({ id: z.string(), text: z.string().optional(), kind: S.MemoryKind.optional(), strength: S.Memory.shape.strength.optional() })).optional(),
+    remove: z.array(z.string()).optional().describe('Note ids to forget'),
+  }),
+  execute: async (input, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user);
+    const said = (c as Ctx).requestContext?.get('said') as string | undefined;
+    const { notes, refused } = writeMemory(st, input, said);
+    await save(db, user, st);
+    return { notes: notes.map((n) => `${n.id} ${n.kind} (${n.strength}${n.from === 'inferred' ? ', inferred' : ''}): ${n.text}`),
+             ...(refused.length ? { refused, fix: 'Rewrite the refused ones and call updateMemory again.' } : {}) };
+  },
+});
+
+export const updateProfile = createTool({
+  id: 'updateProfile',
+  description: 'Change the name the app shows for this person, when they ask ("call me Jim").',
+  inputSchema: z.object({ name: S.MePatch.shape.name.unwrap() }),
+  execute: async ({ name }, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user);
+    st.profile = { ...st.profile, name };
+    await save(db, user, st);
+    return { name };
+  },
+});
+
+export const listTours = createTool({
+  id: 'listTours',
+  description: 'The tours this person has: drafts, requested, confirmed, done and cancelled, with their place ids and times.',
+  inputSchema: z.object({}),
+  execute: async (_in, c) => {
+    const { db, user } = who(c as Ctx);
+    return { tours: view(await load(db, user)).tours };
+  },
+});
+
+export const updateTour = createTool({
+  id: 'updateTour',
+  description: 'Change a tour when the user tells you about it: the confirmed time, a status (requested once they sent it, confirmed, done, cancelled), or notes. You never contact anyone; this only records it.',
+  inputSchema: z.object({ id: z.string().describe('Tour id, like tour_1a2b3c4d'), status: S.Tour.shape.status.optional(),
+                          startsAt: z.string().nullable().optional().describe('ISO date-time, New York time'), notes: z.string().nullable().optional() }),
+  execute: async ({ id, ...patch }, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user), v = view(st), t = v.tours.find((x) => x.id === id);
+    if (!t) return { error: `No tour ${id}. listTours shows their tours.` };
+    const next = { ...t, ...Object.fromEntries(Object.entries(patch).filter(([, x]) => x !== undefined)) };
+    st.tours = v.tours.map((x) => (x.id === id ? next : x));
+    await save(db, user, st);
+    return { tour: next };
+  },
+});
+
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, updateProfile, listTours, updateTour };

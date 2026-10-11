@@ -7,7 +7,8 @@ import type { z } from '@hono/zod-openapi';
 import type { Card, MockState } from './mock';
 import { nearby, transitLabel } from './transit';
 import { cellOf, toSafety } from './safety';
-import { highlights, notShareSql, petsSql, scamSigns, typicalKey, typicalRents, type Facts } from './facts';
+import { highlights, scamSigns, typicalKey, typicalRents, type Facts } from './facts';
+import { dealbreakerWhere } from './filter';
 
 type Search = z.infer<typeof S.Search>;
 type VerdictKind = z.infer<typeof S.Verdict>['kind'];
@@ -32,7 +33,7 @@ const COLS = `l.id, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.no_f
  * is it a good deal, does it have what you want, anything to steer clear of. Fred's own verdict
  * replaces it. The building record only counts against a place when it's genuinely bad.
  */
-function judge(r: any, s: Search, typical: number | null, safer: boolean): { kind: VerdictKind; reason: string | null; fit: number; highlight: string | null } {
+export function judge(r: any, s: Search, typical: number | null, safer: boolean): { kind: VerdictKind; reason: string | null; fit: number; highlight: string | null } {
   const d = s.dealbreakers, f = json<Facts | null>(r.facts, null), rep = json<{ flags?: string[] }>(r.breport, {});
   const hist = json<any[]>(r.price_history, []).map((h) => Number(Array.isArray(h) ? h[1] : h?.price)).filter(Number.isFinite);
   const dropped = hist.length > 1 && r.price < Math.max(...hist);
@@ -67,26 +68,15 @@ const VOTE: Record<number, Card['status']> = { 1: 'saved', [-1]: 'passed' };
 
 /** Everything in this person's inbox, newest first, with their changes applied. */
 export async function inbox(db: D1Database, user: string, st: MockState, s: Search, now = Date.now()): Promise<Card[]> {
-  const d = s.dealbreakers, where = [`l.status='active'`, 'l.price > 0'], args: unknown[] = [];
-  if (d.maxTotalMonthly) { where.push('l.price <= ?'); args.push(Math.round(d.maxTotalMonthly * 1.1)); } // a little over still shows, flagged
-  if (d.minBeds != null) { where.push('l.beds >= ?'); args.push(d.minBeds); }
-  // unknown baths, fee or pet policy stay in: most sites don't say, and the card or Fred flags it
-  if (d.minBaths != null) { where.push('(l.baths IS NULL OR l.baths >= ?)'); args.push(d.minBaths); }
-  if (d.noBrokerFee) where.push('(l.no_fee IS NULL OR l.no_fee = 1)');
-  const pets = petsSql(d.pets);
-  if (pets) where.push(pets);
-  where.push(notShareSql);
-  if (d.areas.length) {
-    // "east-village" matches "East Village"; a borough name matches its whole borough
-    where.push('(' + d.areas.map(() => '(lower(l.neighbourhood) LIKE ? OR lower(l.borough) LIKE ?)').join(' OR ') + ')');
-    for (const a of d.areas) { const q = '%' + a.toLowerCase().replace(/-/g, ' ') + '%'; args.push(q, q); }
-  }
+  const { where, args } = await dealbreakerWhere(db, s.dealbreakers, { slack: 1.1 }); // a little over still shows, flagged
   // places this person acted on stay, even if the search no longer matches them
   const touched = Object.keys(st.cards).map((id) => Number(id.replace(/^op_/, ''))).filter(Number.isFinite);
-  const [matched, voted] = await db.batch([
+  const created = (st.created ?? []).map((c) => c.listingId).filter(Number.isFinite);
+  const [matched, voted, fitting] = await db.batch([
     db.prepare(`SELECT ${COLS} FROM listings l LEFT JOIN buildings b ON b.bbl=l.bbl WHERE ${where.join(' AND ')} ORDER BY l.first_seen DESC LIMIT ${MAX}`).bind(...args),
     db.prepare(`SELECT ${COLS}, v.vote, v.note FROM votes v JOIN listings l ON l.id=v.listing_id LEFT JOIN buildings b ON b.bbl=l.bbl
                 WHERE v.user=? AND (v.vote IN (1,-1) OR v.note IS NOT NULL ${touched.length ? `OR l.id IN (${touched.join(',')})` : ''})`).bind(user),
+    db.prepare(`SELECT l.id FROM listings l LEFT JOIN buildings b ON b.bbl=l.bbl WHERE ${where.join(' AND ')} AND l.id IN (${created.join(',') || 'NULL'})`).bind(...args),
   ]);
   const rows = [...(matched.results as any[]), ...(voted.results as any[])];
   const typical = await typicalRents(db, rows.map((r) => r.neighbourhood));
@@ -95,8 +85,10 @@ export async function inbox(db: D1Database, user: string, st: MockState, s: Sear
   const ranks = areas.length >= 50 ? areas.map((a) => a.violent).sort((a, b) => a - b) : null;
   const byCell = new Map(areas.map((a) => [a.cell, a]));
   const safer = (r: any) => { const a = r.lat != null && ranks && byCell.get(cellOf(r.lat, r.lon)); return !!a && toSafety(a, ranks!).percentile < 30; };
+  // Fred's places stay while they still fit the search, or once this person acted on them
+  const fits = new Set((fitting.results as any[]).map((r) => `op_${r.id}`)), acted = (id: string) => { const m = st.cards[id]; return !!m && (!!m.status || m.note != null); };
   const byId = new Map<string, Card>();
-  for (const c of st.created ?? []) byId.set(c.id, c);
+  for (const c of st.created ?? []) if (fits.has(c.id) || acted(c.id)) byId.set(c.id, c);
   for (const r of rows) {
     const id = `op_${r.id}`;
     if (!byId.has(id)) byId.set(id, card(r, s, now, typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null, safer(r)));
