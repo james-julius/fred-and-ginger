@@ -2,15 +2,25 @@
 
 import { Bookmark, CalendarDays, FileText, Inbox, PanelLeft, UserRound } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Avatar } from "@/components/avatar";
 import { FredMark } from "@/components/fred-mark";
-import type { S } from "@/lib/api/client";
+import { useTours, type S } from "@/lib/api/client";
+import { tourTime } from "@/lib/format";
 
 const icon = { size: 18, strokeWidth: 1.25, "aria-hidden": true } as const;
 
 export function Sidebar({ me }: { me: S["Me"] | undefined }) {
   const path = usePathname();
+  const router = useRouter();
+  const { data: tours } = useTours();
+  const nextTour = tours?.find((t) => t.startsAt && t.status !== "cancelled");
+  // Open the tour's place in New places. If you're already there, keep the view (list or map) and sort.
+  const openPlace = (id: string) => {
+    const params = new URLSearchParams(path === "/" ? window.location.search : "");
+    params.set("place", id);
+    router.push(`/?${params}`, { scroll: false });
+  };
   return (
     <aside className="hidden flex-col gap-1 border-r border-sidebar-border bg-sidebar px-2.5 py-3.5 text-sidebar-foreground lg:flex">
       <div className="flex items-center gap-2.5 px-2 pt-1 pb-3.5 text-[17px] font-semibold tracking-tight">
@@ -24,6 +34,19 @@ export function Sidebar({ me }: { me: S["Me"] | undefined }) {
         <NavItem href="/" current={path === "/"} icon={<Inbox {...icon} />} label="New places" count={me?.counts.new} />
         <NavItem href="/" icon={<Bookmark {...icon} />} label="Saved" count={me?.counts.saved} quiet />
         <NavItem href="/" icon={<CalendarDays {...icon} />} label="Tours" count={me?.counts.tours} quiet />
+        {nextTour?.startsAt && (
+          <button
+            type="button"
+            onClick={() => openPlace(nextTour.opportunityId)}
+            className="-mt-0.5 mb-1 ml-7 grid rounded-md px-2 py-1 text-left text-[12.5px] leading-snug hover:bg-muted/60"
+          >
+            <span className="font-medium">
+              <span className="sr-only">Next tour: </span>
+              {tourTime(nextTour.startsAt)}
+            </span>
+            <span className="truncate text-muted-foreground">{nextTour.address}</span>
+          </button>
+        )}
         <NavItem href="/profile" current={path === "/profile"} icon={<UserRound {...icon} />} label="Profile" />
         <NavItem href="/" icon={<FileText {...icon} />} label="Application packet" />
       </nav>

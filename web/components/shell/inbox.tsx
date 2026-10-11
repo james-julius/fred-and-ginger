@@ -1,12 +1,13 @@
 "use client";
 
-import { Bell, CalendarDays, ChevronRight, List, Map as MapIcon } from "lucide-react";
+import { Bell, List, Map as MapIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useMemo } from "react";
 import { BuildingTile } from "@/components/building-tile";
-import { useMe, useOpportunities, usePlaceLocations, useTours, type S } from "@/lib/api/client";
-import { alertsLabel, buildingType, dayLabel, money, photoAt, toneClass, tourTime, transitText } from "@/lib/format";
+import { useMe, useOpportunities, usePlaceLocations, type S } from "@/lib/api/client";
+import { alertsLabel, buildingType, money, photoAt, toneClass, transitText } from "@/lib/format";
+import { arrange, isHidden, type Sort } from "./arrange";
 import type { Pin } from "./places-map";
 
 export type View = "list" | "map";
@@ -17,26 +18,17 @@ const PlacesMap = dynamic(() => import("./places-map"), {
   loading: () => <p className="p-4 text-sm text-muted-foreground">Loading the map…</p>,
 });
 
-const isHidden = (c: S["OpportunityCard"]) => c.status === "hidden" || c.verdict.kind === "likely_scam";
-
-export function Inbox({ onOpen, openId, view, onView }: {
+export function Inbox({ onOpen, openId, view, onView, sort, onSort }: {
   onOpen: (id: string) => void;
   openId: string | null;
   view: View;
   onView: (view: View) => void;
+  sort: Sort;
+  onSort: (sort: Sort) => void;
 }) {
   const { data: page, error } = useOpportunities("new");
   const { data: me } = useMe();
-  const { data: tours } = useTours();
-  const nextTour = tours?.find((t) => t.startsAt && t.status !== "cancelled");
-
-  // Group by the day Fred found each place, newest first (the API sends them in that order).
-  const groups: { day: string; items: S["OpportunityCard"][] }[] = [];
-  for (const card of page?.items ?? []) {
-    const day = dayLabel(card.foundAt);
-    if (groups.at(-1)?.day === day) groups.at(-1)!.items.push(card);
-    else groups.push({ day, items: [card] });
-  }
+  const groups = arrange(page?.items ?? [], sort);
 
   return (
     <section
@@ -44,45 +36,34 @@ export function Inbox({ onOpen, openId, view, onView }: {
       className={`bg-background px-4 py-5 lg:min-h-0 lg:px-7 ${view === "map" ? "flex flex-col lg:overflow-hidden" : "lg:overflow-y-auto"}`}
     >
       <div className="mx-auto grid w-full max-w-3xl gap-[18px]">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-xl font-semibold tracking-tight">New places</h1>
-          <div role="group" aria-label="Show places as" className="ml-auto inline-flex rounded-lg border p-0.5">
-            {(["list", "map"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={view === v}
-                onClick={() => onView(v)}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] font-medium ${
-                  view === v ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {v === "list" ? <List size={14} strokeWidth={1.25} aria-hidden /> : <MapIcon size={14} strokeWidth={1.25} aria-hidden />}
-                {v === "list" ? "List" : "Map"}
+        <div className="grid gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-semibold tracking-tight">New places</h1>
+            <div role="group" aria-label="Show places as" className="ml-auto inline-flex rounded-lg border p-0.5">
+              {(["list", "map"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={view === v}
+                  onClick={() => onView(v)}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] font-medium ${
+                    view === v ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {v === "list" ? <List size={14} strokeWidth={1.25} aria-hidden /> : <MapIcon size={14} strokeWidth={1.25} aria-hidden />}
+                  {v === "list" ? "List" : "Map"}
+                </button>
+              ))}
+            </div>
+            {me && (
+              <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[13px] font-medium text-muted-foreground hover:text-foreground">
+                <Bell size={14} strokeWidth={1.25} aria-hidden />
+                {alertsLabel[me.alerts.mode]}
               </button>
-            ))}
+            )}
           </div>
-          {me && (
-            <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[13px] font-medium text-muted-foreground hover:text-foreground">
-              <Bell size={14} strokeWidth={1.25} aria-hidden />
-              {alertsLabel[me.alerts.mode]}
-            </button>
-          )}
+          {view === "list" && page && page.items.length > 1 && <SortPills sort={sort} onSort={onSort} />}
         </div>
-
-        {nextTour?.startsAt && (
-          <button
-            type="button"
-            onClick={() => onOpen(nextTour.opportunityId)}
-            className="flex items-center gap-2.5 rounded-[10px] border px-3.5 py-2.5 text-left text-[13.5px] hover:bg-muted/60"
-          >
-            <CalendarDays size={16} strokeWidth={1.25} aria-hidden />
-            <span>
-              <b className="font-semibold">Tour {tourTime(nextTour.startsAt).replace(/^(Today|Tomorrow)/, (d) => d.toLowerCase())}</b> · {nextTour.address}
-            </span>
-            <ChevronRight size={14} strokeWidth={1.25} className="ml-auto text-muted-foreground" aria-hidden />
-          </button>
-        )}
 
         {error && <p className="text-sm text-destructive">Couldn’t load new places. Try refreshing.</p>}
         {!page && !error && <p className="text-sm text-muted-foreground">Loading new places…</p>}
@@ -91,9 +72,9 @@ export function Inbox({ onOpen, openId, view, onView }: {
         )}
 
         {view === "list" &&
-          groups.map(({ day, items }) => (
-            <div key={day} className="grid gap-2">
-              <h2 className="mt-1 text-sm font-semibold text-muted-foreground">{day}</h2>
+          groups.map(({ label, items }) => (
+            <div key={label} className="grid gap-2">
+              {label && <h2 className="mt-1 text-sm font-semibold text-muted-foreground">{label}</h2>}
               <ul className="overflow-hidden rounded-xl border">
                 {items.map((card) => (
                   <li key={card.id} className="border-t first:border-t-0">
@@ -107,6 +88,38 @@ export function Inbox({ onOpen, openId, view, onView }: {
 
       {view === "map" && page && page.items.length > 0 && <MapView cards={page.items} openId={openId} onOpen={onOpen} />}
     </section>
+  );
+}
+
+/** Newest keeps Fred's day groups. Tapping Price again flips it between low to high and high to low. */
+function SortPills({ sort, onSort }: { sort: Sort; onSort: (sort: Sort) => void }) {
+  const pills: { key: string; label: string; active: boolean; next: Sort }[] = [
+    { key: "newest", label: "Newest", active: sort === "newest", next: "newest" },
+    {
+      key: "price",
+      label: sort === "price-up" ? "Price: low to high" : sort === "price-down" ? "Price: high to low" : "Price",
+      active: sort === "price-up" || sort === "price-down",
+      next: sort === "price-up" ? "price-down" : "price-up",
+    },
+    { key: "fit", label: "Best fit", active: sort === "fit", next: "fit" },
+    { key: "area", label: "Neighborhood", active: sort === "area", next: "area" },
+  ];
+  return (
+    <div role="group" aria-label="Sort places" className="flex flex-wrap gap-1.5">
+      {pills.map((p) => (
+        <button
+          key={p.key}
+          type="button"
+          aria-pressed={p.active}
+          onClick={() => onSort(p.next)}
+          className={`rounded-full border px-3 py-1 text-[13px] font-medium ${
+            p.active ? "border-foreground bg-foreground text-background" : "text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+          }`}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -147,7 +160,7 @@ function MapView({ cards, openId, onOpen }: { cards: S["OpportunityCard"][]; ope
 }
 
 function Row({ card, unread, onOpen }: { card: S["OpportunityCard"]; unread: boolean; onOpen: () => void }) {
-  const hidden = card.status === "hidden" || card.verdict.kind === "likely_scam";
+  const hidden = isHidden(card);
   const facts = hidden
     ? card.verdict.reason
     : [`${card.beds} bed${card.baths != null ? `, ${card.baths} bath` : ""}`, card.transit && transitText(card.transit), card.highlight, card.feeCallout?.label]
