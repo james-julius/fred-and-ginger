@@ -13,8 +13,6 @@ const nextConfig: NextConfig = {
       { source: "/logout", destination: `${API}/logout` },
     ];
   },
-  cacheComponents: true,
-  partialPrefetching: true,
   turbopack: {
     rules: {
       "*.css": {

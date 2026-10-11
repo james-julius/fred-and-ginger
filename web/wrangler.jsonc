@@ -1,0 +1,10 @@
+{
+  // The Next app as its own Worker, built by OpenNext. James's API Worker is `nest` in cloud/.
+  // No domain yet: it deploys to workers.dev until we decide how it shares fredandginger.jamesjuliusdarby.com.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fred-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" }
+}
