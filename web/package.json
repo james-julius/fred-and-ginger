@@ -16,6 +16,7 @@
     "@ai-sdk/react": "4.0.140",
     "@opennextjs/cloudflare": "^1.20.10",
     "@radix-ui/react-dialog": "^1.2.0",
+    "@sentry/nextjs": "^11.6.0",
     "ai": "7.0.137",
     "lucide-react": "^1.55.0",
     "maplibre-gl": "6.11.2",
