@@ -99,7 +99,8 @@ const BROOKLYN = "I'm looking for a 2 bedroom in Brooklyn under $5,000, and it h
 async function withInbox() {
   const thread = await fresh();
   const t1 = await say(thread, BROOKLYN);
-  const created = (await getJson('/api/opportunities?view=all')).items.find((o: any) => o.id.startsWith('op_') && /^op_\d+$/.test(o.id));
+  // the inbox is real listings now: open the best place that isn't hidden (a scam can't be toured)
+  const created = (await getJson('/api/opportunities?view=all')).items.filter((o: any) => o.status !== 'hidden').sort((a: any, b: any) => b.fit - a.fit)[0];
   return { thread, t1, placeId: created?.id as string | undefined };
 }
 

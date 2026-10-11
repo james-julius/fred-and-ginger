@@ -167,7 +167,9 @@ v2.openapi(R.chat, async (c) => {
     const rc = new RequestContext();
     rc.set('env', c.env);
     rc.set(MASTRA_RESOURCE_ID_KEY, c.env.ME);
-    rc.set('seenListings', new Set<number>());
+    // addToInbox takes ids from this turn's search, and the open place: Fred's verdict on it replaces the first take
+    const open = Number(String(context?.opportunityId ?? '').replace(/^op_/, ''));
+    rc.set('seenListings', new Set<number>(Number.isFinite(open) && open > 0 ? [open] : []));
     const model = c.env.FRED_MODEL || DEFAULT_MODEL, t0 = Date.now();
 
     const stream = createUIMessageStream({

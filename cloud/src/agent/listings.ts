@@ -2,6 +2,7 @@
 // full listing. When Postgres arrives this file is what changes; the tools stay the same.
 import type * as S from '@fng/api';
 import type { z } from '@hono/zod-openapi';
+import { nearby, transitLabel } from '../transit';
 import { highlights, notShareSql, petsLabel, petsSql, scamSigns, typicalKey, typicalRents, type Facts } from '../facts';
 
 type Card = z.infer<typeof S.OpportunityCard>;
@@ -22,6 +23,8 @@ export type Found = {
   /** the area's median rent for this many bedrooms, when there are enough listings to say */
   areaTypical: number | null;
   pets: string | null; monthsFree: number | null; rentStabilized: boolean;
+  /** nearest trains, e.g. "4 min to the L at Morgan Av" */
+  subway: string[];
   /** scam signs: if any, hide it with likely_scam */
   scamSigns: string[];
   /** only when the city record is genuinely bad (score under 60): what to warn about */
@@ -47,19 +50,20 @@ export async function search(db: D1Database, f: Filters) {
   }
   const total = await db.prepare(`SELECT count(*) AS n FROM listings l LEFT JOIN buildings b ON b.bbl=l.bbl WHERE ${where.join(' AND ')}`).bind(...args).first<{ n: number }>();
   const rows = await db.prepare(
-    `SELECT l.id, l.street, l.unit, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.sqft, l.no_fee, l.available, l.photos, l.facts,
+    `SELECT l.id, l.street, l.unit, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.sqft, l.no_fee, l.available, l.photos, l.facts, l.lat, l.lon,
             b.score AS bscore, b.report AS breport,
             (SELECT group_concat(DISTINCT CASE WHEN instr(s.source, ':') > 0 THEN substr(s.source, 1, instr(s.source, ':') - 1) ELSE s.source END) FROM sightings s WHERE s.listing_id = l.id) AS sites
      FROM listings l LEFT JOIN buildings b ON b.bbl = l.bbl
      WHERE ${where.join(' AND ')} ORDER BY COALESCE(b.score, 60) DESC, l.first_seen DESC LIMIT ?`).bind(...args, Math.min(f.limit ?? 15, 40)).all<any>();
   const typical = await typicalRents(db, rows.results.map((r) => r.neighbourhood));
   const found: Found[] = rows.results.map((r) => {
-    const fx = json<Facts | null>(r.facts, null), t = typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null;
+    const fx = json<Facts | null>(r.facts, null), t = typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null, trains = nearby(r.lat, r.lon);
     return {
       listingId: r.id, address: [r.street, r.unit && `#${r.unit}`].filter(Boolean).join(' '), area: r.neighbourhood, borough: r.borough,
       price: r.price, beds: r.beds, baths: r.baths, sqft: r.sqft, noFee: r.no_fee == null ? null : !!r.no_fee, available: r.available,
       sites: (r.sites ?? '').split(',').filter(Boolean), photo: json<string[]>(r.photos, [])[0] ?? null,
-      highlights: highlights(fx, { price: r.price, noFee: r.no_fee, typical: t }, { pets: f.pets }).slice(0, 5),
+      highlights: highlights(fx, { price: r.price, noFee: r.no_fee, typical: t, train: trains[0] && trains[0].walkMinutes <= 6 ? transitLabel(trains[0]) : null }, { pets: f.pets }).slice(0, 5),
+      subway: trains.slice(0, 3).map(transitLabel),
       areaTypical: t, pets: petsLabel(fx?.pets ?? null), monthsFree: fx?.monthsFree ?? null, rentStabilized: !!fx?.rentStabilized,
       scamSigns: scamSigns(fx, r.price, t),
       buildingWarning: r.bscore != null && r.bscore < 60 ? (json<{ flags?: string[] }>(r.breport, {}).flags ?? []).slice(0, 2) : null,
@@ -75,14 +79,14 @@ const LABELS: Record<VerdictKind, [string, 'good' | 'warn' | 'bad' | 'neutral']>
 };
 
 export async function toCard(db: D1Database, listingId: number, pick: { verdict: VerdictKind; reason?: string | null; highlight?: string | null; fit: number }): Promise<Card | null> {
-  const r = await db.prepare('SELECT id, neighbourhood, borough, price, beds, baths, photos FROM listings WHERE id=?').bind(listingId).first<any>();
+  const r = await db.prepare('SELECT id, neighbourhood, borough, price, beds, baths, photos, lat, lon FROM listings WHERE id=?').bind(listingId).first<any>();
   if (!r) return null;
   const [label, tone] = LABELS[pick.verdict];
   return {
     id: `op_${r.id}`, listingId: r.id, foundAt: new Date().toISOString(), seen: false,
     status: pick.verdict === 'likely_scam' ? 'hidden' : 'new',
     price: r.price, totalMonthly: r.price, area: r.neighbourhood ?? r.borough ?? 'New York', beds: r.beds ?? 0, baths: r.baths,
-    transit: null, highlight: pick.highlight ?? null, thumbnail: json<string[]>(r.photos, [])[0] ?? null,
+    transit: nearby(r.lat, r.lon)[0] ?? null, highlight: pick.highlight ?? null, thumbnail: json<string[]>(r.photos, [])[0] ?? null,
     fit: Math.max(0, Math.min(100, Math.round(pick.fit))), verdict: { kind: pick.verdict, label, tone, reason: pick.reason ?? null }, feeCallout: null,
   };
 }
@@ -95,7 +99,8 @@ export async function detail(db: D1Database, card: Card): Promise<Detail | null>
   const rep = json<{ score?: number; flags?: string[]; good?: string[] } | null>(r.breport, null);
   const fx = json<Facts | null>(r.facts, null);
   const typical = (await typicalRents(db, [r.neighbourhood])).get(typicalKey(r.neighbourhood, r.beds)) ?? null;
-  const why = highlights(fx, { price: r.price, noFee: r.no_fee, typical });
+  const trains = nearby(r.lat, r.lon);
+  const why = highlights(fx, { price: r.price, noFee: r.no_fee, typical, train: trains[0] ? transitLabel(trains[0]) : null });
   const concerns = [
     ...(card.verdict.reason ? [card.verdict.reason] : []),
     ...(rep?.score != null && rep.score < 60 ? (rep.flags ?? []).slice(0, 2) : []),
