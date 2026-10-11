@@ -32,7 +32,9 @@ async function sessionUser(req: Request, env: Env): Promise<string | null> {
   if (!c) return null;
   const [u, exp, sig] = decodeURIComponent(c).split('.');
   if (!u || !exp || !sig || +exp < Date.now() / 1000) return null;
-  return same(sig, await hmac(env.SESSION_KEY, `${u}.${exp}`)) && (USERS as readonly string[]).includes(u) ? u : null;
+  // local dev only (FRED_DEV in .dev.vars): eval_<id> users, so eval cases run side by side without sharing data
+  const known = (USERS as readonly string[]).includes(u) || (env.FRED_DEV === '1' && /^eval_[a-z0-9]{4,16}$/.test(u));
+  return same(sig, await hmac(env.SESSION_KEY, `${u}.${exp}`)) && known ? u : null;
 }
 async function cookieFor(u: string, env: Env) {
   const exp = Math.floor(Date.now() / 1000) + 90 * DAY;

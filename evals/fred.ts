@@ -6,10 +6,16 @@
 //   npm run eval                      every case once
 //   npm run eval -- --runs 3          each case 3 times, to see flakiness
 //   npm run eval -- --case tour       only cases whose name contains "tour"
+//   npm run eval -- --harness skills --skills routed,gated    a harness (see cloud/src/agent/skills.ts)
+//   npm run eval -- --concurrency 8   cases side by side (default 6)
+//   npm run ablate                    every harness, and each skill taken out (evals/ablate.ts)
 //
-// Needs `cd cloud && npx wrangler dev` running and a model key in cloud/.dev.vars. It resets the
-// canned data of the signed-in user (james), so it only runs against localhost.
+// Needs `cd cloud && npx wrangler dev` running and a model key in cloud/.dev.vars. Each case runs
+// as its own throwaway user (eval_<id>, accepted only with FRED_DEV), so cases run in parallel and
+// never touch james or erin. It only runs against localhost.
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHmac, randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { canonicalArea, inArea } from '../cloud/src/areas';
 
@@ -31,9 +37,14 @@ const PRICES: Record<string, { input: number; output: number; cacheRead: number;
 
 const vars = Object.fromEntries(readFileSync(new URL('../cloud/.dev.vars', import.meta.url), 'utf8').split('\n').filter((l) => l.includes('=')).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
 const exp = Math.floor(Date.now() / 1000) + 3600;
-const cookie = `nest_s=james.${exp}.${createHmac('sha256', vars.SESSION_KEY).update(`james.${exp}`).digest('hex')}`;
+const cookieFor = (user: string) => `nest_s=${user}.${exp}.${createHmac('sha256', vars.SESSION_KEY).update(`${user}.${exp}`).digest('hex')}`;
+/** who a case runs as, and which harness: set per case, so cases can run side by side */
+type Run = { user: string; harness?: string; skills?: string };
+const running = new AsyncLocalStorage<Run>();
 const api = async (path: string, init: RequestInit = {}) => {
-  const r = await fetch(BASE + path, { ...init, headers: { cookie, 'content-type': 'application/json', ...(MODEL && { 'x-fred-model': MODEL }), ...(EFFORT && { 'x-fred-effort': EFFORT }), ...init.headers } });
+  const run = running.getStore() ?? { user: 'james' };
+  const r = await fetch(BASE + path, { ...init, headers: { cookie: cookieFor(run.user), 'content-type': 'application/json', ...(MODEL && { 'x-fred-model': MODEL }), ...(EFFORT && { 'x-fred-effort': EFFORT }),
+    ...(run.harness && { 'x-fred-harness': run.harness }), ...(run.skills && { 'x-fred-skills': run.skills }), ...init.headers } });
   if (!r.ok) throw new Error(`${init.method ?? 'GET'} ${path}: ${r.status} ${await r.text()}`);
   return r;
 };
@@ -123,7 +134,8 @@ const found = (t: Turn) => called(t, 'searchListings').flatMap((c) => c.output?.
 /** start from a known saved search */
 const searchIs = (dealbreakers: object) => api('/api/search', { method: 'PATCH', body: JSON.stringify({ dealbreakers }) });
 
-type Case = { name: string; run: () => Promise<{ turns: Turn[]; checks: Check[] }> };
+/** skills: the ones this case leans on, for the per-skill ablation */
+export type Case = { name: string; skills?: string[]; run: () => Promise<{ turns: Turn[]; checks: Check[] }> };
 
 async function fresh() { await api('/api/mock/reset', { method: 'POST' }); return `eval_${randomUUID().slice(0, 8)}`; }
 
@@ -137,7 +149,7 @@ async function withInbox() {
   return { thread, t1, placeId: created?.id as string | undefined };
 }
 
-const cases: Case[] = [
+export const cases: Case[] = [
   { name: 'new search fills the inbox', run: async () => {
     const thread = await fresh();
     const t = await say(thread, BROOKLYN);
@@ -176,14 +188,14 @@ const cases: Case[] = [
     ] };
   } },
 
-  { name: 'no broker fee is a dealbreaker', run: async () => {
+  { name: 'no broker fee is a dealbreaker', skills: ['preferences', 'rights'], run: async () => {
     const thread = await fresh();
     const t = await say(thread, "I don't want to pay any broker fees");
     const s = (await getJson('/api/search')).dealbreakers;
     return { turns: [t], checks: [...basics(t), check('sets noBrokerFee', s.noBrokerFee === true, JSON.stringify(s))] };
   } },
 
-  { name: 'answers about the open listing', run: async () => {
+  { name: 'answers about the open listing', skills: ['places'], run: async () => {
     const { thread, t1, placeId } = await withInbox();
     if (!placeId) return { turns: [t1], checks: [check('setup: Fred added a place', false, 'turn 1 added nothing')] };
     const t2 = await say(thread, 'Is this one any good?', placeId);
@@ -194,7 +206,7 @@ const cases: Case[] = [
     ] };
   } },
 
-  { name: 'saves the open listing', run: async () => {
+  { name: 'saves the open listing', skills: ['places'], run: async () => {
     const { thread, t1, placeId } = await withInbox();
     if (!placeId) return { turns: [t1], checks: [check('setup: Fred added a place', false, 'turn 1 added nothing')] };
     const t2 = await say(thread, 'Save this one', placeId);
@@ -206,7 +218,7 @@ const cases: Case[] = [
     ] };
   } },
 
-  { name: 'tour request is only a draft', run: async () => {
+  { name: 'tour request is only a draft', skills: ['tours', 'places'], run: async () => {
     const { thread, t1, placeId } = await withInbox();
     if (!placeId) return { turns: [t1], checks: [check('setup: Fred added a place', false, 'turn 1 added nothing')] };
     const before = (await getJson('/api/tours?when=all')).length;
@@ -243,7 +255,7 @@ const cases: Case[] = [
       check('brief (≤ 120 words)', words(t.finalText) <= 120, `${words(t.finalText)} words`),
     ] };
   } },
-  { name: "A real chat: light, subway, furnished", run: async () => {
+  { name: "A real chat: light, subway, furnished", skills: ['places', 'research', 'preferences'], run: async () => {
     // replays the conversation where Fred wrote "847 Riverside" and then said it didn't know
     const thread = await fresh();
     const t1 = await say(thread, 'I want an apartment in manhattan for under 5k one bedroom and 2 baths or 1.5 baths');
@@ -261,7 +273,7 @@ const cases: Case[] = [
       check('t3 offers a next step when the data is missing', offers, t3.text),
     ] };
   } },
-  { name: 'alerts: asks where, sends a code, verifies', run: async () => {
+  { name: 'alerts: asks where, sends a code, verifies', skills: ['alerts'], run: async () => {
     const thread = await fresh();
     const t1 = await say(thread, 'Can you let me know when strong places come up?');
     const t2 = await say(thread, 'email me at james+fredtest@juliusdarby.com');
@@ -282,7 +294,7 @@ const cases: Case[] = [
       check('email alerts end up verified and on', after.email.verified && after.email.enabled, JSON.stringify(after.email)),
     ] };
   } },
-  { name: 'must-haves: set, honest about unknowns, step back', run: async () => {
+  { name: 'must-haves: set, honest about unknowns, step back', skills: ['preferences'], run: async () => {
     const thread = await fresh();
     const laundry = (x: any) => /washer|laundry|w\/d/i.test(x.label);
     const t1 = await say(thread, 'It has to have a washer/dryer in the unit, that one is a dealbreaker');
@@ -358,6 +370,43 @@ const cases: Case[] = [
       check('nothing over budget', found(t).every((l: any) => l.price <= 4000), JSON.stringify(found(t).map((l: any) => l.price))),
     ] };
   } },
+
+  { name: 'renter rights: fees and deposit', skills: ['rights'], run: async () => {
+    const thread = await fresh();
+    await searchIs({ areas: ['brooklyn'], excludeAreas: [], maxTotalMonthly: 4000, minBeds: 1, minBaths: null, pets: null });
+    const t = await say(thread, "The agent wants a $150 application fee and two months' rent as a deposit. Is that normal?");
+    const changes = t.tools.filter((c) => ['updateSearch', 'addToInbox', 'updatePlace'].includes(c.name));
+    return { turns: [t], checks: [
+      ...basics(t),
+      check('says application fees are capped at $20', /\$20\b/.test(t.finalText), t.finalText),
+      check('says the deposit is capped at one month', /\b(one|1|a) month('s)?( of)? rent|one month\b|1 month\b|a month's/i.test(t.finalText), t.finalText),
+      check("doesn't change anything", changes.length === 0, JSON.stringify(changes.map((c) => c.name))),
+    ] };
+  } },
+
+  { name: 'scam: money before a viewing', skills: ['scams'], run: async () => {
+    const thread = await fresh();
+    await searchIs({ areas: ['brooklyn'], excludeAreas: [], maxTotalMonthly: 4000, minBeds: 1, minBaths: null, pets: null });
+    const t = await say(thread, 'A guy on Craigslist wants me to Zelle him $2,000 to hold an apartment before I see it. He says he is out of the country. Should I?');
+    return { turns: [t], checks: [
+      ...basics(t),
+      check('calls it a likely scam', /scam/i.test(t.finalText), t.finalText),
+      check('tells them not to pay', /\b(don'?t|do not|never|wouldn'?t)\b[^.]*\b(pay|send|zelle)/i.test(t.finalText), t.finalText),
+    ] };
+  } },
+
+  { name: 'accepting less keeps the preference', skills: ['preferences', 'memory'], run: async () => {
+    const thread = await fresh();
+    await searchIs({ areas: ['brooklyn'], excludeAreas: [], maxTotalMonthly: 5000, minBeds: 2, minBaths: 2, pets: null });
+    const t = await say(thread, "Actually 1 bath is fine, but 2 would be better.");
+    const s = (await getJson('/api/search')).dealbreakers;
+    const mem = called(t, 'updateMemory').map((c) => JSON.stringify(c.input)).join(' ');
+    return { turns: [t], checks: [
+      ...basics(t),
+      check('lowers the limit to 1 bath', s.minBaths === 1, JSON.stringify(s.minBaths)),
+      check('remembers 2 would be better', /2|two/i.test(mem) && /bath/i.test(mem), mem || 'no updateMemory call'),
+    ] };
+  } },
 ];
 
 /* ── run and report ──────────────────────────────────────────────────── */
@@ -371,9 +420,16 @@ const cost = (u: any, model?: string) => {
   return (fresh * PRICE.input + read * PRICE.cacheRead + write * PRICE.cacheWrite + (u.outputTokens ?? 0) * PRICE.output) / 1e6;
 };
 
-const results: any[] = [];
-for (const c of cases.filter((x) => !ONLY || x.name.includes(ONLY))) {
-  for (let i = 0; i < RUNS; i++) {
+export type Row = {
+  case: string; run: number; harness: string; skills?: string; passed: number; total: number; ms?: number; msToFirstText?: number; model?: string;
+  turns: number; inputTokens: number; cachedTokens: number; outputTokens: number; cost: number;
+  routed?: string[]; loaded?: string[]; tools?: string[]; failed: Check[]; reply?: string;
+};
+
+/** One case as its own throwaway user, plus the checks every case gets. */
+async function runOne(c: Case, i: number, o: { harness?: string; skills?: string }): Promise<Row> {
+  const user = `eval_${randomUUID().replace(/-/g, '').slice(0, 10)}`;
+  return running.run({ user, ...o }, async () => {
     let r: { turns: Turn[]; checks: Check[] };
     try { r = await c.run(); } catch (e) { r = { turns: [], checks: [check('ran', false, String(e))] }; }
     // whatever the case, Fred's last search stayed inside the search as it ended
@@ -389,29 +445,61 @@ for (const c of cases.filter((x) => !ONLY || x.name.includes(ONLY))) {
       const stray = linked.filter((id) => !inbox.has(id));
       r.checks.push(check('place links point at real places', stray.length === 0, `not in the inbox: ${stray.join(', ')}`));
     } catch (e) { r.checks.push(check('place links point at real places', false, String(e))); }
-    const last = r.turns.at(-1);
-    const passed = r.checks.filter((x) => x.ok).length;
-    const row = {
-      case: c.name, run: i + 1, passed, total: r.checks.length,
-      ms: last?.ms, msToFirstText: last?.meta?.msToFirstText, model: last?.meta?.model,
-      usage: last?.meta?.usage, cost: r.turns.reduce((s, t) => s + cost(t.meta?.usage, t.meta?.model), 0),
-      tools: last?.tools.map((t) => t.name), failed: r.checks.filter((x) => !x.ok), reply: last?.text, replies: r.turns.map((t) => t.text),
+    await api('/api/mock/reset', { method: 'POST' }).catch(() => {});
+    const last = r.turns.at(-1), sum = (f: (u: any) => number) => r.turns.reduce((n, t) => n + (t.meta?.usage ? f(t.meta.usage) : 0), 0);
+    return {
+      case: c.name, run: i + 1, harness: o.harness ?? 'default', skills: o.skills, passed: r.checks.filter((x) => x.ok).length, total: r.checks.length,
+      ms: last?.ms, msToFirstText: last?.meta?.msToFirstText, model: last?.meta?.model, turns: r.turns.length,
+      inputTokens: sum((u) => u.inputTokens ?? 0), cachedTokens: sum((u) => u.cachedInputTokens ?? u.inputTokenDetails?.cacheReadTokens ?? 0), outputTokens: sum((u) => u.outputTokens ?? 0),
+      cost: r.turns.reduce((n, t) => n + cost(t.meta?.usage, t.meta?.model), 0),
+      routed: last?.meta?.skills?.routed, loaded: last?.meta?.skills?.loaded, tools: last?.tools.map((t) => t.name),
+      failed: r.checks.filter((x) => !x.ok), reply: last?.text,
     };
-    results.push(row);
-    const u = row.usage ?? {};
-    const cached = u.cachedInputTokens ?? u.inputTokenDetails?.cacheReadTokens ?? 0;
-    console.log(`${passed === r.checks.length ? '✓' : '✗'} ${c.name}${RUNS > 1 ? ` #${i + 1}` : ''}  ${passed}/${r.checks.length}  ${((row.ms ?? 0) / 1000).toFixed(1)}s (first text ${((row.msToFirstText ?? 0) / 1000).toFixed(1)}s)  in ${u.inputTokens ?? '?'} (cached ${cached}) out ${u.outputTokens ?? '?'}  $${row.cost.toFixed(4)}`);
-    for (const f of row.failed) console.log(`    ✗ ${f.name}: ${f.detail}`);
-  }
+  });
 }
 
-const passed = results.reduce((s, r) => s + r.passed, 0), total = results.reduce((s, r) => s + r.total, 0);
-const ms = results.map((r) => r.ms ?? 0).sort((a, b) => a - b);
-const totalCost = results.reduce((s, r) => s + r.cost, 0);
-console.log(`\n[${MODEL ?? 'default model'} · effort ${EFFORT ?? 'default'}] ${passed}/${total} checks passed · ${results.filter((r) => r.passed === r.total).length}/${results.length} cases clean · median turn ${(ms[Math.floor(ms.length / 2)] / 1000).toFixed(1)}s · total $${totalCost.toFixed(4)}`);
+/** Run cases (each `runs` times) with up to `concurrency` at once. */
+export async function runSuite(o: { harness?: string; skills?: string; only?: (c: Case) => boolean; runs?: number; concurrency?: number; quiet?: boolean } = {}): Promise<Row[]> {
+  const jobs = cases.filter(o.only ?? (() => true)).flatMap((c) => Array.from({ length: o.runs ?? 1 }, (_, i) => [c, i] as const));
+  const rows: Row[] = [];
+  let next = 0;
+  const worker = async () => {
+    while (next < jobs.length) {
+      const [c, i] = jobs[next++];
+      const row = await runOne(c, i, o);
+      rows.push(row);
+      if (!o.quiet) {
+        console.log(`${row.passed === row.total ? '✓' : '✗'} ${c.name}${(o.runs ?? 1) > 1 ? ` #${i + 1}` : ''}  ${row.passed}/${row.total}  ${((row.ms ?? 0) / 1000).toFixed(1)}s  in ${row.inputTokens} (cached ${row.cachedTokens}) out ${row.outputTokens}  $${row.cost.toFixed(4)}${row.loaded ? `  skills ${row.loaded.join(',') || '-'}` : ''}`);
+        for (const f of row.failed) console.log(`    ✗ ${f.name}: ${f.detail}`);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, o.concurrency ?? 6) }, worker));
+  return rows;
+}
 
-mkdirSync(new URL('./results/', import.meta.url), { recursive: true });
-const file = new URL(`./results/${new Date().toISOString().replace(/[:.]/g, '-')}.json`, import.meta.url);
-writeFileSync(file, JSON.stringify({ base: BASE, model: MODEL, effort: EFFORT, runs: RUNS, passed, total, cost: totalCost, results }, null, 2));
-console.log(`results: ${file.pathname}`);
-await api('/api/mock/reset', { method: 'POST' });
+export function summary(rows: Row[]) {
+  const n = rows.length || 1, ms = rows.map((r) => r.ms ?? 0).sort((a, b) => a - b);
+  return {
+    cases: rows.length, clean: rows.filter((r) => r.passed === r.total).length,
+    checks: rows.reduce((s, r) => s + r.passed, 0), total: rows.reduce((s, r) => s + r.total, 0),
+    inputTokens: Math.round(rows.reduce((s, r) => s + r.inputTokens, 0) / n), cachedTokens: Math.round(rows.reduce((s, r) => s + r.cachedTokens, 0) / n),
+    outputTokens: Math.round(rows.reduce((s, r) => s + r.outputTokens, 0) / n),
+    cost: rows.reduce((s, r) => s + r.cost, 0), msMedian: ms[Math.floor(ms.length / 2)] ?? 0,
+  };
+}
+
+export function save(name: string, data: unknown) {
+  mkdirSync(new URL('./results/', import.meta.url), { recursive: true });
+  const file = new URL(`./results/${name}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, import.meta.url);
+  writeFileSync(file, JSON.stringify(data, null, 2));
+  return file.pathname;
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const harness = flag('harness'), skills = flag('skills');
+  const rows = await runSuite({ harness, skills, only: (c) => !ONLY || c.name.includes(ONLY), runs: RUNS, concurrency: Number(flag('concurrency') ?? 6) });
+  const s = summary(rows);
+  console.log(`\n[${MODEL ?? 'default model'} · effort ${EFFORT ?? 'default'} · ${harness ?? 'default harness'}${skills ? ` ${skills}` : ''}] ${s.checks}/${s.total} checks passed · ${s.clean}/${s.cases} cases clean · median turn ${(s.msMedian / 1000).toFixed(1)}s · avg in ${s.inputTokens} (cached ${s.cachedTokens}) · total $${s.cost.toFixed(4)}`);
+  console.log(`results: ${save('eval', { base: BASE, model: MODEL, effort: EFFORT, harness, skills, runs: RUNS, summary: s, rows })}`);
+}

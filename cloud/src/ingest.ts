@@ -10,6 +10,8 @@ export interface Env {
   PASSWORD_JAMES?: string; PASSWORD_ERIN?: string;
   FRED_MODEL?: string;                    // provider/model for the agent; its API key is a secret too
   FRED_EFFORT?: 'low' | 'medium' | 'high'; // Anthropic effort for chat; default low, for speed
+  FRED_HARNESS?: 'v2' | 'skills';          // Fred's prompt: one long one (v2) or a short core plus skills
+  FRED_SKILLS?: string;                     // with skills: routed, gated, -<skill> (see agent/skills.ts)
   NIMBLE_API_KEY?: string;                // web search and page reads for Fred's research tools
   EMAIL?: SendEmail;                      // Cloudflare Email Sending, from fred@jamesjuliusdarby.com
   AI?: Ai;                                // Workers AI: embeddings for chat recall (recall.ts)

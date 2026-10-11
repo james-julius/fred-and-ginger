@@ -13,6 +13,7 @@ import { applySearch, load, meFor, reset, reply, save, savedPlaces, setStatus, s
 import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context';
 import { toAISdkStream } from '@mastra/ai-sdk';
 import { fred, DEFAULT_MODEL, type Harness } from './agent/fred';
+import { route, skillText, toolsFor } from './agent/skills';
 import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
 import { AlertError, examplePlaces, getAlerts, patchAlerts, sendCode, sendDueAlerts, sendTest, verifyCode } from './alerts';
@@ -303,13 +304,27 @@ v2.openapi(R.chat, async (c) => {
     const dev = c.env.FRED_DEV === '1';   // set only in cloud/.dev.vars; wrangler dev reports the production hostname
     const model = (dev && c.req.header('x-fred-model')) || c.env.FRED_MODEL || DEFAULT_MODEL, t0 = Date.now();
     const effort = (dev && c.req.header('x-fred-effort')) || c.env.FRED_EFFORT || 'low';
-    // v1 = the harness deployed before the 847-Riverside fixes (old prompt, text-only history, every text part saved)
-    const harness: Harness = harnessV1 ? 'v1' : 'v2';
+    // v1 = the harness deployed before the 847-Riverside fixes (old prompt, text-only history, every text part saved).
+    // skills = short core + skills; FRED_SKILLS (or x-fred-skills in dev) says how they arrive:
+    // "routed" (a keyword router preloads them), "gated" (a turn only sees its skills' tools), "-id" (ablate one).
+    const asked = dev ? c.req.header('x-fred-harness') : undefined;
+    const harness: Harness = harnessV1 ? 'v1' : asked === 'v2' || asked === 'skills' ? asked : (c.env.FRED_HARNESS ?? 'v2');
+    const skillMode = new Set(((dev && c.req.header('x-fred-skills')) || c.env.FRED_SKILLS || 'routed').split(',').map((x) => x.trim()).filter(Boolean));
+    const off = new Set([...skillMode].filter((x) => x.startsWith('-')).map((x) => x.slice(1)));
+    const routed = harness === 'skills' && skillMode.has('routed') ? route(said, { placeOpen: !!context?.opportunityId }, off) : [];
+    const loaded = new Set(routed);
+    rc.set('skills', loaded);
+    rc.set('skillsOff', off);
+    const turnNote = harness !== 'skills' ? note
+      : `${note}\n(Skills loaded for this turn: ${routed.join(', ') || 'none'})${routed.length ? `\n${skillText(routed)}` : ''}`;
+    // gated: each step sees the core tools plus those of the skills loaded so far, including any loadSkill just added
+    const gated = harness === 'skills' && skillMode.has('gated');
 
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
-        const out = await fred(model, harness).stream([...history, { role: 'user' as const, content: `${note}\n\n${said}` }], {
+        const out = await fred(model, harness, off).stream([...history, { role: 'user' as const, content: `${turnNote}\n\n${said}` }], {
           requestContext: rc, maxSteps: 12,
+          ...(gated && { prepareStep: () => ({ activeTools: toolsFor([...loaded]) }) }),
           // cacheControl: Anthropic caches the whole prefix, so each step of the tool loop reads
           // the previous step's tokens at a tenth of the price. effort: low keeps chat fast.
           // On Gemini (FRED_MODEL=google/…) the same setting is its thinking level.
@@ -320,7 +335,7 @@ v2.openapi(R.chat, async (c) => {
         // Sentry's AI view: one gen_ai.invoke_agent span per turn, and a gen_ai.execute_tool child per
         // tool call, timed from the stream. Mastra runs its own model loop, so the AI SDK integration can't see it.
         const usage = await Sentry.startSpan({ name: 'invoke_agent Fred', op: 'gen_ai.invoke_agent',
-          attributes: { 'gen_ai.operation.name': 'invoke_agent', 'gen_ai.agent.name': 'Fred', 'gen_ai.request.model': model, 'fred.effort': effort, 'fred.harness': harness } }, async (span) => {
+          attributes: { 'gen_ai.operation.name': 'invoke_agent', 'gen_ai.agent.name': 'Fred', 'gen_ai.request.model': model, 'fred.effort': effort, 'fred.harness': harness, 'fred.skills.routed': routed.join(',') } }, async (span) => {
           const started = new Map<string, { name: string; at: number }>();
           for await (const part of toAISdkStream(out, { from: 'agent', version: 'v7', sendFinish: false })) {
             const p = part as { type: string; toolCallId?: string; toolName?: string };
@@ -340,7 +355,7 @@ v2.openapi(R.chat, async (c) => {
             'gen_ai.usage.input_tokens.cached': cached ?? 0, 'fred.tool_calls': started.size, 'fred.ms_to_first_text': firstText ?? -1 });
           return u;
         });
-        writer.write({ type: 'message-metadata', messageMetadata: { model, effort, harness, ms: Date.now() - t0, msToFirstText: firstText, usage } } as never);
+        writer.write({ type: 'message-metadata', messageMetadata: { model, effort, harness, skills: harness === 'skills' ? { mode: [...skillMode], routed, loaded: [...loaded] } : undefined, ms: Date.now() - t0, msToFirstText: firstText, usage } } as never);
         writer.write({ type: 'finish' });
       },
       onFinish: async ({ responseMessage }) => {
