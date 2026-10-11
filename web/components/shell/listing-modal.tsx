@@ -16,7 +16,8 @@ const MiniMap = dynamic(() => import("./places-map").then((m) => m.MiniMap), {
   loading: () => <div className="size-full bg-muted" />,
 });
 
-// Stepping between places and closing are the header's main moves, so they get big, thumb-sized buttons.
+// Stepping between places and closing are the main moves, so they get big, thumb-sized buttons.
+// The steppers sit at the bottom middle, where a thumb rests on a phone.
 const bigButton =
   "grid size-10 shrink-0 place-items-center rounded-full border bg-background hover:bg-muted focus-visible:outline-2 focus-visible:outline-foreground";
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -76,21 +77,6 @@ export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onA
           className="fixed inset-x-0 top-10 bottom-0 z-50 flex flex-col rounded-t-2xl bg-background text-foreground outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[min(900px,calc(100dvh-48px))] sm:w-[min(760px,calc(100vw-48px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-2xl"
         >
           <div className="flex items-center gap-1.5 border-b px-3 py-2.5">
-            {onStep && total > 0 && (
-              <>
-                <button type="button" className={bigButton} onClick={() => onStep(-1)} aria-label="Previous place">
-                  <ChevronLeft size={20} strokeWidth={1.5} aria-hidden />
-                </button>
-                <button type="button" className={bigButton} onClick={() => onStep(1)} aria-label="Next place">
-                  <ChevronRight size={20} strokeWidth={1.5} aria-hidden />
-                </button>
-              </>
-            )}
-            {position > 0 && total > 0 && (
-              <span className="ml-1 text-[12.5px] text-muted-foreground tabular-nums">
-                {position} of {total}
-              </span>
-            )}
             {place && <Votes place={place} onVote={(status) => vote(place, status)} />}
             <Dialog.Close className={`${place ? "ml-1" : "ml-auto"} border-transparent ${bigButton}`} aria-label="Close">
               <X size={20} strokeWidth={1.5} aria-hidden />
@@ -120,20 +106,40 @@ export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onA
               {error ? "Couldn’t load this place. Try again in a moment." : "Loading…"}
             </div>
           ) : (
-            <>
-              <Details place={place} />
-              <div className="flex border-t px-3.5 py-2.5">
-                <button
-                  type="button"
-                  onClick={() => onAsk(place)}
-                  className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13.5px] font-medium hover:bg-muted"
-                >
-                  <FredMark className="h-[17px] w-[13px]" />
-                  Ask Fred about this place
-                </button>
-                <ShareButton place={place} />
-              </div>
-            </>
+            <Details place={place} />
+          )}
+          {/* The steppers stay put while the next place loads, so tapping › again lands on the same spot. */}
+          {((onStep && total > 0) || place) && (
+            <div className="grid gap-1.5 border-t px-3.5 py-2.5">
+              {onStep && total > 0 && (
+                <div className="flex items-center justify-center gap-3">
+                  <button type="button" className={bigButton} onClick={() => onStep(-1)} aria-label="Previous place">
+                    <ChevronLeft size={20} strokeWidth={1.5} aria-hidden />
+                  </button>
+                  {position > 0 && (
+                    <span className="min-w-16 text-center text-[12.5px] text-muted-foreground tabular-nums">
+                      {position} of {total}
+                    </span>
+                  )}
+                  <button type="button" className={bigButton} onClick={() => onStep(1)} aria-label="Next place">
+                    <ChevronRight size={20} strokeWidth={1.5} aria-hidden />
+                  </button>
+                </div>
+              )}
+              {place && (
+                <div className="flex">
+                  <button
+                    type="button"
+                    onClick={() => onAsk(place)}
+                    className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13.5px] font-medium hover:bg-muted"
+                  >
+                    <FredMark className="h-[17px] w-[13px]" />
+                    Ask Fred about this place
+                  </button>
+                  <ShareButton place={place} />
+                </div>
+              )}
+            </div>
           )}
         </Dialog.Content>
       </Dialog.Portal>
