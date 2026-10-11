@@ -1,9 +1,9 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { Avatar } from "@/components/avatar";
-import { updateMe, updateSearch, useMe, useSearch, type S } from "@/lib/api/client";
+import { forgetMemory, updateMe, updateMemory, updateSearch, useMe, useMemory, useSearch, type S } from "@/lib/api/client";
 
 const input = "h-9 rounded-lg border bg-background px-3 text-sm outline-none focus:border-foreground/40";
 const button = "rounded-full border px-3.5 py-1.5 text-[13px] font-semibold hover:border-foreground/40 disabled:opacity-40";
@@ -21,6 +21,7 @@ export function ProfilePage() {
         {me ? <You key={me.user.id} user={me.user} /> : <p className="text-sm text-muted-foreground">Loading…</p>}
         {/* Keyed by updatedAt so the form starts over from what's saved, including changes made in the chat. */}
         {search ? <LookingFor key={search.updatedAt} search={search} status={searchStatus} onStatus={setSearchStatus} /> : null}
+        <Remembers />
       </div>
     </section>
   );
@@ -308,6 +309,126 @@ function LookingFor({ search, status, onStatus }: { search: S["Search"]; status:
         </p>
       </div>
     </form>
+  );
+}
+
+/* ── what Fred remembers ─────────────────────────────────────────────── */
+
+const kinds: [S["MemoryKind"], string][] = [
+  ["needs", "Needs"],
+  ["likes", "Likes"],
+  ["dislikes", "Dislikes"],
+  ["timing", "Timing"],
+  ["life", "About you"],
+  ["working_style", "How you like Fred to work"],
+];
+const quiet = "rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40";
+
+// Fred writes these himself as you chat. You can reword or delete any of them.
+function Remembers() {
+  const { data, error } = useMemory();
+  const notes = data?.items ?? [];
+  return (
+    <section aria-labelledby="remembers" className="grid gap-4 rounded-xl border p-4">
+      <div>
+        <h2 id="remembers" className="font-semibold">
+          What Fred remembers
+        </h2>
+        <p className="text-[13px] text-muted-foreground">Notes Fred keeps from your chats and uses in every search. Fix or delete anything that’s wrong.</p>
+      </div>
+      {!data ? (
+        <p className="text-sm text-muted-foreground">{error ? "Couldn’t load Fred’s notes." : "Loading…"}</p>
+      ) : notes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nothing yet. As you chat, Fred notes what matters to you.</p>
+      ) : (
+        kinds.map(([kind, label]) => {
+          const group = notes.filter((n) => n.kind === kind);
+          if (!group.length) return null;
+          return (
+            <div key={kind} className="grid gap-0.5">
+              <h3 className="text-xs font-semibold text-muted-foreground">{label}</h3>
+              <ul className="grid">
+                {group.map((n) => (
+                  <Note key={n.id} note={n} />
+                ))}
+              </ul>
+            </div>
+          );
+        })
+      )}
+    </section>
+  );
+}
+
+function Note({ note }: { note: S["Memory"] }) {
+  const [draft, setDraft] = useState<string | null>(null); // null while not editing
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const run = async (work: () => Promise<unknown>) => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await work();
+      setDraft(null);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (draft !== null) {
+    const text = draft.trim();
+    return (
+      <li>
+        <form
+          className="flex items-center gap-2 py-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (text === note.text) setDraft(null);
+            else void run(() => updateMemory(note.id, { text }));
+          }}
+        >
+          <input
+            autoFocus
+            aria-label="Edit note"
+            maxLength={160}
+            className={`${input} min-w-0 flex-1`}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setDraft(null)}
+          />
+          <button type="submit" className={primary} disabled={busy || text.length < 3}>
+            Save
+          </button>
+          <button type="button" className={button} onClick={() => setDraft(null)}>
+            Cancel
+          </button>
+        </form>
+        {failed && <p className="pb-1 text-[12.5px] text-destructive">Couldn’t save that. Try again.</p>}
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex items-start gap-1 py-0.5 text-sm">
+      <p className="flex-1 py-1">
+        {note.text}
+        {note.from === "inferred" && (
+          <span className="text-muted-foreground" title="Fred guessed this from the places you saved and passed">
+            {" "}
+            · Fred’s guess
+          </span>
+        )}
+        {failed && <span className="text-destructive"> · Couldn’t delete. Try again.</span>}
+      </p>
+      <button type="button" className={quiet} aria-label={`Edit: ${note.text}`} onClick={() => setDraft(note.text)}>
+        <Pencil size={14} strokeWidth={1.25} aria-hidden />
+      </button>
+      <button type="button" className={quiet} aria-label={`Forget: ${note.text}`} disabled={busy} onClick={() => run(() => forgetMemory(note.id))}>
+        <X size={14} strokeWidth={1.25} aria-hidden />
+      </button>
+    </li>
   );
 }
 

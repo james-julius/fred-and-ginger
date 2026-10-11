@@ -17,6 +17,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (res.status === 401) throw new SignedOutError("Signed out");
   if (!res.ok) throw new Error(`${init?.method ?? "GET"} ${path} failed: ${res.status}`);
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -30,6 +31,7 @@ export const useOpportunities = (view: "new" | "saved" | "hidden" | "all" = "new
   useSWR<S["OpportunityPage"]>(`/api/opportunities?view=${view}`, get, opts);
 export const useOpportunity = (id: string | null) => useSWR<S["OpportunityDetail"]>(id ? `/api/opportunities/${id}` : null, get, opts);
 export const useTours = () => useSWR<S["Tour"][]>("/api/tours?when=upcoming", get, opts);
+export const useMemory = () => useSWR<S["MemoryList"]>("/api/memory", get, opts);
 export const useThreads = () => useSWR<S["Thread"][]>("/api/threads", get, opts);
 export const useThread = (id: string | null) =>
   useSWR<{ thread: S["Thread"]; messages: unknown[] }>(id ? `/api/threads/${id}` : null, get, opts);
@@ -70,6 +72,19 @@ export async function updateSearch(patch: S["SearchPatch"]) {
   return search;
 }
 
-/** After anything that can change the inbox: a vote, a chat reply that edits the search. */
+/** Correct something Fred remembers. Your edit counts as something you told him. */
+export async function updateMemory(id: string, patch: S["MemoryPatch"]) {
+  const note = await api<S["Memory"]>(`/api/memory/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  await mutate("/api/memory");
+  return note;
+}
+
+/** Make Fred forget something. */
+export async function forgetMemory(id: string) {
+  await api(`/api/memory/${id}`, { method: "DELETE" });
+  await mutate("/api/memory");
+}
+
+/** After anything that can change the inbox or your profile: a vote, a chat reply that edits the search or Fred's notes. */
 export const refreshPlaces = () =>
-  mutate((key) => typeof key === "string" && (key.startsWith("/api/opportunities") || key === "/api/me" || key === "/api/search"));
+  mutate((key) => typeof key === "string" && (key.startsWith("/api/opportunities") || ["/api/me", "/api/search", "/api/memory"].includes(key)));
