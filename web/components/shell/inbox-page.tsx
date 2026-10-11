@@ -1,7 +1,9 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { updateOpportunity } from "@/lib/api/client";
+import { useEffect } from "react";
+import { preload, useSWRConfig } from "swr";
+import { api, updateOpportunity, type S } from "@/lib/api/client";
 import { arrange, sortParam } from "./arrange";
 import { Inbox, usePlaces, type PlaceList, type View } from "./inbox";
 import { ListingModal } from "./listing-modal";
@@ -22,6 +24,16 @@ export function InboxPage({ list = "new" }: { list?: PlaceList }) {
   const { items } = usePlaces(list);
   const ids = arrange(items ?? [], sort).flatMap((g) => g.items.map((c) => c.id)); // the modal steps in the order the list shows
   const index = openId ? ids.indexOf(openId) : -1;
+
+  // Load the places either side of the open one in the background, so the arrows open them at once.
+  const { cache } = useSWRConfig();
+  const neighbours = index === -1 || ids.length < 2 ? "" : `${ids[(index + 1) % ids.length]} ${ids[(index - 1 + ids.length) % ids.length]}`;
+  useEffect(() => {
+    for (const near of neighbours.split(" ").filter(Boolean)) {
+      const key = `/api/opportunities/${near}`;
+      if (cache.get(key)?.data === undefined) preload(key, (path: string) => api<S["OpportunityDetail"]>(path)).catch(() => {});
+    }
+  }, [neighbours, cache]);
 
   const url = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -60,6 +72,7 @@ export function InboxPage({ list = "new" }: { list?: PlaceList }) {
       />
       <ListingModal
         id={openId}
+        preview={items?.find((c) => c.id === openId)}
         position={index + 1}
         total={ids.length}
         onStep={step}

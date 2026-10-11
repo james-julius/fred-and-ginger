@@ -3,11 +3,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleCheck, Flag, Share, X } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useState } from "react";
 import { FredMark } from "@/components/fred-mark";
 import { Gallery } from "@/components/gallery";
 import { updateOpportunity, useOpportunity, useSearch, type S } from "@/lib/api/client";
-import { money, scoreTone, shortDate, siteName, toneClass } from "@/lib/format";
+import { money, photoAt, scoreTone, shortDate, siteName, toneClass } from "@/lib/format";
 import { PassReasons } from "./pass-reasons";
 
 // MapLibre is big, so it loads with the first listing that has a location.
@@ -22,8 +23,10 @@ const bigButton =
   "grid size-10 shrink-0 place-items-center rounded-full border bg-background hover:bg-muted focus-visible:outline-2 focus-visible:outline-foreground";
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onAsk }: {
+export function ListingModal({ id, preview, position = 0, total = 0, onStep, onClose, onAsk }: {
   id: string | null;
+  /** The place's card from the list, if there is one: its photo, price and verdict show while the details load. */
+  preview?: S["OpportunityCard"];
   /** 1-based, for the "2 of 4" label. 0 when the open place isn't in the list, say one opened from the chat. */
   position?: number;
   total?: number;
@@ -77,8 +80,8 @@ export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onA
           className="fixed inset-x-0 top-10 bottom-0 z-50 flex flex-col rounded-t-2xl bg-background text-foreground outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[min(900px,calc(100dvh-48px))] sm:w-[min(760px,calc(100vw-48px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-2xl"
         >
           <div className="flex items-center gap-1.5 border-b px-3 py-2.5">
-            {place && <Votes place={place} onVote={(status) => vote(place, status)} />}
-            <Dialog.Close className={`${place ? "ml-1" : "ml-auto"} border-transparent ${bigButton}`} aria-label="Close">
+            {place ? <Votes place={place} onVote={(status) => vote(place, status)} /> : !error && <VotesSkeleton />}
+            <Dialog.Close className={`${place || !error ? "ml-1" : "ml-auto"} border-transparent ${bigButton}`} aria-label="Close">
               <X size={20} strokeWidth={1.5} aria-hidden />
             </Dialog.Close>
           </div>
@@ -100,11 +103,13 @@ export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onA
             </div>
           )}
 
-          {!place ? (
+          {!place && error ? (
             <div className="grid flex-1 place-items-center p-10 text-sm text-muted-foreground">
               <Dialog.Title className="sr-only">Listing</Dialog.Title>
-              {error ? "Couldn’t load this place. Try again in a moment." : "Loading…"}
+              Couldn’t load this place. Try again in a moment.
             </div>
+          ) : !place ? (
+            <DetailsSkeleton preview={preview?.id === id ? preview : undefined} />
           ) : (
             <Details place={place} />
           )}
@@ -181,6 +186,83 @@ function Votes({ place, onVote }: { place: S["OpportunityDetail"]; onVote: (stat
       <VoteButton active={place.status === "saved"} onClick={() => onVote("saved")} icon={<Check size={14} strokeWidth={1.5} aria-hidden />}>
         Save
       </VoteButton>
+    </div>
+  );
+}
+
+const pulse = "bg-muted motion-safe:animate-pulse";
+
+/**
+ * The listing's shape while its details load, so nothing jumps when they arrive. What the list already
+ * knows (the photo, price, rooms and verdict) shows straight away.
+ */
+function DetailsSkeleton({ preview }: { preview?: S["OpportunityCard"] }) {
+  return (
+    <div aria-busy="true" className="grid flex-1 auto-rows-max content-start gap-4 overflow-hidden px-6 pt-5 pb-6">
+      <div className="grid gap-2">
+        {preview?.thumbnail ? (
+          <Image src={photoAt(preview.thumbnail, 1280)} alt="" width={1280} height={800} priority className="aspect-[16/10] w-full rounded-xl bg-muted object-cover" />
+        ) : (
+          <div className={`aspect-[16/10] rounded-xl ${pulse}`} />
+        )}
+        <div className="grid grid-cols-4 gap-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className={`aspect-[16/10] rounded-md ${pulse}`} />
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-1.5">
+        {preview ? (
+          <Dialog.Title className="text-[22px] font-semibold tracking-tight tabular-nums">
+            {money(preview.price)} · {preview.beds} bed{preview.baths != null && `, ${preview.baths} bath`}
+          </Dialog.Title>
+        ) : (
+          <>
+            <Dialog.Title className="sr-only">Loading the listing</Dialog.Title>
+            <div className={`h-7 w-60 max-w-full rounded-md ${pulse}`} />
+          </>
+        )}
+        <div className={`h-5 w-80 max-w-full rounded-md ${pulse}`} />
+      </div>
+
+      <div className="flex items-center text-[13px]">
+        {preview ? (
+          <span className={`inline-flex items-center gap-1.5 font-medium ${toneClass[preview.verdict.tone]}`}>
+            {preview.verdict.tone === "bad" ? <Flag size={14} strokeWidth={1.25} aria-hidden /> : <CircleCheck size={14} strokeWidth={1.25} aria-hidden />}
+            {preview.verdict.label}
+          </span>
+        ) : (
+          <div className={`h-4 w-32 rounded-md ${pulse}`} />
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="grid gap-1.5 bg-background px-3 py-2.5">
+            <div className={`h-3 w-14 rounded ${pulse}`} />
+            <div className={`h-5 w-20 rounded ${pulse}`} />
+            <div className={`h-3 w-24 max-w-full rounded ${pulse}`} />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-2">
+        <div className={`h-3.5 w-24 rounded ${pulse}`} />
+        {["w-3/4", "w-2/3", "w-1/2"].map((w) => (
+          <div key={w} className={`h-4 rounded ${w} ${pulse}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Where Pass and Save go, so the header doesn't shift when they arrive. */
+function VotesSkeleton() {
+  return (
+    <div className="ml-auto flex items-center gap-1.5" aria-hidden>
+      <div className={`h-[30px] w-[72px] rounded-full ${pulse}`} />
+      <div className={`h-[30px] w-[72px] rounded-full ${pulse}`} />
     </div>
   );
 }
