@@ -8,7 +8,7 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { routes as R } from '@fng/api';
 import * as S from '@fng/api';
 import type { Env } from './ingest';
-import { applySearch, load, meFor, reset, reply, save, summarize, view, type Message } from './mock';
+import { applySearch, load, meFor, reset, reply, save, savedPlaces, setStatus, summarize, view, type Message } from './mock';
 import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context';
 import { toAISdkStream } from '@mastra/ai-sdk';
 import { fred, DEFAULT_MODEL, type Harness } from './agent/fred';
@@ -135,9 +135,55 @@ v2.openapi(R.patchOpportunity, async (c) => {
   const card = cards.find((o) => o.id === id);
   if (!card) return c.json(notFound, 404);
   const p = c.req.valid('json');
-  st.cards[id] = { ...st.cards[id], ...(p.seen !== undefined && { seen: p.seen }), ...(p.status && { status: p.status }), ...(p.note !== undefined && { note: p.note }) };
+  if (p.status) setStatus(st, id, p.status);
+  st.cards[id] = { ...st.cards[id], ...(p.seen !== undefined && { seen: p.seen }), ...(p.note !== undefined && { note: p.note }) };
   await Promise.all([store(c, st), vote(c.env.DB, c.env.ME, card, p)]);
   return c.json({ ...card, ...st.cards[id] }, 200);
+});
+
+/* saved places: the same state as status 'saved' above, as its own resource */
+v2.openapi(R.listSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c);
+  return c.json(savedPlaces(st, cards), 200);
+});
+v2.openapi(R.createSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c), { opportunityId: id, note } = c.req.valid('json');
+  const card = cards.find((o) => o.id === id);
+  if (!card) return c.json(notFound, 404);
+  const already = card.status === 'saved';
+  // a place saved in the old grid has no savedAt here yet; keep it saved and stamp it now
+  if (!already || !st.cards[id]?.savedAt) st.cards[id] = { ...st.cards[id], status: 'saved', savedAt: new Date().toISOString() };
+  st.cards[id] = { ...st.cards[id], seen: true, ...(note !== undefined && { note }) };
+  await Promise.all([store(c, st), vote(c.env.DB, c.env.ME, card, { status: 'saved', note })]);
+  return c.json(savedPlaces(st, [{ ...card, ...st.cards[id] }])[0], already ? 200 : 201);
+});
+v2.openapi(R.getSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c), id = c.req.valid('param').id;
+  const place = savedPlaces(st, cards).find((s) => s.id === id);
+  return place ? c.json(place, 200) : c.json(notFound, 404);
+});
+v2.openapi(R.patchSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c), id = c.req.valid('param').id;
+  const card = cards.find((o) => o.id === id && o.status === 'saved');
+  if (!card) return c.json(notFound, 404);
+  const { note } = c.req.valid('json');
+  if (note !== undefined) st.cards[id] = { ...st.cards[id], note };
+  await Promise.all([store(c, st), vote(c.env.DB, c.env.ME, card, { note })]);
+  return c.json(savedPlaces(st, [{ ...card, ...st.cards[id] }])[0], 200);
+});
+v2.openapi(R.deleteSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c), id = c.req.valid('param').id;
+  const card = cards.find((o) => o.id === id && o.status === 'saved');
+  if (!card) return c.json(notFound, 404);
+  setStatus(st, id, 'new');
+  st.cards[id] = { ...st.cards[id], seen: true };
+  await Promise.all([store(c, st), vote(c.env.DB, c.env.ME, card, { status: 'new' })]);
+  return c.body(null, 204);
 });
 
 /* tours */
@@ -361,7 +407,7 @@ export const openapiDoc = {
   info: { title: 'Fred API', version: '0.1.0', description: [
     'Generated from packages/api. Run `npm run gen:api` at the repo root after changing it.',
     '',
-    'Every route is canned for now (response header `X-Fred-Data: example`): the mockup\'s example data, plus your own changes, which are saved. Saving a place moves it to Saved, marking it seen lowers the New count, search edits stick, and the chat answers what you send. `POST /api/mock/reset` starts your data over.',
+    'Every route is canned for now (response header `X-Fred-Data: example`): the mockup\'s example data, plus your own changes, which are saved. Saving a place moves it to Saved (`/api/saved` lists, saves, edits the note on and unsaves places), marking it seen lowers the New count, search edits stick, and the chat answers what you send. `POST /api/mock/reset` starts your data over.',
     '',
     'Sign in at /login first; "Try it out" uses your session.',
   ].join('\n') },

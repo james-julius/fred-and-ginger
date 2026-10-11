@@ -249,6 +249,23 @@ export const OpportunityPage = z.object({
   nextCursor: z.string().nullable(),
 }).openapi('OpportunityPage');
 
+/* ── saved places ────────────────────────────────────────────────────── */
+
+// A saved place is an opportunity with status 'saved'; its id is the opportunity's id.
+export const SavedPlace = OpportunityCard.extend({
+  savedAt: iso,
+  note: z.string().nullable(),
+}).openapi('SavedPlace');
+
+export const SavedPlaceCreate = z.object({
+  opportunityId: z.string(),
+  note: z.string().nullable().optional(),
+}).openapi('SavedPlaceCreate');
+
+export const SavedPlacePatch = z.object({
+  note: z.string().nullable().optional(),
+}).openapi('SavedPlacePatch');
+
 /* ── tours ───────────────────────────────────────────────────────────── */
 
 export const Tour = z.object({
