@@ -8,12 +8,13 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { routes as R } from '@fng/api';
 import * as S from '@fng/api';
 import type { Env } from './ingest';
-import { applySearch, load, meFor, reset, reply, save, view, type Message } from './mock';
+import { applySearch, load, meFor, reset, reply, save, summarize, view, type Message } from './mock';
 import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context';
 import { toAISdkStream } from '@mastra/ai-sdk';
 import { fred, DEFAULT_MODEL, type Harness } from './agent/fred';
 import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
+import { AlertError, examplePlaces, getAlerts, patchAlerts, sendCode, sendTest, verifyCode } from './alerts';
 
 /** Keep only text written after the last tool call: a draft Fred wrote mid-turn and then corrected
  *  shouldn't come back on reload or be reread as history. The app shows the same thing live. */
@@ -46,7 +47,7 @@ const places = async (c: { env: Ctx['Bindings'] }) => {
 /* you */
 const meWithCounts = async (c: { env: Ctx['Bindings'] }, st: Awaited<ReturnType<typeof load>>) => {
   const v = view(st), cards = await inbox(c.env.DB, c.env.ME, st, v.search);
-  return { ...meFor(st, c.env.ME), counts: counts(cards, v.tours) };
+  return { ...meFor(st, c.env.ME), counts: counts(cards, v.tours), alerts: await getAlerts(c.env.DB, c.env.ME) };
 };
 v2.openapi(R.getMe, async (c) => c.json(await meWithCounts(c, await state(c)), 200));
 v2.openapi(R.patchMe, async (c) => {
@@ -55,13 +56,36 @@ v2.openapi(R.patchMe, async (c) => {
   await store(c, st);
   return c.json(await meWithCounts(c, st), 200);
 });
-v2.openapi(R.getAlerts, async (c) => c.json(view(await state(c)).alerts, 200));
+/* alerts: real, in D1 (src/alerts.ts) */
+const alertsLine = (a: Awaited<ReturnType<typeof getAlerts>>) =>
+  `${a.mode}; email ${a.email.address ? `${a.email.address} (${a.email.verified ? 'verified' : 'not verified'}${a.email.enabled ? ', on' : ', off'})` : 'none'}; texts not available yet${a.sms.number ? ' (number saved)' : ''}`;
+const alertError = (e: unknown) => {
+  if (e instanceof AlertError) return { body: { error: e.message }, status: e.status };
+  throw e;
+};
+v2.openapi(R.getAlerts, async (c) => c.json(await getAlerts(c.env.DB, c.env.ME), 200));
 v2.openapi(R.patchAlerts, async (c) => {
-  const st = await state(c);
-  st.alerts = { ...view(st).alerts, ...c.req.valid('json') };
-  await store(c, st);
-  return c.json(st.alerts, 200);
+  try { return c.json((await patchAlerts(c.env, c.env.ME, c.req.valid('json'))).alerts, 200); }
+  catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400); }
 });
+v2.openapi(R.verifyAlerts, async (c) => {
+  const b = c.req.valid('json');
+  try { return c.json(await verifyCode(c.env, c.env.ME, b.channel, b.code), 200); }
+  catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400 | 429); }
+});
+v2.openapi(R.resendAlertCode, async (c) => {
+  try { return c.json(await sendCode(c.env, c.env.ME, c.req.valid('json').channel), 200); }
+  catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400 | 429 | 501); }
+});
+v2.openapi(R.testAlert, async (c) => {
+  try {
+    const st = await state(c), v = view(st);
+    const places = await examplePlaces(c.env.DB, await inbox(c.env.DB, c.env.ME, st, v.search));
+    return c.json(await sendTest(c.env, c.env.ME, c.req.valid('json').channel, places, summarize(v.search)), 200);
+  } catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400 | 429 | 501); }
+});
+
+
 
 /* search */
 v2.openapi(R.getSearch, async (c) => c.json(view(await state(c)).search, 200));
@@ -166,7 +190,7 @@ v2.openapi(R.chat, async (c) => {
       // it added, with their exact addresses. Without this it misremembers addresses on follow-ups.
       if (m.role === 'assistant' && !harnessV1) {
         const found = new Map<number, { address: string; price: number }>();
-        for (const p of m.parts) if (p.type === 'tool-searchListings') for (const l of ((p.output as any)?.listings ?? [])) found.set(l.listingId, l);
+        for (const p of m.parts) if (p.type === 'tool-searchListings') for (const l of ((p.output as any)?.listings ?? [])) found.set(l.listingId ?? Number(String(l.id).slice(3)), l);
         const added = m.parts.filter((p) => p.type === 'tool-addToInbox').flatMap((p) => ((p.output as any)?.added ?? []) as { id: string; listingId?: number; area: string; price: number }[]);
         const lines = added.map((a) => { const f = found.get(Number(a.id.replace('op_', ''))); return `${a.id}: ${f?.address ?? a.area}, $${a.price}`; });
         if (lines.length) content += `\n[Places I added: ${lines.join('; ')}]`;
@@ -179,6 +203,7 @@ v2.openapi(R.chat, async (c) => {
     const s = view(st).search;
     const note = [
       `(Now: ${now}, New York.)`,
+      `(Alerts: ${alertsLine(await getAlerts(c.env.DB, c.env.ME))})`,
       `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.weight === 'important' ? `${p.label} (important)` : p.label) })})`,
       context?.opportunityId && `(The user has place ${context.opportunityId} open.)`,
     ].filter(Boolean).join('\n');
@@ -296,7 +321,18 @@ v2.post('/api/mock/thread', async (c) => {
   await store(c, st);
   return c.json({ ok: true, messages: b.messages.length });
 });
-v2.post('/api/mock/reset', async (c) => { await reset(c.env.DB, c.env.ME); return c.json({ ok: true }); });
+/* local dev only: the last verification code, so evals don't need an inbox */
+v2.get('/api/mock/code', async (c) => {
+  if (c.env.FRED_DEV !== '1') return c.json(notFound, 404);
+  const r = await c.env.DB.prepare('SELECT v FROM meta WHERE k=?').bind(`dev:code:${c.env.ME}:${c.req.query('channel') ?? 'email'}`).first<{ v: string }>();
+  return c.json({ code: r?.v ?? null });
+});
+v2.post('/api/mock/reset', async (c) => {
+  await reset(c.env.DB, c.env.ME);
+  // local dev only: alert settings are real data, so production resets leave them alone
+  if (c.env.FRED_DEV === '1') for (const t of ['alert_settings', 'alert_codes', 'alert_log']) await c.env.DB.prepare(`DELETE FROM ${t} WHERE user=?`).bind(c.env.ME).run();
+  return c.json({ ok: true });
+});
 
 export const openapiDoc = {
   openapi: '3.1.0',

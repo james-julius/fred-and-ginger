@@ -9,6 +9,7 @@ export interface Env {
   FRED_MODEL?: string;                    // provider/model for the agent; its API key is a secret too
   FRED_EFFORT?: 'low' | 'medium' | 'high'; // Anthropic effort for chat; default low, for speed
   NIMBLE_API_KEY?: string;                // web search and page reads for Fred's research tools
+  EMAIL?: SendEmail;                      // Cloudflare Email Sending, from fred@jamesjuliusdarby.com
   FRED_DEV?: string;                      // '1' only in cloud/.dev.vars: enables eval-only overrides and routes
   ANTHROPIC_API_KEY?: string; OPENAI_API_KEY?: string; GOOGLE_GENERATIVE_AI_API_KEY?: string;
 }
