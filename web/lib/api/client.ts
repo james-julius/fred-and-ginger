@@ -34,6 +34,21 @@ export const useThreads = () => useSWR<S["Thread"][]>("/api/threads", get, opts)
 export const useThread = (id: string | null) =>
   useSWR<{ thread: S["Thread"]; messages: unknown[] }>(id ? `/api/threads/${id}` : null, get, opts);
 
+/**
+ * Where each place is, for the map. Cards don't carry coordinates yet, so this reads each place's
+ * detail, which does, and keeps those details for the listing modal so opening one is instant.
+ */
+export const usePlaceLocations = (ids: string[]) =>
+  useSWR(
+    ids.length ? ["locations", ...ids] : null,
+    async () => {
+      const details = await Promise.all(ids.map((id) => api<S["OpportunityDetail"]>(`/api/opportunities/${id}`).catch(() => null)));
+      for (const d of details) if (d) void mutate(`/api/opportunities/${d.id}`, d, { revalidate: false });
+      return Object.fromEntries(details.flatMap((d) => (d?.location ? [[d.id, d.location] as const] : [])));
+    },
+    opts,
+  );
+
 /** Save, pass, hide or mark seen, then refresh the inbox and the sidebar counts. */
 export async function updateOpportunity(id: string, patch: S["OpportunityPatch"]) {
   const card = await api<S["OpportunityCard"]>(`/api/opportunities/${id}`, { method: "PATCH", body: JSON.stringify(patch) });

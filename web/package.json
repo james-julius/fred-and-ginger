@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-maplibre-worker.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -16,6 +18,7 @@
     "@radix-ui/react-dialog": "^1.2.0",
     "ai": "7.0.137",
     "lucide-react": "^1.55.0",
+    "maplibre-gl": "6.11.2",
     "next": "16.3.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
