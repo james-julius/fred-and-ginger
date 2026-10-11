@@ -122,6 +122,34 @@
   }
 }
 
+/* MapLibre's buttons (zoom, credits) in Fred's colors, so they suit dark mode. Its CSS loads after this, hence the doubled classes. */
+.maplibregl-ctrl.maplibregl-ctrl-group,
+.maplibregl-ctrl.maplibregl-ctrl-attrib.maplibregl-compact {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+.maplibregl-ctrl.maplibregl-ctrl-group:not(:empty) {
+  box-shadow: 0 0 0 1px var(--border);
+}
+.maplibregl-ctrl.maplibregl-ctrl-group button + button {
+  border-top-color: var(--border);
+}
+.maplibregl-ctrl.maplibregl-ctrl-group button:not(:disabled):hover {
+  background-color: var(--muted);
+}
+.maplibregl-ctrl.maplibregl-ctrl-attrib a {
+  color: var(--muted-foreground);
+}
+.maplibregl-ctrl.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button {
+  background-color: transparent;
+}
+@media (prefers-color-scheme: dark) {
+  .maplibregl-ctrl .maplibregl-ctrl-icon,
+  .maplibregl-ctrl .maplibregl-ctrl-attrib-button {
+    filter: invert(1);
+  }
+}
+
 /* The window mark: while Fred works, the panes light up clockwise. */
 .fred-pane {
   fill: transparent;
@@ -172,9 +200,30 @@
     background-position: -150% 0;
   }
 }
+/* A label floating over the search card's skyline: in, hold, out. One every 1.8s. */
+.fred-chip {
+  animation: fred-chip 1.8s ease both;
+}
+@keyframes fred-chip {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  15%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .fred-mark-working .fred-pane {
+    animation: none;
+  }
+  .fred-chip {
     animation: none;
   }
   .fred-shimmer {

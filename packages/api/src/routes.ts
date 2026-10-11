@@ -29,6 +29,14 @@ export const testAlert = createRoute({ method: 'post', path: '/api/alerts/test',
   request: body(S.AlertsChannelRequest),
   responses: { 200: json(z.object({ sentTo: z.string() }), 'Sent an example alert'), 400: json(S.ErrorBody, 'Not verified yet'), 429: json(S.ErrorBody, 'Wait before asking again'), 501: json(S.ErrorBody, 'Texts aren\'t available yet'), ...errors } });
 
+/* what Fred remembers (he keeps it himself; the person can correct or delete it) */
+export const listMemory = createRoute({ method: 'get', path: '/api/memory', tags: ['you'],
+  responses: { 200: json(S.MemoryList, 'What Fred remembers about you, newest first'), ...errors } });
+export const patchMemory = createRoute({ method: 'patch', path: '/api/memory/{id}', tags: ['you'],
+  request: { params: idParam, ...body(S.MemoryPatch) }, responses: { 200: json(S.Memory, 'Corrected'), ...errors } });
+export const deleteMemory = createRoute({ method: 'delete', path: '/api/memory/{id}', tags: ['you'],
+  request: { params: idParam }, responses: { 204: { description: 'Forgotten' }, ...errors } });
+
 /* search */
 export const getSearch = createRoute({ method: 'get', path: '/api/search', tags: ['search'],
   responses: { 200: json(S.Search, 'Your search'), ...errors } });

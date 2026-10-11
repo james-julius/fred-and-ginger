@@ -46,6 +46,16 @@
             ],
             "description": "Borough or neighbourhood slugs"
           },
+          "excludeAreas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "central-harlem"
+            ],
+            "description": "Borough or neighbourhood slugs to leave out, even inside `areas`"
+          },
           "maxTotalMonthly": {
             "type": [
               "integer",
@@ -185,6 +195,16 @@
                   "manhattan"
                 ],
                 "description": "Borough or neighbourhood slugs"
+              },
+              "excludeAreas": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": [
+                  "central-harlem"
+                ],
+                "description": "Borough or neighbourhood slugs to leave out, even inside `areas`"
               },
               "maxTotalMonthly": {
                 "type": [
@@ -961,6 +981,99 @@
             "maxLength": 300000,
             "pattern": "^(https:\\/\\/|data:image\\/(png|jpeg|webp);base64,)",
             "description": "null removes the photo"
+          }
+        }
+      },
+      "MemoryList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Memory"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "Memory": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "m_3fa9c1"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MemoryKind"
+          },
+          "text": {
+            "type": "string",
+            "example": "Prefers 2 baths; 1 is acceptable",
+            "description": "Distilled by Fred in his own words, never a quote"
+          },
+          "strength": {
+            "type": "string",
+            "enum": [
+              "must",
+              "strong",
+              "mild"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "enum": [
+              "said",
+              "inferred"
+            ],
+            "description": "said: the person told Fred; inferred: Fred read it from what they saved and passed"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-11T14:30:00Z"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "text",
+          "strength",
+          "from",
+          "updatedAt"
+        ]
+      },
+      "MemoryKind": {
+        "type": "string",
+        "enum": [
+          "likes",
+          "dislikes",
+          "needs",
+          "life",
+          "timing",
+          "working_style"
+        ],
+        "description": "likes/dislikes: in a place; needs: must be true; life: who they are (work, partner, pets, commute); timing: move dates, lease ends; working_style: how they like Fred to work"
+      },
+      "MemoryPatch": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 160
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MemoryKind"
+          },
+          "strength": {
+            "type": "string",
+            "enum": [
+              "must",
+              "strong",
+              "mild"
+            ]
           }
         }
       },
@@ -1781,6 +1894,144 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory": {
+      "get": {
+        "tags": [
+          "you"
+        ],
+        "responses": {
+          "200": {
+            "description": "What Fred remembers about you, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/{id}": {
+      "patch": {
+        "tags": [
+          "you"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Corrected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Memory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "you"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Forgotten"
           },
           "401": {
             "description": "Signed out",
