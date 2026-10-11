@@ -6,6 +6,7 @@ import type * as S from '@fng/api';
 import type { z } from '@hono/zod-openapi';
 import type { Card, MockState } from './mock';
 import { nearby, transitLabel } from './transit';
+import { cellOf, toSafety } from './safety';
 import { highlights, notShareSql, petsSql, scamSigns, typicalKey, typicalRents, type Facts } from './facts';
 
 type Search = z.infer<typeof S.Search>;
@@ -31,12 +32,12 @@ const COLS = `l.id, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.no_f
  * is it a good deal, does it have what you want, anything to steer clear of. Fred's own verdict
  * replaces it. The building record only counts against a place when it's genuinely bad.
  */
-function judge(r: any, s: Search, typical: number | null): { kind: VerdictKind; reason: string | null; fit: number; highlight: string | null } {
+function judge(r: any, s: Search, typical: number | null, safer: boolean): { kind: VerdictKind; reason: string | null; fit: number; highlight: string | null } {
   const d = s.dealbreakers, f = json<Facts | null>(r.facts, null), rep = json<{ flags?: string[] }>(r.breport, {});
   const hist = json<any[]>(r.price_history, []).map((h) => Number(Array.isArray(h) ? h[1] : h?.price)).filter(Number.isFinite);
   const dropped = hist.length > 1 && r.price < Math.max(...hist);
   const t = nearby(r.lat, r.lon)[0];
-  const hl = highlights(f, { price: r.price, noFee: r.no_fee, typical, train: t && t.walkMinutes <= 6 ? transitLabel(t) : null }, { pets: d.pets, preferences: s.preferences.map((p) => p.label) });
+  const hl = highlights(f, { price: r.price, noFee: r.no_fee, typical, safer, train: t && t.walkMinutes <= 6 ? transitLabel(t) : null }, { pets: d.pets, preferences: s.preferences.map((p) => p.label) });
   let fit = 55 + Math.min(25, hl.length * 6);
   if (t) fit += t.walkMinutes <= 5 ? 5 : t.walkMinutes > 12 ? -5 : 0;
   if (typical) fit += Math.max(-10, Math.min(15, ((typical - r.price) / typical) * 60));
@@ -52,8 +53,8 @@ function judge(r: any, s: Search, typical: number | null): { kind: VerdictKind; 
   return { kind: fit >= 75 ? 'strong_fit' : 'good_fit', reason: null, fit, highlight };
 }
 
-function card(r: any, s: Search, now: number, typical: number | null): Card {
-  const v = judge(r, s, typical), [label, tone] = LABELS[v.kind], found = (r.first_seen ?? 0) * 1000;
+function card(r: any, s: Search, now: number, typical: number | null, safer = false): Card {
+  const v = judge(r, s, typical, safer), [label, tone] = LABELS[v.kind], found = (r.first_seen ?? 0) * 1000;
   return {
     id: `op_${r.id}`, listingId: r.id, foundAt: new Date(found || now).toISOString(), seen: now - found > FRESH_MS,
     status: v.kind === 'likely_scam' ? 'hidden' : 'new', price: r.price, totalMonthly: r.price, area: r.neighbourhood ?? r.borough ?? 'New York', beds: r.beds ?? 0, baths: r.baths,
@@ -89,11 +90,16 @@ export async function inbox(db: D1Database, user: string, st: MockState, s: Sear
   ]);
   const rows = [...(matched.results as any[]), ...(voted.results as any[])];
   const typical = await typicalRents(db, rows.map((r) => r.neighbourhood));
+  // area safety for every checked cell (a few hundred small rows), ranked against each other
+  const areas = (await db.prepare('SELECT cell, violent, property, total, report FROM areas').all<any>()).results;
+  const ranks = areas.length >= 50 ? areas.map((a) => a.violent).sort((a, b) => a - b) : null;
+  const byCell = new Map(areas.map((a) => [a.cell, a]));
+  const safer = (r: any) => { const a = r.lat != null && ranks && byCell.get(cellOf(r.lat, r.lon)); return !!a && toSafety(a, ranks!).percentile < 30; };
   const byId = new Map<string, Card>();
   for (const c of st.created ?? []) byId.set(c.id, c);
   for (const r of rows) {
     const id = `op_${r.id}`;
-    if (!byId.has(id)) byId.set(id, card(r, s, now, typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null));
+    if (!byId.has(id)) byId.set(id, card(r, s, now, typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null, safer(r)));
   }
   // the old grid's vote is the default; a change made in the new app wins
   const votes = new Map((voted.results as any[]).map((r) => [`op_${r.id}`, r]));

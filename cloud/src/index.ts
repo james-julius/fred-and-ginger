@@ -7,6 +7,7 @@ import { Env, enrich, finishRun, ingestBatch, startRuns, SOURCES } from './inges
 import { report } from './building';
 import { v2 } from './v2';
 import { refreshFacts } from './facts';
+import { checkAreas } from './safety';
 
 const USERS = ['james', 'erin'] as const;
 const NAMES: Record<string, string> = { james: 'James', erin: 'Erin' };
@@ -197,6 +198,8 @@ export default {
   async scheduled(ev: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     await env.DB.prepare(`INSERT OR REPLACE INTO meta VALUES ('cron:' || ?, ?)`).bind(ev.cron, new Date().toISOString()).run();
     if (ev.cron.startsWith('7 ')) ctx.waitUntil(startRuns(env, 'https://fredandginger.jamesjuliusdarby.com'));
+    // area safety: two NYPD queries per ~100 m cell, on its own trigger so it has its own request budget
+    else if (ev.cron.startsWith('4-59/5')) ctx.waitUntil(checkAreas(env.DB, 20));
     // ~50 outbound requests per invocation: one dataset page, then geocodes, then building checks
     else ctx.waitUntil((async () => {
       const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3);

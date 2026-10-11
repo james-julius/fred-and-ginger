@@ -9,7 +9,7 @@
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
   "d1_databases": [{ "binding": "DB", "database_name": "nest", "database_id": "ed551431-d43f-4986-9e5d-7e6124a7aaee" }],
   // every 4h: start the crawlers. every 2 min: geocode + building checks, a few at a time
-  "triggers": { "crons": ["7 */4 * * *", "*/2 * * * *"] },
+  "triggers": { "crons": ["7 */4 * * *", "*/2 * * * *", "4-59/5 * * * *"] },
   "routes": [{ "pattern": "fredandginger.jamesjuliusdarby.com", "custom_domain": true }, { "pattern": "nest.jamesjuliusdarby.com", "custom_domain": true }],
   "observability": { "enabled": true }
   // secrets: APIFY_TOKEN, SESSION_KEY, HOOK_SECRET, PASSWORD_JAMES, PASSWORD_ERIN, and the model key (e.g. ANTHROPIC_API_KEY)

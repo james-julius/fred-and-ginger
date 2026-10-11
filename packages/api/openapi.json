@@ -1057,6 +1057,9 @@
                   "lat",
                   "lon"
                 ]
+              },
+              "safety": {
+                "$ref": "#/components/schemas/Safety"
               }
             },
             "required": [
@@ -1074,7 +1077,8 @@
               "priceHistory",
               "take",
               "note",
-              "location"
+              "location",
+              "safety"
             ]
           }
         ]
@@ -1260,6 +1264,91 @@
           "url",
           "price"
         ]
+      },
+      "Safety": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "much_lower",
+              "lower",
+              "typical",
+              "higher",
+              "much_higher"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "example": "Less crime than most places for rent"
+          },
+          "percentile": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Share of rental spots we checked with fewer violent crimes nearby"
+          },
+          "violent": {
+            "type": "integer",
+            "description": "Murder, robbery, felony assault and kidnapping reported nearby"
+          },
+          "property": {
+            "type": "integer",
+            "description": "Burglary, larceny and car theft reported nearby"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Every crime reported nearby"
+          },
+          "top": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "offense": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "offense",
+                "count"
+              ]
+            },
+            "description": "Most reported, in plain words"
+          },
+          "radiusMeters": {
+            "type": "integer",
+            "example": 300
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "NYPD data is published quarterly, so this lags by a few months"
+          }
+        },
+        "required": [
+          "level",
+          "label",
+          "percentile",
+          "violent",
+          "property",
+          "total",
+          "top",
+          "radiusMeters",
+          "from",
+          "to"
+        ],
+        "description": "Null until the area has been checked"
       },
       "OpportunityPatch": {
         "type": "object",

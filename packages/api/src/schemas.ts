@@ -154,6 +154,19 @@ export const BuildingReport = z.object({
   good: z.array(z.string()),
 }).openapi('BuildingReport');
 
+export const Safety = z.object({
+  level: z.enum(['much_lower', 'lower', 'typical', 'higher', 'much_higher']),
+  label: z.string().openapi({ example: 'Less crime than most places for rent' }),
+  percentile: z.number().int().min(0).max(100).openapi({ description: 'Share of rental spots we checked with fewer violent crimes nearby' }),
+  violent: z.number().int().openapi({ description: 'Murder, robbery, felony assault and kidnapping reported nearby' }),
+  property: z.number().int().openapi({ description: 'Burglary, larceny and car theft reported nearby' }),
+  total: z.number().int().openapi({ description: 'Every crime reported nearby' }),
+  top: z.array(z.object({ offense: z.string(), count: z.number().int() })).openapi({ description: 'Most reported, in plain words' }),
+  radiusMeters: z.number().int().openapi({ example: 300 }),
+  from: z.string().openapi({ format: 'date' }),
+  to: z.string().openapi({ format: 'date', description: 'NYPD data is published quarterly, so this lags by a few months' }),
+}).openapi('Safety', { description: 'Crimes reported to the NYPD near the place over 12 months (NYC Open Data). Rape and sex crimes are left out because the NYPD masks their locations.' });
+
 export const OpportunityDetail = OpportunityCard.extend({
   address: z.string(),
   unit: z.string().nullable(),
@@ -173,6 +186,7 @@ export const OpportunityDetail = OpportunityCard.extend({
   }),
   note: z.string().nullable(),
   location: z.object({ lat: z.number(), lon: z.number() }).nullable(),
+  safety: Safety.nullable().openapi({ description: 'Null until the area has been checked' }),
 }).openapi('OpportunityDetail');
 
 export const OpportunityPatch = z.object({
