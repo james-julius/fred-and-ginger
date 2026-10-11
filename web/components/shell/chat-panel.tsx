@@ -2,11 +2,12 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { ArrowUp, ChevronRight, Mic, Pencil, Plus, X } from "lucide-react";
+import { ArrowUp, Mic, Pencil, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { FredMark } from "@/components/fred-mark";
 import { refreshPlaces, useThread, useThreads, type S } from "@/lib/api/client";
 import { dealbreakerChips } from "@/lib/format";
+import { asTool, changesPlaces, Steps } from "./steps";
 
 // Fred's custom chat parts, as the API streams them (data-<key> in the AI SDK).
 type FredData = {
@@ -63,6 +64,22 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
     onFinish: () => refreshPlaces(),
   });
   const busy = status === "submitted" || status === "streaming";
+  const last = messages.at(-1);
+  // Until the reply shows anything (a step, a chip, words), say Fred is on it.
+  const pending = status === "submitted" || (status === "streaming" && last?.role === "assistant" && !last.parts.some(shows));
+
+  // Fred's tools change the inbox mid-reply (adding places, editing the search): refresh as each one lands.
+  const [refreshed] = useState(() => new Set(initial.flatMap((m) => m.parts.map(asTool)).flatMap((t) => (t ? [t.id] : []))));
+  useEffect(() => {
+    for (const m of messages)
+      for (const part of m.parts) {
+        const t = asTool(part);
+        if (t && t.state === "output-available" && changesPlaces(t.name) && !refreshed.has(t.id)) {
+          refreshed.add(t.id);
+          void refreshPlaces();
+        }
+      }
+  }, [messages, refreshed]);
 
   const body = { context: context ? { opportunityId: context.id } : null };
   const send = (text: string) => {
@@ -95,10 +112,10 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
           m.role === "user" ? (
             <UserMessage key={m.id} message={m} disabled={busy} onEdit={(text) => edit(m.id, text)} />
           ) : (
-            <Reply key={m.id} message={m} latest={m === lastAssistant} busy={busy} onPick={send} />
+            <Reply key={m.id} message={m} latest={m === lastAssistant} busy={busy} streaming={status === "streaming" && m === last} onPick={send} />
           ),
         )}
-        {status === "submitted" && (
+        {pending && (
           <p className="inline-flex items-center gap-2 text-[13px]">
             <FredMark working className="h-[17px] w-[13px] text-muted-foreground" />
             <span className="fred-shimmer">Fred is on it…</span>
@@ -231,11 +248,33 @@ function UserMessage({ message, disabled, onEdit }: { message: FredMessage; disa
   );
 }
 
+/** Parts that put something on screen. message-metadata and suggestReplies calls don't. */
+const shows = (p: FredMessage["parts"][number]) =>
+  (p.type === "text" && p.text.trim() !== "") || p.type.startsWith("data-") || (asTool(p) !== null && asTool(p)!.name !== "suggestReplies");
+
 // One of Fred's replies. Each custom part becomes a piece of the design.
-function Reply({ message, latest, busy, onPick }: { message: FredMessage; latest: boolean; busy: boolean; onPick: (text: string) => void }) {
+function Reply({ message, latest, busy, streaming, onPick }: {
+  message: FredMessage;
+  latest: boolean;
+  busy: boolean;
+  /** This reply is still coming in. */
+  streaming: boolean;
+  onPick: (text: string) => void;
+}) {
+  const tools = message.parts.map(asTool).filter((t) => t !== null);
+  const scans = message.parts.flatMap((p) => (p.type === "data-scan" ? [p.data] : []));
+  // Reply pills and "Watching…" go under the words, even though Fred decides on them before it writes.
+  const atEnd = (p: FredMessage["parts"][number]) => p.type === "data-suggestions" || p.type === "data-watch";
+  const parts = [...message.parts.filter((p) => !atEnd(p)), ...message.parts.filter(atEnd)];
+  const firstStep = parts.findIndex((p) => p.type === "data-scan" || asTool(p) !== null);
+  // Live until Fred starts writing; after that it's the summary.
+  const working = streaming && !message.parts.some((p) => p.type === "text" && p.text.trim());
+
   return (
     <div className="grid gap-3.5">
-      {message.parts.map((part, i) => {
+      {parts.map((part, i) => {
+        if (i === firstStep) return <Steps key={i} tools={tools} scans={scans} running={working} />;
+        if (part.type === "data-scan" || asTool(part)) return null;
         switch (part.type) {
           case "data-search-updated":
             return (
@@ -247,23 +286,6 @@ function Reply({ message, latest, busy, onPick }: { message: FredMessage; latest
                   </span>
                 ))}
               </div>
-            );
-          case "data-scan":
-            return (
-              <details key={i} className="group justify-self-start">
-                <summary className="flex cursor-pointer list-none items-center gap-2 text-[13.5px] text-muted-foreground [&::-webkit-details-marker]:hidden">
-                  <FredMark className="h-[17px] w-[13px]" />
-                  <span>
-                    <b className="font-medium text-foreground">Checked {part.data.checked} new listings</b> · {part.data.steps.length} steps
-                  </span>
-                  <ChevronRight size={13} strokeWidth={1.5} className="transition-transform group-open:rotate-90" aria-hidden />
-                </summary>
-                <ol className="mt-2 ml-1.5 grid list-decimal gap-1 border-l pl-6 text-[13px] text-muted-foreground marker:text-muted-foreground/70">
-                  {part.data.steps.map((s, j) => (
-                    <li key={j}>{s.label}</li>
-                  ))}
-                </ol>
-              </details>
             );
           case "text":
             return part.text.split(/\n{2,}/).map((para, j) => (

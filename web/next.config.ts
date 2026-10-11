@@ -7,6 +7,9 @@ const API = process.env.FRED_API_URL ?? "https://fredandginger.jamesjuliusdarby.
 const nextConfig: NextConfig = {
   // Keep Next's dev-only button off the sidebar's account row.
   devIndicators: { position: "bottom-right" },
+  // Next's gzip holds a streamed response until it ends, so Fred's steps would arrive all at once.
+  // Cloudflare compresses at the edge in production without that problem.
+  compress: false,
   // Serve images as-is. Resizing on Cloudflare needs an Images binding we haven't set up.
   images: { unoptimized: true },
   // Routes in app/ win over these, so a future app/api/chat/route.ts is served here, not by the Worker.
