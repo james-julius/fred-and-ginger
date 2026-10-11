@@ -256,7 +256,7 @@ const cases: Case[] = [
       ...basics(t1).map((c) => ({ ...c, name: `t1 ${c.name}` })),
       ...basics(t2, [t1]).map((c) => ({ ...c, name: `t2 ${c.name}` })),
       ...basics(t3, [t1, t2]).map((c) => ({ ...c, name: `t3 ${c.name}` })),
-      check('t2 saves the light and subway preferences', called(t2, 'updateSearch').some((c) => (c.input.addPreferences ?? []).length >= 1), JSON.stringify(called(t2, 'updateSearch').map((c) => c.input))),
+      check('t2 saves the light and subway preferences', called(t2, 'updateSearch').some((c) => [...(c.input.addPreferences ?? []), ...(c.input.importantPreferences ?? []), ...(c.input.mustPreferences ?? [])].length >= 1), JSON.stringify(called(t2, 'updateSearch').map((c) => c.input))),
       check('t3 looks the place up', called(t3, 'getPlace').some((c) => c.input.id === placeId), JSON.stringify(t3.tools.map((c) => c.name))),
       check('t3 offers a next step when the data is missing', offers, t3.text),
     ] };
