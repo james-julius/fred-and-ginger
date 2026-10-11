@@ -98,6 +98,155 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description What Fred remembers about you, newest first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MemoryList"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Forgotten */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MemoryPatch"];
+                };
+            };
+            responses: {
+                /** @description Corrected */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Memory"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/alerts": {
         parameters: {
             query?: never;
@@ -1154,6 +1303,42 @@ export interface components {
             name?: string;
             /** @description null removes the photo */
             photo?: string | null;
+        };
+        MemoryList: {
+            items: components["schemas"]["Memory"][];
+        };
+        Memory: {
+            /** @example m_3fa9c1 */
+            id: string;
+            kind: components["schemas"]["MemoryKind"];
+            /**
+             * @description Distilled by Fred in his own words, never a quote
+             * @example Prefers 2 baths; 1 is acceptable
+             */
+            text: string;
+            /** @enum {string} */
+            strength: "must" | "strong" | "mild";
+            /**
+             * @description said: the person told Fred; inferred: Fred read it from what they saved and passed
+             * @enum {string}
+             */
+            from: "said" | "inferred";
+            /**
+             * Format: date-time
+             * @example 2026-10-11T14:30:00Z
+             */
+            updatedAt: string;
+        };
+        /**
+         * @description likes/dislikes: in a place; needs: must be true; life: who they are (work, partner, pets, commute); timing: move dates, lease ends; working_style: how they like Fred to work
+         * @enum {string}
+         */
+        MemoryKind: "likes" | "dislikes" | "needs" | "life" | "timing" | "working_style";
+        MemoryPatch: {
+            text?: string;
+            kind?: components["schemas"]["MemoryKind"];
+            /** @enum {string} */
+            strength?: "must" | "strong" | "mild";
         };
         OpportunityPage: {
             items: components["schemas"]["OpportunityCard"][];
