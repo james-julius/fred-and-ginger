@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/cloudflare';
 // The Fred API: every route in packages/api/src/routes.ts. Places (and the counts in /api/me) come
 // from the real listings in D1 (places.ts) and say X-Fred-Data: real. The rest are still canned
 // (mock.ts): the example data plus each person's changes, marked X-Fred-Data: example. Handlers
@@ -32,6 +33,13 @@ type Ctx = { Bindings: Env & { ME: string } };
 export const v2 = new OpenAPIHono<Ctx>({
   // invalid requests get the same { error } shape as everything else
   defaultHook: (result, c) => { if (!result.success) return c.json({ error: result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }, 400); },
+});
+
+// Hono turns a thrown error into a 500 itself, so Sentry's wrapper never sees it: report it here
+v2.onError((err, c) => {
+  Sentry.captureException(err, { tags: { route: `${c.req.method} ${c.req.routePath}` } });
+  console.error(err);
+  return c.json({ error: 'Something went wrong on our side. Try again in a moment.' }, 500);
 });
 
 v2.use('*', async (c, next) => { await next(); if (!c.res.headers.has('X-Fred-Data')) c.header('X-Fred-Data', 'example'); c.header('Cache-Control', 'no-store'); });
@@ -117,11 +125,13 @@ v2.openapi(R.patchSearch, async (c) => {
 
 /* places */
 v2.openapi(R.listOpportunities, async (c) => {
-  const { view: tab, limit } = c.req.valid('query');
+  const { view: tab, limit, cursor } = c.req.valid('query');
   // the inbox shows new places plus hidden ones (struck through, with the reason)
   real(c);
   const items = (await places(c)).cards.filter((o) => tab === 'all' || (tab === 'new' ? o.status === 'new' || o.status === 'hidden' : o.status === tab));
-  return c.json({ items: items.slice(0, limit), nextCursor: null }, 200);
+  // the cursor is how many came before, so the next page starts where this one ends
+  const from = Math.max(0, Number(cursor) || 0), to = from + limit;
+  return c.json({ items: items.slice(from, to), nextCursor: to < items.length ? String(to) : null }, 200);
 });
 v2.openapi(R.getOpportunity, async (c) => {
   real(c);
@@ -302,7 +312,9 @@ v2.openapi(R.chat, async (c) => {
           requestContext: rc, maxSteps: 12,
           // cacheControl: Anthropic caches the whole prefix, so each step of the tool loop reads
           // the previous step's tokens at a tenth of the price. effort: low keeps chat fast.
-          providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' }, effort: effort as 'low' } },
+          // On Gemini (FRED_MODEL=google/…) the same setting is its thinking level.
+          providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' }, effort: effort as 'low' },
+                             google: { thinkingConfig: { thinkingLevel: effort as 'low' } } },
         });
         let firstText: number | null = null;
         for await (const part of toAISdkStream(out, { from: 'agent', version: 'v7', sendFinish: false })) {
@@ -328,7 +340,7 @@ v2.openapi(R.chat, async (c) => {
         const [x] = exchanges(threadId, title, [userMsg, { id: responseMessage.id, role: 'assistant', parts: finalTextOnly(parts) }]);
         if (x && worthRemembering(parts)) c.executionCtx.waitUntil(remember(c.env, c.env.ME, [{ ...x, places: placesIn(parts) }]).catch((e) => console.error('recall', e)));
       },
-      onError: (e) => { console.error('fred', e); return 'Fred hit a problem answering that. Try again in a moment.'; },
+      onError: (e) => { console.error('fred', e); Sentry.captureException(e, { tags: { area: 'fred-chat', model } }); return 'Fred hit a problem answering that. Try again in a moment.'; },
     });
     return createUIMessageStreamResponse({ stream }) as never;
   }
@@ -412,10 +424,19 @@ v2.post('/api/mock/run-alerts', async (c) => {
   const since = c.req.query('since');
   return c.json(await sendDueAlerts(c.env, { only: c.env.ME, since: since ? Number(since) : undefined }));
 });
+/* local dev only: send Sentry a log, a metric and an error, to check it's wired up */
+v2.post('/api/mock/sentry-test', (c) => {
+  if (c.env.FRED_DEV !== '1') return c.json(notFound, 404);
+  Sentry.logger.info('Sentry test from Fred API', { action: 'test_error_worker' });
+  Sentry.metrics.count('test_counter', 1);
+  throw new Error('Sentry test error from the Fred API (local dev)');
+});
 v2.post('/api/mock/reset', async (c) => {
   await reset(c.env.DB, c.env.ME);
-  // local dev only: alert settings are real data, so production resets leave them alone
-  if (c.env.FRED_DEV === '1') for (const t of ['alert_settings', 'alert_codes', 'alert_log']) await c.env.DB.prepare(`DELETE FROM ${t} WHERE user=?`).bind(c.env.ME).run();
+  // local dev only: alerts and votes (saves and passes keep a place in the inbox) are real data, so production resets leave them alone
+  if (c.env.FRED_DEV === '1') {
+    for (const t of ['alert_settings', 'alert_codes', 'alert_log', 'votes']) await c.env.DB.prepare(`DELETE FROM ${t} WHERE user=?`).bind(c.env.ME).run();
+  }
   return c.json({ ok: true });
 });
 

@@ -2,10 +2,10 @@
 // whatever the sites call the neighbourhood, and Fred can narrow it but not widen it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { areasIn, canonicalArea, forgetPlaces, inArea, within } from '../src/areas';
+import { areaLabel, areasIn, canonicalArea, forgetPlaces, inArea, within } from '../src/areas';
 import { search } from '../src/agent/listings';
 import { inbox } from '../src/places';
-import { applySearch, view } from '../src/mock';
+import { applySearch, summarize, view } from '../src/mock';
 import { d1 } from './d1';
 
 test('reads the most specific area a site names', () => {
@@ -90,4 +90,71 @@ test('the inbox follows the search, and drops Fred places it no longer fits', as
   const got = (await inbox(db, 'james', st, searchFor({ areas: ['upper-west-side'] }))).map((c) => c.id).sort();
   // 3 and 8 (a little over budget) fit; Fred's Harlem place 1 goes; 2 stays because it was saved
   assert.deepEqual(got, ['op_2', 'op_3', 'op_8']);
+});
+
+// Regression: ISSUE-002 — the same neighbourhood showed under several names ("Spanish Harlem",
+// "East Harlem") and junk text showed as-is. Found by /qa on 2026-10-11.
+test('one name per neighbourhood on the cards', () => {
+  assert.equal(areaLabel('Spanish Harlem', 'Manhattan'), 'East Harlem');
+  assert.equal(areaLabel('East Harlem', 'Manhattan'), 'East Harlem');
+  assert.equal(areaLabel('WILLIAMSBURG right @ L train MORGAN STOP_________________', 'Brooklyn'), 'Williamsburg');
+  assert.equal(areaLabel('Bedford- Stuyvesant', 'Brooklyn'), 'Bed-Stuy');
+  assert.equal(areaLabel("Hell's Kitchen", 'Manhattan'), "Hell's Kitchen");
+  assert.equal(areaLabel('Prospect', 'Brooklyn'), 'Prospect');
+  assert.equal(areaLabel(null, 'Brooklyn'), 'Brooklyn');
+  assert.equal(areaLabel(null, null), 'New York');
+});
+
+test('saved areas become standard slugs, and the summary says what is left out', () => {
+  const s = searchFor({ areas: ['Spanish Harlem', 'east-harlem', 'Bed Stuy'], excludeAreas: ['Harlem'] });
+  assert.deepEqual(s.dealbreakers.areas, ['east-harlem', 'bedford-stuyvesant']);
+  assert.deepEqual(s.dealbreakers.excludeAreas, ['central-harlem']);
+  assert.match(summarize(s), /^East Harlem, Bedford Stuyvesant except Central Harlem/);
+});
+
+test('cards use the standard name, including places Fred added earlier', async () => {
+  const db = seed();
+  const st: any = { cards: {}, threads: {}, created: [{ id: 'op_2', listingId: 2, area: 'Spanish Harlem', foundAt: '2026-10-01T00:00:00Z' }] };
+  const cards = await inbox(db, 'james', st, searchFor({ areas: ['manhattan'] }));
+  assert.deepEqual(new Set(cards.map((c) => c.area)), new Set(['Central Harlem', 'East Harlem', 'Upper West Side', 'Upper East Side']));
+});
+
+test('a search in the same step as a search change sees the new search', async () => {
+  const db = seed();
+  const { RequestContext } = await import('@mastra/core/request-context');
+  const { updateSearch, searchListings } = await import('../src/agent/tools');
+  const { save } = await import('../src/mock');
+  await save(db, 'james', { cards: {}, threads: {}, search: searchFor({ areas: ['williamsburg'] }) });
+  const rc = new RequestContext();
+  rc.set('env', { DB: db, ME: 'james' });
+  const ctx = { requestContext: rc } as any;
+  // the model calls both in one step: they start together, update first
+  const [, found] = await Promise.all([
+    updateSearch.execute!({ dealbreakers: { areas: ['upper-west-side'] } } as any, ctx),
+    searchListings.execute!({} as any, ctx),
+  ]);
+  assert.deepEqual((found as any).listings.map((l: any) => l.id), ['op_3']);
+});
+
+// Regression: ISSUE-003 — "What about Williamsburg?" replaced the saved Upper West Side, because
+// updateSearch only took the whole area list. Found by the evals on 2026-10-11.
+test('adding, removing and leaving out areas keeps the rest of the search', async () => {
+  const db = seed();
+  const { RequestContext } = await import('@mastra/core/request-context');
+  const { updateSearch } = await import('../src/agent/tools');
+  const { load, save } = await import('../src/mock');
+  await save(db, 'james', { cards: {}, threads: {}, search: searchFor({ areas: ['upper-west-side'], excludeAreas: ['central-harlem'] }) });
+  const rc = new RequestContext();
+  rc.set('env', { DB: db, ME: 'james' });
+  const ctx = { requestContext: rc } as any, areas = async () => (await load(db, 'james')).search!.dealbreakers;
+  await updateSearch.execute!({ addAreas: ['Williamsburg'] } as any, ctx);
+  assert.deepEqual((await areas()).areas, ['upper-west-side', 'williamsburg']);
+  await updateSearch.execute!({ excludeAreas: ['Washington Heights'], removeAreas: ['upper west side'] } as any, ctx);
+  assert.deepEqual(await areas().then((d) => [d.areas, d.excludeAreas]), [['williamsburg'], ['central-harlem', 'washington-heights']]);
+  // adding a left-out area back un-excludes it
+  await updateSearch.execute!({ addAreas: ['Harlem'] } as any, ctx);
+  assert.deepEqual(await areas().then((d) => [d.areas, d.excludeAreas]), [['williamsburg', 'central-harlem'], ['washington-heights']]);
+  // "only Chelsea" still replaces
+  await updateSearch.execute!({ dealbreakers: { areas: ['chelsea'] } } as any, ctx);
+  assert.deepEqual((await areas()).areas, ['chelsea']);
 });
