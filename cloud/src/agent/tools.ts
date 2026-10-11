@@ -51,6 +51,8 @@ export const updateSearch = createTool({
     dealbreakers: S.Dealbreakers.partial().optional().describe('Hard filters to change'),
     addPreferences: z.array(z.string()).optional().describe('Nice-to-haves to add, e.g. "Washer/dryer in unit"'),
     importantPreferences: z.array(z.string()).optional().describe('Preferences the user says matter a lot; adds them or raises existing ones to important'),
+    mustPreferences: z.array(z.string()).optional().describe('Things a place has to have ("has to have a washer/dryer", "a dealbreaker"); adds them or raises existing ones to must'),
+    nicePreferences: z.array(z.string()).optional().describe('Existing preferences to step back down to nice-to-have ("it doesn\'t have to have X")'),
     removePreferences: z.array(z.string()).optional(),
   }),
   execute: (input, c) => {
@@ -61,15 +63,18 @@ export const updateSearch = createTool({
   },
 });
 
-async function changeSearch(input: { dealbreakers?: Partial<z.infer<typeof S.Dealbreakers>>; addPreferences?: string[]; importantPreferences?: string[]; removePreferences?: string[] }, c: Ctx) {
+async function changeSearch(input: { dealbreakers?: Partial<z.infer<typeof S.Dealbreakers>>; addPreferences?: string[]; importantPreferences?: string[]; mustPreferences?: string[]; nicePreferences?: string[]; removePreferences?: string[] }, c: Ctx) {
   const { db, user } = who(c);
   const st = await load(db, user), cur = view(st).search;
   const prefs = cur.preferences.filter((p) => !(input.removePreferences ?? []).some((r) => r.toLowerCase() === p.label.toLowerCase()));
   for (const label of input.addPreferences ?? []) if (!prefs.some((p) => p.label.toLowerCase() === label.toLowerCase())) prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'nice' });
-  for (const label of input.importantPreferences ?? []) {
-    const p = prefs.find((x) => x.label.toLowerCase() === label.toLowerCase());
-    if (p) p.weight = 'important'; else prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'important' });
-  }
+  const weigh = (labels: string[] | undefined, weight: 'nice' | 'important' | 'must') => {
+    for (const label of labels ?? []) {
+      const p = prefs.find((x) => x.label.toLowerCase() === label.toLowerCase());
+      if (p) p.weight = weight; else prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight });
+    }
+  };
+  weigh(input.importantPreferences, 'important'); weigh(input.mustPreferences, 'must'); weigh(input.nicePreferences, 'nice');
   st.search = applySearch(cur, { dealbreakers: input.dealbreakers, preferences: prefs });
   await save(db, user, st);
   await emit(c, 'data-search-updated', { changed: Object.keys(input.dealbreakers ?? {}), dealbreakers: st.search.dealbreakers });
@@ -95,7 +100,8 @@ export const searchListings = createTool({
     for (const l of r.found) seen(c as Ctx).add(l.listingId);
     const areas = input.areas?.length ? input.areas : saved.dealbreakers.areas;
     const where = areas.length ? areas.join(', ') : 'all of NYC';
-    await emit(c as Ctx, 'data-scan', { checked: r.total, matched: r.found.length, hidden: 0, steps: [{ label: `Searched ${where}${input.maxRent ? ` up to $${input.maxRent.toLocaleString('en-US')}` : ''}`, toolCallId: null }] });
+    const samples = r.found.slice(0, 6).map((l) => [l.beds != null && (l.beds === 0 ? 'Studio' : `${l.beds} bd`), `$${l.price.toLocaleString('en-US')}`, l.area ?? l.borough].filter(Boolean).join(' · '));
+    await emit(c as Ctx, 'data-scan', { checked: r.total, matched: r.found.length, hidden: 0, samples, steps: [{ label: `Searched ${where}${input.maxRent ? ` up to $${input.maxRent.toLocaleString('en-US')}` : ''}`, toolCallId: null }] });
     // Ids are "op_317", the same as inbox places and place: links. A bare number sat next to
     // addresses like "1584 Bushwick Ave" and Fred mixed the two up.
     return { matching: r.total, showing: r.found.length, listings: r.found.map(({ listingId, ...l }) => ({ id: `op_${listingId}`, ...l })),
@@ -131,6 +137,7 @@ export const addToInbox = createTool({
     }
     st.created = [...added, ...(st.created ?? [])];
     await save(db, user, st);
+    if (added.length) await emit(c as Ctx, 'data-places', { ids: added.map((x) => x.id), hidden: added.filter((x) => x.status === 'hidden').map((x) => x.id) });
     return {
       added: added.map(compact), alreadyInInbox: places.length - rejected.length - added.length,
       counts: counts([...added, ...cards.filter((x) => !added.some((a) => a.id === x.id))], v.tours),

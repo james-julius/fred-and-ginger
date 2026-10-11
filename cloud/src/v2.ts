@@ -223,7 +223,7 @@ v2.openapi(R.chat, async (c) => {
     const note = [
       `(Now: ${now}, New York.)`,
       `(Alerts: ${alertsLine(await getAlerts(c.env.DB, c.env.ME))})`,
-      `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.weight === 'important' ? `${p.label} (important)` : p.label) })})`,
+      `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.weight === 'must' ? `${p.label} (dealbreaker)` : p.weight === 'important' ? `${p.label} (important)` : p.label) })})`,
       context?.opportunityId && `(The user has place ${context.opportunityId} open.)`,
       `(What you remember about them:\n${known ?? 'Nothing yet.'})`,
       pattern && `(From their saves and passes, hints to confirm, not facts:\n${pattern})`,
@@ -369,7 +369,7 @@ export const openapiDoc = {
 
 // Chat parts and live events aren't request or response bodies, so list them to get them into the spec.
 for (const [name, schema] of Object.entries({
-  DataSearchUpdated: S.DataSearchUpdated, DataScan: S.DataScan, DataSuggestions: S.DataSuggestions, DataWatch: S.DataWatch, Event: S.Event,
+  DataSearchUpdated: S.DataSearchUpdated, DataScan: S.DataScan, DataPlaces: S.DataPlaces, DataSuggestions: S.DataSuggestions, DataWatch: S.DataWatch, Event: S.Event,
 })) v2.openAPIRegistry.register(name, schema);
 
 // The spec, and Swagger UI to browse and call it

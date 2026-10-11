@@ -103,7 +103,7 @@ export const Dealbreakers = z.object({
 export const Preference = z.object({
   id: z.string(),
   label: z.string().openapi({ example: 'Washer/dryer in unit' }),
-  weight: z.enum(['nice', 'important']),
+  weight: z.enum(['nice', 'important', 'must']).openapi({ description: "must = a dealbreaker Fred can't filter on yet: he won't add places that clearly lack it, and says when it's unconfirmed. The app calls it Dealbreaker." }),
 }).openapi('Preference');
 
 export const Commute = z.object({
@@ -299,7 +299,13 @@ export const DataScan = z.object({
   matched: z.number().int(),
   hidden: z.number().int(),
   steps: z.array(z.object({ label: z.string(), toolCallId: z.string().nullable() })),
+  samples: z.array(z.string()).optional().openapi({ example: ['2 bd · $3,400 · Harlem'], description: 'A few short labels for listings being looked at' }),
 }).openapi('DataScan', { description: 'Chat part data-scan: "Checked 186 new listings · 9 steps"' });
+
+export const DataPlaces = z.object({
+  ids: z.array(z.string()).openapi({ example: ['op_1101', 'op_1109'], description: 'Places Fred actually added to the inbox this step, best first' }),
+  hidden: z.array(z.string()).openapi({ description: 'Of those, the ones he hid as likely scams' }),
+}).openapi('DataPlaces', { description: 'Chat part data-places: emitted by addToInbox' });
 
 export const DataSuggestions = z.object({
   options: z.array(z.object({ label: z.string(), patch: SearchPatch.nullable() })),
