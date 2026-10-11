@@ -73,6 +73,9 @@ const VOTE: Record<number, Card['status']> = { 1: 'saved', [-1]: 'passed' };
 /** Everything in this person's inbox, newest first, with their changes applied. */
 export async function inbox(db: D1Database, user: string, st: MockState, s: Search, now = Date.now()): Promise<Card[]> {
   const { where, args } = await dealbreakerWhere(db, s.dealbreakers, { slack: 1.1 }); // a little over still shows, flagged
+  // someone who hasn't said where, how much or how big yet gets an empty inbox, not all of NYC
+  const d = s.dealbreakers;
+  if (!d.areas.length && !d.maxTotalMonthly && d.minBeds == null) where.push('0');
   // places this person acted on stay, even if the search no longer matches them
   const touched = Object.keys(st.cards).map((id) => Number(id.replace(/^op_/, ''))).filter(Number.isFinite);
   const created = (st.created ?? []).map((c) => c.listingId).filter(Number.isFinite);
