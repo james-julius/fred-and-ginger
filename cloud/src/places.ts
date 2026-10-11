@@ -5,6 +5,8 @@
 import type * as S from '@fng/api';
 import type { z } from '@hono/zod-openapi';
 import type { Card, MockState } from './mock';
+import { nearby, transitLabel } from './transit';
+import { highlights, notShareSql, petsSql, scamSigns, typicalKey, typicalRents, type Facts } from './facts';
 
 type Search = z.infer<typeof S.Search>;
 type VerdictKind = z.infer<typeof S.Verdict>['kind'];
@@ -21,33 +23,41 @@ const LABELS: Record<VerdictKind, [string, 'good' | 'warn' | 'bad' | 'neutral']>
   likely_scam: ['Hidden: likely scam', 'bad'], gone: ['Gone', 'neutral'],
 };
 
-const COLS = `l.id, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.no_fee, l.photos, l.first_seen, l.status, l.price_history,
+const COLS = `l.id, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.no_fee, l.photos, l.first_seen, l.status, l.price_history, l.facts, l.lat, l.lon,
               b.score AS bscore, b.report AS breport`;
 
-/** A rules verdict for a listing nobody has judged yet. Fred's own verdicts replace these. */
-function judge(r: any, s: Search): { kind: VerdictKind; reason: string | null; fit: number; highlight: string | null } {
-  const d = s.dealbreakers, flags = json<{ flags?: string[]; good?: string[] }>(r.breport, {});
+/**
+ * A first take for a listing nobody has judged yet, the way a realtor cousin would size it up:
+ * is it a good deal, does it have what you want, anything to steer clear of. Fred's own verdict
+ * replaces it. The building record only counts against a place when it's genuinely bad.
+ */
+function judge(r: any, s: Search, typical: number | null): { kind: VerdictKind; reason: string | null; fit: number; highlight: string | null } {
+  const d = s.dealbreakers, f = json<Facts | null>(r.facts, null), rep = json<{ flags?: string[] }>(r.breport, {});
   const hist = json<any[]>(r.price_history, []).map((h) => Number(Array.isArray(h) ? h[1] : h?.price)).filter(Number.isFinite);
   const dropped = hist.length > 1 && r.price < Math.max(...hist);
-  let fit = 60;
-  if (r.bscore != null) fit += (r.bscore - 60) / 2;
-  if (d.maxTotalMonthly) fit += Math.max(-20, Math.min(15, ((d.maxTotalMonthly - r.price) / d.maxTotalMonthly) * 60));
-  if (r.no_fee === 1) fit += 5;
-  const good = flags.good?.[0] ?? null;
-  if (r.status === 'gone') return { kind: 'gone', reason: null, fit, highlight: good };
-  if (d.maxTotalMonthly && r.price > d.maxTotalMonthly) return { kind: 'over_budget_with_fees', reason: `$${(r.price - d.maxTotalMonthly).toLocaleString('en-US')} over budget`, fit, highlight: good };
-  if (r.bscore != null && r.bscore < 50) return { kind: 'building_issues', reason: flags.flags?.[0] ?? null, fit, highlight: good };
-  if (r.no_fee === 0) return { kind: 'broker_fee', reason: null, fit, highlight: good };
-  if (dropped) return { kind: 'price_dropped', reason: `Was $${Math.max(...hist).toLocaleString('en-US')}`, fit: fit + 5, highlight: good };
-  return { kind: fit >= 75 ? 'strong_fit' : 'good_fit', reason: null, fit, highlight: good };
+  const t = nearby(r.lat, r.lon)[0];
+  const hl = highlights(f, { price: r.price, noFee: r.no_fee, typical, train: t && t.walkMinutes <= 6 ? transitLabel(t) : null }, { pets: d.pets, preferences: s.preferences.map((p) => p.label) });
+  let fit = 55 + Math.min(25, hl.length * 6);
+  if (t) fit += t.walkMinutes <= 5 ? 5 : t.walkMinutes > 12 ? -5 : 0;
+  if (typical) fit += Math.max(-10, Math.min(15, ((typical - r.price) / typical) * 60));
+  if (d.maxTotalMonthly) fit += r.price <= d.maxTotalMonthly ? 5 : -15;
+  if (r.bscore != null && r.bscore < 40) fit -= 20;
+  const highlight = hl[0] ?? null, scam = scamSigns(f, r.price, typical);
+  if (scam.length) return { kind: 'likely_scam', reason: scam[0], fit: 0, highlight: null };
+  if (r.status === 'gone') return { kind: 'gone', reason: null, fit, highlight };
+  if (d.maxTotalMonthly && r.price > d.maxTotalMonthly) return { kind: 'over_budget_with_fees', reason: `$${(r.price - d.maxTotalMonthly).toLocaleString('en-US')} over budget`, fit, highlight };
+  if (r.bscore != null && r.bscore < 40) return { kind: 'building_issues', reason: rep.flags?.[0] ?? 'The building has a bad record with the city', fit, highlight };
+  if (r.no_fee === 0) return { kind: 'broker_fee', reason: null, fit, highlight };
+  if (dropped) return { kind: 'price_dropped', reason: `Was $${Math.max(...hist).toLocaleString('en-US')}`, fit: fit + 5, highlight };
+  return { kind: fit >= 75 ? 'strong_fit' : 'good_fit', reason: null, fit, highlight };
 }
 
-function card(r: any, s: Search, now: number): Card {
-  const v = judge(r, s), [label, tone] = LABELS[v.kind], found = (r.first_seen ?? 0) * 1000;
+function card(r: any, s: Search, now: number, typical: number | null): Card {
+  const v = judge(r, s, typical), [label, tone] = LABELS[v.kind], found = (r.first_seen ?? 0) * 1000;
   return {
     id: `op_${r.id}`, listingId: r.id, foundAt: new Date(found || now).toISOString(), seen: now - found > FRESH_MS,
-    status: 'new', price: r.price, totalMonthly: r.price, area: r.neighbourhood ?? r.borough ?? 'New York', beds: r.beds ?? 0, baths: r.baths,
-    transit: null, highlight: v.highlight, thumbnail: json<string[]>(r.photos, [])[0] ?? null,
+    status: v.kind === 'likely_scam' ? 'hidden' : 'new', price: r.price, totalMonthly: r.price, area: r.neighbourhood ?? r.borough ?? 'New York', beds: r.beds ?? 0, baths: r.baths,
+    transit: nearby(r.lat, r.lon)[0] ?? null, highlight: v.highlight, thumbnail: json<string[]>(r.photos, [])[0] ?? null,
     fit: Math.max(0, Math.min(100, Math.round(v.fit))), verdict: { kind: v.kind, label, tone, reason: v.reason }, feeCallout: null,
   };
 }
@@ -59,8 +69,12 @@ export async function inbox(db: D1Database, user: string, st: MockState, s: Sear
   const d = s.dealbreakers, where = [`l.status='active'`, 'l.price > 0'], args: unknown[] = [];
   if (d.maxTotalMonthly) { where.push('l.price <= ?'); args.push(Math.round(d.maxTotalMonthly * 1.1)); } // a little over still shows, flagged
   if (d.minBeds != null) { where.push('l.beds >= ?'); args.push(d.minBeds); }
-  if (d.minBaths != null) { where.push('l.baths >= ?'); args.push(d.minBaths); }
-  if (d.noBrokerFee) where.push('l.no_fee = 1');
+  // unknown baths, fee or pet policy stay in: most sites don't say, and the card or Fred flags it
+  if (d.minBaths != null) { where.push('(l.baths IS NULL OR l.baths >= ?)'); args.push(d.minBaths); }
+  if (d.noBrokerFee) where.push('(l.no_fee IS NULL OR l.no_fee = 1)');
+  const pets = petsSql(d.pets);
+  if (pets) where.push(pets);
+  where.push(notShareSql);
   if (d.areas.length) {
     // "east-village" matches "East Village"; a borough name matches its whole borough
     where.push('(' + d.areas.map(() => '(lower(l.neighbourhood) LIKE ? OR lower(l.borough) LIKE ?)').join(' OR ') + ')');
@@ -73,11 +87,13 @@ export async function inbox(db: D1Database, user: string, st: MockState, s: Sear
     db.prepare(`SELECT ${COLS}, v.vote, v.note FROM votes v JOIN listings l ON l.id=v.listing_id LEFT JOIN buildings b ON b.bbl=l.bbl
                 WHERE v.user=? AND (v.vote IN (1,-1) OR v.note IS NOT NULL ${touched.length ? `OR l.id IN (${touched.join(',')})` : ''})`).bind(user),
   ]);
+  const rows = [...(matched.results as any[]), ...(voted.results as any[])];
+  const typical = await typicalRents(db, rows.map((r) => r.neighbourhood));
   const byId = new Map<string, Card>();
   for (const c of st.created ?? []) byId.set(c.id, c);
-  for (const r of [...(matched.results as any[]), ...(voted.results as any[])]) {
+  for (const r of rows) {
     const id = `op_${r.id}`;
-    if (!byId.has(id)) byId.set(id, card(r, s, now));
+    if (!byId.has(id)) byId.set(id, card(r, s, now, typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null));
   }
   // the old grid's vote is the default; a change made in the new app wins
   const votes = new Map((voted.results as any[]).map((r) => [`op_${r.id}`, r]));

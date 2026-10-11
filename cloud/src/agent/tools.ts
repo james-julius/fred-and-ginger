@@ -8,12 +8,14 @@ import type { Env } from '../ingest';
 import { applySearch, load, save, summarize, view, type Card } from '../mock';
 import { detail, search, toCard } from './listings';
 import { counts, inbox, vote } from '../places';
+import { readPage, webSearch } from '../nimble';
+import { factsFrom, mergeFacts, type Facts } from '../facts';
 
 type Ctx = { requestContext?: { get(k: string): unknown }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
   const env = c.requestContext?.get('env') as (Env & { ME: string }) | undefined;
   if (!env) throw new Error('No request context: tools must run inside a signed-in request');
-  return { db: env.DB, user: env.ME };
+  return { db: env.DB, user: env.ME, nimble: env.NIMBLE_API_KEY };
 };
 const emit = (c: Ctx, type: string, data: unknown) => c.writer?.custom({ type, data });
 /** listing ids searchListings returned this turn; addToInbox only accepts these */
@@ -60,11 +62,12 @@ export const updateSearch = createTool({
 
 export const searchListings = createTool({
   id: 'searchListings',
-  description: 'Search the real NYC rental listings Fred has collected from StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and landlord sites. Returns the best matches with building scores from city records. Areas are neighbourhood or borough names.',
+  description: "Search the real NYC rental listings Fred has collected from StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and landlord sites. Each match comes with highlights (deal vs the area's usual rent, laundry, outdoor space, pets, light), and a buildingWarning only when the city record is bad. Areas are neighbourhood or borough names.",
   inputSchema: z.object({
     areas: z.array(z.string()).optional().describe('e.g. ["williamsburg", "greenpoint"] or ["brooklyn"]'),
     maxRent: z.number().optional(), minBeds: z.number().optional(), minBaths: z.number().optional(),
     noFeeOnly: z.boolean().optional(), minBuildingScore: z.number().optional().describe('0-100; 60+ avoids buildings with many city complaints'),
+    pets: z.enum(['dogs', 'cats', 'dogs_and_cats']).optional().describe("The user's pets. Drops places that say no; places that don't say stay in"),
     limit: z.number().optional().describe('Default 15, max 40'),
   }),
   execute: async (input, c) => {
@@ -91,7 +94,11 @@ export const addToInbox = createTool({
   }),
   execute: async ({ places }, c) => {
     const { db, user } = who(c as Ctx);
-    const { st, v, cards } = await real(db, user), existing = new Set((st.created ?? []).map((x) => x.id));
+    const { st, v, cards } = await real(db, user);
+    // Fred's verdict replaces an earlier one for the same place
+    const redo = new Set(places.filter((p) => seen(c as Ctx).has(p.listingId)).map((p) => `op_${p.listingId}`));
+    st.created = (st.created ?? []).filter((x) => !redo.has(x.id));
+    const existing = new Set<string>();
     const added: Card[] = [], known = seen(c as Ctx);
     const rejected = places.filter((p) => !known.has(p.listingId)).map((p) => p.listingId);
     for (const p of places.filter((x) => known.has(x.listingId))) {
@@ -187,4 +194,49 @@ export const suggestReplies = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, suggestReplies };
+export const researchWeb = createTool({
+  id: 'researchWeb',
+  description: "Search the web to research a place for the user: tenant reviews of a building (Openigloo, StreetEasy, Google), the landlord or management company, what the block is like, whether a building has an elevator or laundry. Include the street address and 'NYC' in the query. Returns titles, links and snippets; say where a claim came from.",
+  inputSchema: z.object({ query: z.string().describe('e.g. "376 Graham Ave Brooklyn tenant reviews"') }),
+  execute: async ({ query }, c) => {
+    const { nimble } = who(c as Ctx);
+    if (!nimble) return { error: 'Web research is not set up (no NIMBLE_API_KEY)' };
+    await emit(c as Ctx, 'data-scan', { checked: 0, matched: 0, hidden: 0, steps: [{ label: `Looked up "${query}"`, toolCallId: null }] });
+    try { return { results: await webSearch(nimble, query, 5) }; } catch (e) { return { error: String(e).slice(0, 200) }; }
+  },
+});
+
+// the sites whose listing pages say the most, best first
+const PAGE_ORDER = ['streeteasy', 'renthop', 'compass', 'nooklyn', 'zumper', 'craigslist', 'zillow', 'landlord'];
+const WEEK = 7 * 86400;
+
+export const readListingPage = createTool({
+  id: 'readListingPage',
+  description: "Read the full listing page for a place (the crawlers mostly saw only the search card). Use it when the user asks something the data doesn't answer: windows and light, layout, laundry, pets, fees, the exact lease terms. What it learns is saved to the place. Slow (5-15s), so only when needed.",
+  inputSchema: z.object({ id: z.string().describe('Place id like op_123, or a listing id from searchListings') }),
+  execute: async ({ id }, c) => {
+    const { db, nimble } = who(c as Ctx);
+    if (!nimble) return { error: 'Page reading is not set up (no NIMBLE_API_KEY)' };
+    const listingId = Number(String(id).replace(/^op_/, ''));
+    const sights = (await db.prepare('SELECT source, url FROM sightings WHERE listing_id=? AND url IS NOT NULL').bind(listingId).all<{ source: string; url: string }>()).results;
+    const rank = (s: string) => { const i = PAGE_ORDER.indexOf(s.split(':')[0]); return i === -1 ? 99 : i; };
+    const pick = sights.filter((s) => /^https?:/.test(s.url)).sort((a, b) => rank(a.source) - rank(b.source))[0];
+    if (!pick) return { error: `No listing page for ${id}` };
+    const key = `page:${listingId}`, now = Math.floor(Date.now() / 1000);
+    const cached = await db.prepare('SELECT v FROM meta WHERE k=?').bind(key).first<{ v: string }>();
+    let page = cached && JSON.parse(cached.v);
+    if (!page || now - page.at > WEEK) {
+      await emit(c as Ctx, 'data-scan', { checked: 0, matched: 0, hidden: 0, steps: [{ label: `Reading the ${pick.source.split(':')[0]} listing`, toolCallId: null }] });
+      try { page = { at: now, url: pick.url, md: (await readPage(nimble, pick.url)).slice(0, 12000) }; } catch (e) { return { error: String(e).slice(0, 200) }; }
+      await db.prepare('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)').bind(key, JSON.stringify(page)).run();
+      // what the page says joins what the cards said
+      const row = await db.prepare('SELECT facts FROM listings WHERE id=?').bind(listingId).first<{ facts: string | null }>();
+      const had: Facts[] = row?.facts ? [JSON.parse(row.facts)] : [];
+      const merged = mergeFacts([...had, factsFrom({ body: page.md })]);
+      await db.prepare('UPDATE listings SET facts=?, no_fee=COALESCE(no_fee, ?) WHERE id=?').bind(JSON.stringify(merged), merged.noFee ? 1 : null, listingId).run();
+    }
+    return { url: page.url, page: page.md.slice(0, 6000) };
+  },
+});
+
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, suggestReplies, researchWeb, readListingPage };
