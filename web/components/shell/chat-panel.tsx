@@ -8,6 +8,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject }
 import { FredMark } from "@/components/fred-mark";
 import { refreshPlaces, useThread, useThreads, type S } from "@/lib/api/client";
 import { dealbreakerChips } from "@/lib/format";
+import { useDictation } from "./dictation";
 import { linkPlaces, placeIdsIn, usePlaceNames } from "./place-links";
 import type { DataPlaces } from "./search-card";
 import { asTool, changesPlaces, Steps } from "./steps";
@@ -50,6 +51,7 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
   composerRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const [draft, setDraft] = useState("");
+  const dictation = useDictation(setDraft);
   const router = useRouter();
   // Open a place's modal from a link in Fred's text. On New places, keep the current view (list or map).
   const openPlace = (id: string) => {
@@ -95,6 +97,7 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
   const body = { context: context ? { opportunityId: context.id } : null };
   const send = (text: string) => {
     if (!text.trim() || busy) return;
+    dictation.cancel();
     sendMessage({ text: text.trim() }, { body });
     setDraft("");
   };
@@ -171,9 +174,26 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
           />
           <div className="flex items-center gap-3 text-muted-foreground">
             {/* "Add a listing link" comes back once Fred can read a listing you paste (asked on the board). */}
-            <button type="button" aria-label="Talk to Fred" className="ml-auto hover:text-foreground">
-              <Mic size={18} strokeWidth={1.25} aria-hidden />
-            </button>
+            <span role="status" className="min-w-0 truncate text-[12.5px]">
+              {dictation.status && <span className={dictation.status.live ? "fred-shimmer" : undefined}>{dictation.status.text}</span>}
+            </span>
+            {dictation.supported && (
+              <button
+                type="button"
+                aria-label={dictation.listening ? "Stop and write it down" : "Talk to Fred"}
+                aria-pressed={dictation.listening}
+                disabled={dictation.writing}
+                onClick={() => {
+                  if (dictation.listening) return dictation.stop();
+                  void dictation.start(draft);
+                  // Keep the composer focused, so Enter sends what you said.
+                  composerRef.current?.focus();
+                }}
+                className={`ml-auto disabled:opacity-40 ${dictation.listening ? "text-destructive" : "hover:text-foreground"}`}
+              >
+                <Mic size={18} strokeWidth={1.25} aria-hidden />
+              </button>
+            )}
             <button
               type="submit"
               aria-label="Send"
