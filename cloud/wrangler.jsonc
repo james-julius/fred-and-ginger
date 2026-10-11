@@ -3,6 +3,8 @@
   "name": "nest",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
+  // Mastra needs Node APIs; this also exposes secrets as process.env, where Mastra looks for model API keys
+  "compatibility_flags": ["nodejs_compat"],
   "account_id": "2f12b2e0013e057f81d47ff38d48a251",
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
   "d1_databases": [{ "binding": "DB", "database_name": "nest", "database_id": "ed551431-d43f-4986-9e5d-7e6124a7aaee" }],
@@ -10,5 +12,6 @@
   "triggers": { "crons": ["7 */4 * * *", "*/2 * * * *"] },
   "routes": [{ "pattern": "fredandginger.jamesjuliusdarby.com", "custom_domain": true }, { "pattern": "nest.jamesjuliusdarby.com", "custom_domain": true }],
   "observability": { "enabled": true }
-  // secrets: APIFY_TOKEN, SESSION_KEY, HOOK_SECRET, PASSWORD_JAMES, PASSWORD_ERIN
+  // secrets: APIFY_TOKEN, SESSION_KEY, HOOK_SECRET, PASSWORD_JAMES, PASSWORD_ERIN, and the model key (e.g. ANTHROPIC_API_KEY)
+  // vars: FRED_MODEL overrides the model, as provider/model
 }

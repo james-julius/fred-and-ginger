@@ -20,6 +20,8 @@ export type MockState = {
   search?: Search;
   alerts?: Alerts;
   tours?: Tour[];
+  /** places Fred added from real listings, newest first */
+  created?: Card[];
   threads: Record<string, { title: string; updatedAt: string; messages: Message[] }>;
 };
 
@@ -51,7 +53,7 @@ export function applySearch(s: Search, p: SearchPatch): Search {
 export function view(st: MockState, now = new Date()) {
   const f = fixtures(now);
   const search = st.search ?? f.search, alerts = st.alerts ?? f.alerts, tours = st.tours ?? f.tours;
-  const cards: Card[] = f.cards.map((c) => ({ ...c, ...st.cards[c.id] }));
+  const cards: Card[] = [...(st.created ?? []), ...f.cards].map((c) => ({ ...c, ...st.cards[c.id] }));
   const upcoming = tours.filter((t) => t.status !== 'done' && t.status !== 'cancelled');
   const me = { ...f.me, alerts, summary: summarize(search), counts: {
     new: cards.filter((c) => c.status === 'new' && !c.seen).length,

@@ -1,0 +1,174 @@
+// Fred's tools. Each reads and writes through the same store as the REST API, so whatever Fred
+// does shows up in the app at once: a search change, a new place in the inbox, a draft tour.
+// Who the user is comes from the request context set by the server, never from the model.
+import { createTool } from '@mastra/core/tools';
+import { z } from 'zod';
+import * as S from '@fng/api';
+import type { Env } from '../ingest';
+import { applySearch, load, save, summarize, view, type Card } from '../mock';
+import { detail, search, toCard } from './listings';
+
+type Ctx = { requestContext?: { get(k: string): unknown }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
+const who = (c: Ctx) => {
+  const env = c.requestContext?.get('env') as (Env & { ME: string }) | undefined;
+  if (!env) throw new Error('No request context: tools must run inside a signed-in request');
+  return { db: env.DB, user: env.ME };
+};
+const emit = (c: Ctx, type: string, data: unknown) => c.writer?.custom({ type, data });
+
+const compact = (c: Card) => ({ id: c.id, area: c.area, price: c.price, beds: c.beds, baths: c.baths, status: c.status, seen: c.seen, verdict: c.verdict.label, highlight: c.highlight });
+
+export const getSearch = createTool({
+  id: 'getSearch',
+  description: "Read the user's saved search: dealbreakers (hard filters), preferences and commutes.",
+  inputSchema: z.object({}),
+  execute: async (_in, c) => {
+    const { db, user } = who(c as Ctx);
+    const s = view(await load(db, user)).search;
+    return { summary: summarize(s), ...s };
+  },
+});
+
+export const updateSearch = createTool({
+  id: 'updateSearch',
+  description: 'Change the saved search. Use when the user states or changes a requirement. Only pass what changed. Budget is total monthly cost including required fees.',
+  inputSchema: z.object({
+    dealbreakers: S.Dealbreakers.partial().optional().describe('Hard filters to change'),
+    addPreferences: z.array(z.string()).optional().describe('Nice-to-haves to add, e.g. "Washer/dryer in unit"'),
+    removePreferences: z.array(z.string()).optional(),
+  }),
+  execute: async (input, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user), cur = view(st).search;
+    const prefs = cur.preferences.filter((p) => !(input.removePreferences ?? []).some((r) => r.toLowerCase() === p.label.toLowerCase()));
+    for (const label of input.addPreferences ?? []) if (!prefs.some((p) => p.label.toLowerCase() === label.toLowerCase())) prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'nice' });
+    st.search = applySearch(cur, { dealbreakers: input.dealbreakers, preferences: prefs });
+    await save(db, user, st);
+    await emit(c as Ctx, 'data-search-updated', { changed: Object.keys(input.dealbreakers ?? {}), dealbreakers: st.search.dealbreakers });
+    return { summary: summarize(st.search), dealbreakers: st.search.dealbreakers, preferences: prefs.map((p) => p.label) };
+  },
+});
+
+export const searchListings = createTool({
+  id: 'searchListings',
+  description: 'Search the real NYC rental listings Fred has collected from StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and landlord sites. Returns the best matches with building scores from city records. Areas are neighbourhood or borough names.',
+  inputSchema: z.object({
+    areas: z.array(z.string()).optional().describe('e.g. ["williamsburg", "greenpoint"] or ["brooklyn"]'),
+    maxRent: z.number().optional(), minBeds: z.number().optional(), minBaths: z.number().optional(),
+    noFeeOnly: z.boolean().optional(), minBuildingScore: z.number().optional().describe('0-100; 60+ avoids buildings with many city complaints'),
+    limit: z.number().optional().describe('Default 15, max 40'),
+  }),
+  execute: async (input, c) => {
+    const { db } = who(c as Ctx);
+    const r = await search(db, input);
+    const where = input.areas?.length ? input.areas.join(', ') : 'all of NYC';
+    await emit(c as Ctx, 'data-scan', { checked: r.total, matched: r.found.length, hidden: 0, steps: [{ label: `Searched ${where}${input.maxRent ? ` up to $${input.maxRent.toLocaleString('en-US')}` : ''}`, toolCallId: null }] });
+    return { matching: r.total, showing: r.found.length, listings: r.found };
+  },
+});
+
+export const addToInbox = createTool({
+  id: 'addToInbox',
+  description: "Put listings from searchListings into the user's inbox as places, each with your verdict. Use likely_scam to hide a suspicious one with the reason. Over-budget ones can still go in with over_budget_with_fees.",
+  inputSchema: z.object({
+    places: z.array(z.object({
+      listingId: z.number(),
+      verdict: S.Verdict.shape.kind,
+      fit: z.number().min(0).max(100).describe('How well it fits this user'),
+      highlight: z.string().nullable().optional().describe('The one feature this user will care about most, e.g. "Washer/dryer in unit"'),
+      reason: z.string().nullable().optional().describe('Short reason shown on the card, mainly for warnings'),
+    })).min(1).max(20),
+  }),
+  execute: async ({ places }, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user), existing = new Set(view(st).cards.map((x) => x.id));
+    const added: Card[] = [];
+    for (const p of places) {
+      const card = await toCard(db, p.listingId, p);
+      if (card && !existing.has(card.id)) { added.push(card); existing.add(card.id); }
+    }
+    st.created = [...added, ...(st.created ?? [])];
+    await save(db, user, st);
+    return { added: added.map(compact), alreadyInInbox: places.length - added.length, counts: view(st).me.counts };
+  },
+});
+
+export const listInbox = createTool({
+  id: 'listInbox',
+  description: "List places in the user's inbox: new (includes hidden), saved, hidden or all.",
+  inputSchema: z.object({ view: z.enum(['new', 'saved', 'hidden', 'all']).default('new') }),
+  execute: async ({ view: tab }, c) => {
+    const { db, user } = who(c as Ctx);
+    const cards = view(await load(db, user)).cards.filter((o) => tab === 'all' || (tab === 'new' ? o.status === 'new' || o.status === 'hidden' : o.status === tab));
+    return { places: cards.map(compact) };
+  },
+});
+
+export const getPlace = createTool({
+  id: 'getPlace',
+  description: 'Everything about one place in the inbox: costs and fees, building record, photos, every site it is listed on, price history.',
+  inputSchema: z.object({ id: z.string().describe('Place id, like op_123') }),
+  execute: async ({ id }, c) => {
+    const { db, user } = who(c as Ctx);
+    const v = view(await load(db, user)), card = v.cards.find((x) => x.id === id);
+    if (!card) return { error: `No place ${id} in the inbox` };
+    return v.details[id] ?? (await detail(db, card)) ?? { ...v.details.op_hudson, ...card };
+  },
+});
+
+export const updatePlace = createTool({
+  id: 'updatePlace',
+  description: 'Save, pass on, hide or unhide a place, or add a note to it, when the user asks.',
+  inputSchema: z.object({ id: z.string(), status: S.OpportunityStatus.optional(), note: z.string().nullable().optional() }),
+  execute: async ({ id, status, note }, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user);
+    if (!view(st).cards.some((x) => x.id === id)) return { error: `No place ${id} in the inbox` };
+    st.cards[id] = { ...st.cards[id], ...(status && { status }), ...(note !== undefined && { note }) };
+    await save(db, user, st);
+    return { place: compact(view(st).cards.find((x) => x.id === id)!), counts: view(st).me.counts };
+  },
+});
+
+export const requestTour = createTool({
+  id: 'requestTour',
+  description: 'Draft a tour request for a place, with the times the user can do. This only creates a draft; nothing is sent to anyone.',
+  inputSchema: z.object({ placeId: z.string(), slots: z.array(z.object({ start: z.string().describe('ISO date-time'), end: z.string() })).min(1) }),
+  execute: async ({ placeId, slots }, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user), v = view(st), card = v.cards.find((x) => x.id === placeId);
+    if (!card) return { error: `No place ${placeId} in the inbox` };
+    const tour = { id: `tour_${crypto.randomUUID().slice(0, 8)}`, opportunityId: card.id, startsAt: null, address: v.details[card.id]?.address ?? card.area,
+                   status: 'draft' as const, contact: null, notes: `Asked for: ${slots.map((s) => s.start).join(', ')}` };
+    st.tours = [...v.tours, tour];
+    await save(db, user, st);
+    return { tour };
+  },
+});
+
+export const setAlerts = createTool({
+  id: 'setAlerts',
+  description: 'Change how the user hears about new places: instant_strong (strong fits right away), daily (one digest) or off.',
+  inputSchema: z.object({ mode: S.AlertMode, channel: z.enum(['email', 'sms', 'push']).optional() }),
+  execute: async (input, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user);
+    st.alerts = { ...view(st).alerts, ...input };
+    await save(db, user, st);
+    return st.alerts;
+  },
+});
+
+export const suggestReplies = createTool({
+  id: 'suggestReplies',
+  description: 'Show 2-3 quick-reply buttons under your message, usually ways to widen or narrow the search. Give each a search change when it has one. Call it last, after your text.',
+  inputSchema: z.object({
+    options: z.array(z.object({ label: z.string().describe('Short, e.g. "Allow 1.5 baths"'), dealbreakers: S.Dealbreakers.partial().nullable().optional() })).min(1).max(3),
+  }),
+  execute: async ({ options }, c) => {
+    await emit(c as Ctx, 'data-suggestions', { options: options.map((o) => ({ label: o.label, patch: o.dealbreakers ? { dealbreakers: o.dealbreakers } : null })) });
+    return { shown: options.map((o) => o.label) };
+  },
+});
+
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, suggestReplies };

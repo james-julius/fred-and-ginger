@@ -8,6 +8,12 @@ import { routes as R } from '@fng/api';
 import * as S from '@fng/api';
 import type { Env } from './ingest';
 import { applySearch, load, reset, reply, save, view, type Message } from './mock';
+import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context';
+import { toAISdkStream } from '@mastra/ai-sdk';
+import { fred } from './agent/fred';
+import { detail } from './agent/listings';
+
+const hasModelKey = (e: Env) => !!(e.ANTHROPIC_API_KEY || e.OPENAI_API_KEY || e.GOOGLE_GENERATIVE_AI_API_KEY);
 
 type Ctx = { Bindings: Env & { ME: string } };
 
@@ -52,8 +58,9 @@ v2.openapi(R.getOpportunity, async (c) => {
   const v = view(await state(c)), id = c.req.valid('param').id;
   const card = v.cards.find((o) => o.id === id);
   if (!card) return c.json(notFound, 404);
-  // only the first example has full detail; the rest borrow its shape
-  return c.json({ ...(v.details[id] ?? v.details.op_hudson), ...card }, 200);
+  // examples have hand-written detail; places Fred added come from the real listing
+  const real = v.details[id] ? null : await detail(c.env.DB, card);
+  return c.json(real ?? { ...(v.details[id] ?? v.details.op_hudson), ...card }, 200);
 });
 v2.openapi(R.patchOpportunity, async (c) => {
   const st = await state(c), id = c.req.valid('param').id;
@@ -106,11 +113,44 @@ v2.openapi(R.getThread, async (c) => {
   return c.json({ thread: { id, title: t.title, updatedAt: t.updatedAt }, messages: t.messages }, 200);
 });
 
-// Streams Fred's canned reply in the real AI SDK format, and saves both messages to the thread.
+// Fred for real when a model key is set; otherwise the canned reply. Both stream the AI SDK
+// format and save the turn to the thread.
 v2.openapi(R.chat, async (c) => {
   const st = await state(c), { threadId, message, context } = c.req.valid('json');
   const user = (message ?? {}) as Partial<Message>;
   const said = (user.parts ?? []).filter((p) => p.type === 'text').map((p) => String(p.text ?? '')).join(' ');
+  const userMsg: Message = { id: user.id ?? crypto.randomUUID(), role: 'user', parts: user.parts ?? [{ type: 'text', text: said }] };
+
+  if (hasModelKey(c.env)) {
+    const prior = view(st).threads[threadId];
+    // history as plain text for now; Mastra memory in Postgres replaces this
+    type Turn = { role: 'user'; content: string } | { role: 'assistant'; content: string };
+    const history: Turn[] = (prior?.messages ?? []).flatMap((m): Turn[] => {
+      const content = m.parts.filter((p) => p.type === 'text').map((p) => String(p.text)).join('\n');
+      return !content ? [] : [m.role === 'user' ? { role: 'user', content } : { role: 'assistant', content }];
+    });
+    const now = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'full', timeStyle: 'short' });
+    const note = [`(Now: ${now}, New York.)`, context?.opportunityId && `(The user has place ${context.opportunityId} open.)`].filter(Boolean).join(' ');
+    const rc = new RequestContext();
+    rc.set('env', c.env);
+    rc.set(MASTRA_RESOURCE_ID_KEY, c.env.ME);
+
+    const stream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        const out = await fred(c.env.FRED_MODEL).stream([...history, { role: 'user' as const, content: `${note}\n${said}` }], { requestContext: rc, maxSteps: 12 });
+        for await (const part of toAISdkStream(out, { from: 'agent', version: 'v7' })) writer.write(part as never);
+      },
+      onFinish: async ({ responseMessage }) => {
+        const fresh = await state(c), was = view(fresh).threads[threadId];
+        fresh.threads[threadId] = { title: was?.title ?? (said.slice(0, 60) || 'New chat'), updatedAt: new Date().toISOString(),
+          messages: [...(was?.messages ?? []), userMsg, { id: responseMessage.id, role: 'assistant', parts: responseMessage.parts as Message['parts'] }] };
+        await store(c, fresh);
+      },
+      onError: (e) => { console.error('fred', e); return 'Fred hit a problem answering that. Try again in a moment.'; },
+    });
+    return createUIMessageStreamResponse({ stream }) as never;
+  }
+
   const { parts, search } = reply(st, threadId, said, context?.opportunityId);
   const messageId = crypto.randomUUID(), now = new Date().toISOString();
 
