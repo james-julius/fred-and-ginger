@@ -312,7 +312,9 @@ v2.openapi(R.chat, async (c) => {
           requestContext: rc, maxSteps: 12,
           // cacheControl: Anthropic caches the whole prefix, so each step of the tool loop reads
           // the previous step's tokens at a tenth of the price. effort: low keeps chat fast.
-          providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' }, effort: effort as 'low' } },
+          // On Gemini (FRED_MODEL=google/…) the same setting is its thinking level.
+          providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' }, effort: effort as 'low' },
+                             google: { thinkingConfig: { thinkingLevel: effort as 'low' } } },
         });
         let firstText: number | null = null;
         for await (const part of toAISdkStream(out, { from: 'agent', version: 'v7', sendFinish: false })) {

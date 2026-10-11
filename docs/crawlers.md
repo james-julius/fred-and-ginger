@@ -1,6 +1,6 @@
 # Listing rows: what every nest actor pushes to its dataset
 
-Every source actor in `actor/<source>/` pushes one dataset row per rental listing.
+Every source crawler (an Apify actor, in the private crawlers repo) pushes one dataset row per rental listing.
 Field names and types below are fixed so `nest` can ingest every source the same way.
 Unknown values are `null`; never guess.
 
