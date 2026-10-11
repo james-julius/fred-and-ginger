@@ -49,18 +49,24 @@ export function applySearch(s: Search, p: SearchPatch): Search {
   return { ...s, ...p, dealbreakers: { ...d, areas: slugs(d.areas)!, ...(d.excludeAreas && { excludeAreas: slugs(d.excludeAreas) }) }, updatedAt: new Date().toISOString() };
 }
 
-/** The example data with this person's changes applied. */
+/** A search with nothing in it yet: Fred asks before he looks, and the inbox waits. */
+export const emptySearch = (now = new Date()): Search => ({
+  dealbreakers: { areas: [], maxTotalMonthly: null, minBeds: null, minBaths: null, pets: null, noBrokerFee: false, moveBy: null },
+  preferences: [], commutes: [], watching: true, updatedAt: now.toISOString(),
+});
+
+/** This person's state. Someone new starts empty: no search, places, tours or chats until they make them. */
 export function view(st: MockState, now = new Date()) {
   const f = fixtures(now);
-  const search = st.search ?? f.search, alerts = st.alerts ?? f.alerts, tours = st.tours ?? f.tours;
-  const cards: Card[] = [...(st.created ?? []), ...f.cards].map((c) => ({ ...c, ...st.cards[c.id] }));
+  const search = st.search ?? emptySearch(now), alerts = st.alerts ?? f.alerts, tours = st.tours ?? [];
+  const cards: Card[] = (st.created ?? []).map((c) => ({ ...c, ...st.cards[c.id] }));
   const upcoming = tours.filter((t) => t.status !== 'done' && t.status !== 'cancelled');
   const me = { ...f.me, alerts, summary: summarize(search), counts: {
     new: cards.filter((c) => c.status === 'new' && !c.seen).length,
     saved: cards.filter((c) => c.status === 'saved').length,
     tours: upcoming.length,
   } };
-  const threads: MockState['threads'] = { thread_1: { title: f.threads[0].title, updatedAt: f.threads[0].updatedAt, messages: f.messages as Message[] }, ...st.threads };
+  const threads: MockState['threads'] = { ...st.threads };
   return { ...f, search, alerts, tours, cards, me, threads };
 }
 

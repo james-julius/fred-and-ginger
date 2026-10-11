@@ -110,7 +110,9 @@ export const searchListings = createTool({
   execute: async (input, c) => {
     const { db, user } = who(c as Ctx);
     await (c as Ctx).requestContext?.get('savingSearch');
-    const saved = view(await load(db, user)).search, r = await search(db, saved, input);
+    const saved = view(await load(db, user)).search, sd = saved.dealbreakers;
+    if (!sd.areas.length && !sd.maxTotalMonthly && sd.minBeds == null) return { error: "The search is empty. Ask where they want to live and their budget (one short question), then updateSearch before searching." };
+    const r = await search(db, saved, input);
     for (const l of r.found) seen(c as Ctx).add(l.listingId);
     const areas = input.areas?.length ? input.areas : saved.dealbreakers.areas;
     const where = areas.length ? areas.join(', ') : 'all of NYC';
