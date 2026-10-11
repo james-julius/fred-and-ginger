@@ -15,6 +15,8 @@ const who = (c: Ctx) => {
   return { db: env.DB, user: env.ME };
 };
 const emit = (c: Ctx, type: string, data: unknown) => c.writer?.custom({ type, data });
+/** listing ids searchListings returned this turn; addToInbox only accepts these */
+const seen = (c: Ctx) => (c.requestContext?.get('seenListings') as Set<number> | undefined) ?? new Set<number>();
 
 const compact = (c: Card) => ({ id: c.id, area: c.area, price: c.price, beds: c.beds, baths: c.baths, status: c.status, seen: c.seen, verdict: c.verdict.label, highlight: c.highlight });
 
@@ -61,6 +63,7 @@ export const searchListings = createTool({
   execute: async (input, c) => {
     const { db } = who(c as Ctx);
     const r = await search(db, input);
+    for (const l of r.found) seen(c as Ctx).add(l.listingId);
     const where = input.areas?.length ? input.areas.join(', ') : 'all of NYC';
     await emit(c as Ctx, 'data-scan', { checked: r.total, matched: r.found.length, hidden: 0, steps: [{ label: `Searched ${where}${input.maxRent ? ` up to $${input.maxRent.toLocaleString('en-US')}` : ''}`, toolCallId: null }] });
     return { matching: r.total, showing: r.found.length, listings: r.found };
@@ -82,14 +85,18 @@ export const addToInbox = createTool({
   execute: async ({ places }, c) => {
     const { db, user } = who(c as Ctx);
     const st = await load(db, user), existing = new Set(view(st).cards.map((x) => x.id));
-    const added: Card[] = [];
-    for (const p of places) {
+    const added: Card[] = [], known = seen(c as Ctx);
+    const rejected = places.filter((p) => !known.has(p.listingId)).map((p) => p.listingId);
+    for (const p of places.filter((x) => known.has(x.listingId))) {
       const card = await toCard(db, p.listingId, p);
       if (card && !existing.has(card.id)) { added.push(card); existing.add(card.id); }
     }
     st.created = [...added, ...(st.created ?? [])];
     await save(db, user, st);
-    return { added: added.map(compact), alreadyInInbox: places.length - added.length, counts: view(st).me.counts };
+    return {
+      added: added.map(compact), alreadyInInbox: places.length - rejected.length - added.length, counts: view(st).me.counts,
+      ...(rejected.length && { rejected, why: 'These ids were not in your searchListings results this turn. Use ids exactly as returned.' }),
+    };
   },
 });
 
@@ -161,7 +168,7 @@ export const setAlerts = createTool({
 
 export const suggestReplies = createTool({
   id: 'suggestReplies',
-  description: 'Show 2-3 quick-reply buttons under your message, usually ways to widen or narrow the search. Give each a search change when it has one. Call it last, after your text.',
+  description: 'Show 2-3 quick-reply buttons under your message, usually ways to widen or narrow the search. Give each a search change when it has one. Call it before your final reply; the app shows the buttons under your message.',
   inputSchema: z.object({
     options: z.array(z.object({ label: z.string().describe('Short, e.g. "Allow 1.5 baths"'), dealbreakers: S.Dealbreakers.partial().nullable().optional() })).min(1).max(3),
   }),

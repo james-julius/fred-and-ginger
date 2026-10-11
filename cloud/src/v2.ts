@@ -10,7 +10,7 @@ import type { Env } from './ingest';
 import { applySearch, load, reset, reply, save, view, type Message } from './mock';
 import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context';
 import { toAISdkStream } from '@mastra/ai-sdk';
-import { fred } from './agent/fred';
+import { fred, DEFAULT_MODEL } from './agent/fred';
 import { detail } from './agent/listings';
 
 const hasModelKey = (e: Env) => !!(e.ANTHROPIC_API_KEY || e.OPENAI_API_KEY || e.GOOGLE_GENERATIVE_AI_API_KEY);
@@ -129,16 +129,38 @@ v2.openapi(R.chat, async (c) => {
       const content = m.parts.filter((p) => p.type === 'text').map((p) => String(p.text)).join('\n');
       return !content ? [] : [m.role === 'user' ? { role: 'user', content } : { role: 'assistant', content }];
     });
+    // Per-turn facts go in the user message, after the cached prefix (tools + instructions + history).
+    // Sending the current search saves Fred a getSearch round trip.
     const now = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'full', timeStyle: 'short' });
-    const note = [`(Now: ${now}, New York.)`, context?.opportunityId && `(The user has place ${context.opportunityId} open.)`].filter(Boolean).join(' ');
+    const s = view(st).search;
+    const note = [
+      `(Now: ${now}, New York.)`,
+      `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.label) })})`,
+      context?.opportunityId && `(The user has place ${context.opportunityId} open.)`,
+    ].filter(Boolean).join('\n');
     const rc = new RequestContext();
     rc.set('env', c.env);
     rc.set(MASTRA_RESOURCE_ID_KEY, c.env.ME);
+    rc.set('seenListings', new Set<number>());
+    const model = c.env.FRED_MODEL || DEFAULT_MODEL, t0 = Date.now();
 
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
-        const out = await fred(c.env.FRED_MODEL).stream([...history, { role: 'user' as const, content: `${note}\n${said}` }], { requestContext: rc, maxSteps: 12 });
-        for await (const part of toAISdkStream(out, { from: 'agent', version: 'v7' })) writer.write(part as never);
+        const out = await fred(model).stream([...history, { role: 'user' as const, content: `${note}\n\n${said}` }], {
+          requestContext: rc, maxSteps: 12,
+          // cacheControl: Anthropic caches the whole prefix, so each step of the tool loop reads
+          // the previous step's tokens at a tenth of the price. effort: low keeps chat fast.
+          providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' }, effort: c.env.FRED_EFFORT || 'low' } },
+        });
+        let firstText: number | null = null;
+        for await (const part of toAISdkStream(out, { from: 'agent', version: 'v7', sendFinish: false })) {
+          if (firstText == null && (part as { type: string }).type === 'text-delta') firstText = Date.now() - t0;
+          writer.write(part as never);
+        }
+        // timing and token usage, for the eval suite and for watching cost
+        const usage = await out.totalUsage;
+        writer.write({ type: 'message-metadata', messageMetadata: { model, ms: Date.now() - t0, msToFirstText: firstText, usage } } as never);
+        writer.write({ type: 'finish' });
       },
       onFinish: async ({ responseMessage }) => {
         const fresh = await state(c), was = view(fresh).threads[threadId];

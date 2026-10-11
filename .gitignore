@@ -10,3 +10,4 @@ storage/
 .env*
 *.log
 .gstack/
+evals/results/
