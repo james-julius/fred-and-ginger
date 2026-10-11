@@ -1,0 +1,1119 @@
+{
+ "props": {
+  "pageProps": {
+   "componentProps": {
+    "initialReduxState": {
+     "gdp": {
+      "building": {
+       "buildingName": "",
+       "streetAddress": "212 Grand St",
+       "lotId": "1004339160",
+       "bdpUrl": "/b/212-grand-st-brooklyn-ny-5YDkMY/",
+       "fullAddress": "212 Grand St, Brooklyn, NY 11211",
+       "description": null,
+       "buildingAttributes": {
+        "customAmenities": null,
+        "customPropertyAmenities": null,
+        "customUnitAmenities": null,
+        "appliances": [
+         "Unknown"
+        ],
+        "floorCoverings": [
+         "Hardwood"
+        ],
+        "communicationTypes": [
+         "Unknown"
+        ],
+        "hasCeilingFan": null,
+        "hasFireplace": false,
+        "hasPatioBalcony": null,
+        "isFurnished": null,
+        "communityRooms": [
+         "Unknown"
+        ],
+        "sportsCourts": [
+         "Unknown"
+        ],
+        "hasBicycleStorage": null,
+        "hasGuestSuite": null,
+        "hasStorage": null,
+        "hasPetPark": null,
+        "hasTwentyFourHourMaintenance": null,
+        "hasDryCleaningDropOff": null,
+        "hasOnlineRentPayment": null,
+        "hasOnlineMaintenancePortal": null,
+        "hasOnsiteManagement": null,
+        "hasPackageService": null,
+        "hasValetTrash": null,
+        "hasSpanishSpeakingStaff": null,
+        "securityTypes": [
+         "Unknown"
+        ],
+        "viewType": [
+         "Unknown"
+        ],
+        "hasHotTub": false,
+        "hasSauna": null,
+        "hasSwimmingPool": false,
+        "hasAssistedLiving": false,
+        "hasDisabledAccess": null,
+        "hasSharedLaundry": null,
+        "outdoorCommonAreas": [
+         "Unknown"
+        ],
+        "hasBarbecue": null,
+        "heatingSource": "Unknown",
+        "petPolicies": [
+         "Unknown"
+        ],
+        "hasElevator": null,
+        "parkingDescription": null,
+        "petPolicyDescription": null,
+        "parkingRentDescription": null,
+        "isSmokeFree": null,
+        "applicationFee": null,
+        "administrativeFee": null,
+        "depositFeeMin": null,
+        "depositFeeMax": null,
+        "airConditioning": "Unknown",
+        "leaseTerms": [
+         "Unknown"
+        ],
+        "parkingTypes": [
+         "Unknown"
+        ],
+        "utilitiesIncluded": [
+         "Unknown"
+        ],
+        "detailedParkingPolicies": null,
+        "detailedPetPolicy": null,
+        "leaseLengths": null,
+        "rentalProductType": null,
+        "unitCount": null,
+        "incomeRestrictions": null,
+        "communityType": null,
+        "carouselDisabled": false,
+        "rentalCostAndFeesDisclaimer": null
+       },
+       "amenityDetails": {
+        "hours": [],
+        "pets": [],
+        "petDetails": [],
+        "customAmenities": null,
+        "unitFeatures": [
+         "Hardwood flooring"
+        ]
+       },
+       "amenitySummary": {
+        "buildingDetails": null,
+        "laundry": null
+       },
+       "rentalCostsAndFees": {
+        "leaseDuration": null,
+        "selectors": {
+         "beds": [
+          {
+           "numBeds": 1,
+           "selector": {
+            "displayName": "1 bd",
+            "costs": {
+             "baseRent": {
+              "amount": {
+               "displayText": null,
+               "max": 4400,
+               "min": 4400
+              }
+             }
+            }
+           }
+          },
+          {
+           "numBeds": 2,
+           "selector": {
+            "displayName": "2 bd",
+            "costs": {
+             "baseRent": {
+              "amount": {
+               "displayText": null,
+               "max": 4450,
+               "min": 4450
+              }
+             }
+            }
+           }
+          }
+         ]
+        }
+       },
+       "rentalUnitsSummary": {
+        "availableUnitCount": 2,
+        "unitCount": 2,
+        "listPriceIncludesRequiredMonthlyFees": false
+       },
+       "ungroupedUnits": [
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 3R",
+         "zpid": "2106723250",
+         "price": 4400,
+         "baths": 1,
+         "beds": 1,
+         "hdpUrl": "/homedetails/212-Grand-St-APT-3R-Brooklyn-NY-11211/2106723250_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1793516400000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4400,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 1C",
+         "zpid": "465787883",
+         "price": 4450,
+         "baths": 1,
+         "beds": 2,
+         "hdpUrl": "/homedetails/212-Grand-St-1C-Brooklyn-NY-11211/465787883_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791183600000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4450,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 2A",
+         "zpid": "2078337437",
+         "price": 1658300,
+         "baths": 2,
+         "beds": 2,
+         "hdpUrl": "/homedetails/212-Grand-St-2A-Brooklyn-NY-11211/2078337437_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 3M",
+         "zpid": "2071996715",
+         "price": 1854900,
+         "baths": 2,
+         "beds": 3,
+         "hdpUrl": "/homedetails/212-Grand-St-3M-Brooklyn-NY-11211/2071996715_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit L2",
+         "zpid": "2077974701",
+         "price": 1854900,
+         "baths": 2,
+         "beds": 3,
+         "hdpUrl": "/homedetails/212-Grand-St-L2-Brooklyn-NY-11211/2077974701_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 2D",
+         "zpid": "2073063629",
+         "price": 1931400,
+         "baths": 2,
+         "beds": 4,
+         "hdpUrl": "/homedetails/212-Grand-St-2D-Brooklyn-NY-11211/2073063629_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 3F",
+         "zpid": "2075215777",
+         "price": 1931400,
+         "baths": 2,
+         "beds": 4,
+         "hdpUrl": "/homedetails/212-Grand-St-3F-Brooklyn-NY-11211/2075215777_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 3",
+         "zpid": "2075633065",
+         "price": 1931400,
+         "baths": 2,
+         "beds": 4,
+         "hdpUrl": "/homedetails/212-Grand-St-APT-3-Brooklyn-NY-11211/2075633065_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 4",
+         "zpid": "2076620556",
+         "price": 1931400,
+         "baths": 2,
+         "beds": 4,
+         "hdpUrl": "/homedetails/212-Grand-St-APT-4-Brooklyn-NY-11211/2076620556_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 1B",
+         "zpid": "465593602",
+         "price": null,
+         "baths": 1,
+         "beds": 1,
+         "hdpUrl": "/homedetails/212-Grand-St-1B-Brooklyn-NY-11211/465593602_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1790578800000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4549,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 1A",
+         "zpid": "465470620",
+         "price": null,
+         "baths": 1,
+         "beds": 2,
+         "hdpUrl": "/homedetails/212-Grand-St-1A-Brooklyn-NY-11211/465470620_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1789974000000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4549,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 1L",
+         "zpid": "2117020492",
+         "price": null,
+         "baths": 1,
+         "beds": 2,
+         "hdpUrl": "/homedetails/212-Grand-St-APT-1L-Brooklyn-NY-11211/2117020492_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1789369200000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4750,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 1R",
+         "zpid": "2093019612",
+         "price": null,
+         "baths": 1,
+         "beds": 2,
+         "hdpUrl": "/homedetails/212-Grand-St-APT-1R-Brooklyn-NY-11211/2093019612_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1790838000000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4950,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 3L",
+         "zpid": "2109245155",
+         "price": null,
+         "baths": 2,
+         "beds": 2,
+         "hdpUrl": "/homedetails/212-Grand-St-APT-3L-Brooklyn-NY-11211/2109245155_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1788246000000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 5200,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 2LI",
+         "zpid": "2078235954",
+         "price": null,
+         "baths": 2,
+         "beds": 3,
+         "hdpUrl": "/homedetails/212-Grand-St-2LI-Brooklyn-NY-11211/2078235954_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1754031600000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 3LL",
+         "zpid": "2069957091",
+         "price": null,
+         "baths": 1,
+         "beds": 2,
+         "hdpUrl": "/homedetails/212-Grand-St-3LL-Brooklyn-NY-11211/2069957091_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 2L",
+         "zpid": "2117059304",
+         "price": null,
+         "baths": 2,
+         "beds": 2,
+         "hdpUrl": "/homedetails/212-Grand-St-APT-2L-Brooklyn-NY-11211/2117059304_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1754031600000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 2R",
+         "zpid": "2061465446",
+         "price": null,
+         "baths": 1,
+         "beds": 1,
+         "hdpUrl": "/homedetails/212-Grand-St-2R-Brooklyn-NY-11211/2061465446_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 3LA",
+         "zpid": "2069916763",
+         "price": null,
+         "baths": 2,
+         "beds": 2,
+         "hdpUrl": "/homedetails/212-Grand-St-3LA-Brooklyn-NY-11211/2069916763_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "0",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": null,
+         "baseRent": null,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        }
+       ],
+       "floorPlans": null,
+       "detailedPetPolicy": null,
+       "zovInsight": null,
+       "photos": [
+        {
+         "caption": null,
+         "photoKey": "b99f76a2f3656cc23c4cdc640ff711df",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/b99f76a2f3656cc23c4cdc640ff711df-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b99f76a2f3656cc23c4cdc640ff711df-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b99f76a2f3656cc23c4cdc640ff711df-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b99f76a2f3656cc23c4cdc640ff711df-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b99f76a2f3656cc23c4cdc640ff711df-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b99f76a2f3656cc23c4cdc640ff711df-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b99f76a2f3656cc23c4cdc640ff711df-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "bcbb097acef43caed3f0c28f4c6e6da1",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/bcbb097acef43caed3f0c28f4c6e6da1-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bcbb097acef43caed3f0c28f4c6e6da1-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bcbb097acef43caed3f0c28f4c6e6da1-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bcbb097acef43caed3f0c28f4c6e6da1-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bcbb097acef43caed3f0c28f4c6e6da1-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bcbb097acef43caed3f0c28f4c6e6da1-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bcbb097acef43caed3f0c28f4c6e6da1-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "180d20b657976b45817182b2f712e292",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/180d20b657976b45817182b2f712e292-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/180d20b657976b45817182b2f712e292-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/180d20b657976b45817182b2f712e292-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/180d20b657976b45817182b2f712e292-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/180d20b657976b45817182b2f712e292-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/180d20b657976b45817182b2f712e292-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/180d20b657976b45817182b2f712e292-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "87237afd2f313bc9739ed8ba2a49d3f6",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/87237afd2f313bc9739ed8ba2a49d3f6-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/87237afd2f313bc9739ed8ba2a49d3f6-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/87237afd2f313bc9739ed8ba2a49d3f6-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/87237afd2f313bc9739ed8ba2a49d3f6-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/87237afd2f313bc9739ed8ba2a49d3f6-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/87237afd2f313bc9739ed8ba2a49d3f6-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/87237afd2f313bc9739ed8ba2a49d3f6-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "bf3c11b7fad31f7dbec0f782dc172178",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/bf3c11b7fad31f7dbec0f782dc172178-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bf3c11b7fad31f7dbec0f782dc172178-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bf3c11b7fad31f7dbec0f782dc172178-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bf3c11b7fad31f7dbec0f782dc172178-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bf3c11b7fad31f7dbec0f782dc172178-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bf3c11b7fad31f7dbec0f782dc172178-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/bf3c11b7fad31f7dbec0f782dc172178-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "cc1623ac9c5dfda7b5f9d327def6a705",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/cc1623ac9c5dfda7b5f9d327def6a705-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/cc1623ac9c5dfda7b5f9d327def6a705-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/cc1623ac9c5dfda7b5f9d327def6a705-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/cc1623ac9c5dfda7b5f9d327def6a705-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/cc1623ac9c5dfda7b5f9d327def6a705-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/cc1623ac9c5dfda7b5f9d327def6a705-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/cc1623ac9c5dfda7b5f9d327def6a705-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "9e0f4f84d5d9af64b93a884267723d0a",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/9e0f4f84d5d9af64b93a884267723d0a-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9e0f4f84d5d9af64b93a884267723d0a-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9e0f4f84d5d9af64b93a884267723d0a-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9e0f4f84d5d9af64b93a884267723d0a-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9e0f4f84d5d9af64b93a884267723d0a-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9e0f4f84d5d9af64b93a884267723d0a-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9e0f4f84d5d9af64b93a884267723d0a-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "b57d505313b44e5b97890c363ee4eb70",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/b57d505313b44e5b97890c363ee4eb70-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b57d505313b44e5b97890c363ee4eb70-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b57d505313b44e5b97890c363ee4eb70-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b57d505313b44e5b97890c363ee4eb70-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b57d505313b44e5b97890c363ee4eb70-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b57d505313b44e5b97890c363ee4eb70-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/b57d505313b44e5b97890c363ee4eb70-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        }
+       ]
+      }
+     }
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,860 @@
+{
+ "props": {
+  "pageProps": {
+   "componentProps": {
+    "initialReduxState": {
+     "gdp": {
+      "building": {
+       "buildingName": "",
+       "streetAddress": "229 Wythe Ave",
+       "lotId": "2009906469",
+       "bdpUrl": "/b/229-wythe-ave-brooklyn-ny-97dwFN/",
+       "fullAddress": "229 Wythe Ave, Brooklyn, NY 11249",
+       "description": "PRIME WILLIAMSBURG LUXURY RENTALS AT RELISH ON WYTHE\n\nIntroducing Relish on Wythe, a boutique luxury rental offering at the corner of Wythe Avenue and North 3rd Street, in the heart of one of Williamsburg's most coveted neighborhoods.\n\nBoutique living meets modern luxury with a limited collection of thoughtfully designed residences ranging from studios to spacious two-bedroom homes. With only a handful of each layout available, Relish on Wythe offers an intimate residential experience in a location that puts the very best of Williamsburg right outside your door.\n\nEach residence has been designed with a focus on space, light, and elevated finishes. Expansive floor-to-ceiling windows fill the homes with natural light, while select residences feature private outdoor spacecreating a seamless connection between your home and the energy of the neighborhood.\n\nInteriors feature contemporary kitchens with stainless steel appliances, high-end bathrooms, central heating and air conditioning, and overhead lighting throughout. Thoughtfully designed lighting details include recessed and spotlight illumination in the bathrooms, giving the residences a refined, finished feel from room to room.\n\nBUILDING AMENITIES\n\nResidents enjoy a carefully curated collection of amenities, including an elevator, fitness center, landscaped outdoor deck, and rooftopproviding spaces to work out, unwind, entertain, or simply take in the surrounding Williamsburg atmosphere.\n\nTHE LOCATION\n\nSet on Wythe Avenue at North 3rd Street, Relish on Wythe places you just two blocks from the Williamsburg waterfront and moments from Domino Park, the East River, and some of Brooklyn's most desirable shopping, dining, nightlife, and recreation.\n\nThe neighborhood has become one of New York City's premier retail destinations, with Todd Snyder, Herman Miller, J.Crew and other leading fashion, furniture, and lifestyle brands nearby. Everyday conveniences are equally accessible, with Trader Joe's and Whole Foods Market just minutes away.\n\nWilliamsburg's renowned dining scene surrounds the building. Neighborhood favorites include TONCHIN BROOKLYN right on North 3rd Street, Cafe Mogador on Wythe Avenue, and Jack's Wife Freda just up Wythe, with celebrated destinations including Le Crocodile, Sunday in Brooklyn, and countless cafes, cocktail bars, restaurants, and nightlife options throughout the surrounding blocks. (The Infatuation)\n\nFor commuting, the Bedford Avenue L train is just minutes away, providing quick access to Manhattan while keeping you firmly in the center of everything that makes Williamsburg one of Brooklyn's most sought-after neighborhoods.\n\nBoutique scale. Elevated residences. An unbeatable Williamsburg location. Welcome to Relish on Wythe.",
+       "buildingAttributes": {
+        "customAmenities": null,
+        "customPropertyAmenities": null,
+        "customUnitAmenities": null,
+        "appliances": [
+         "Dishwasher",
+         "Dryer",
+         "Washer"
+        ],
+        "floorCoverings": [
+         "Hardwood"
+        ],
+        "communicationTypes": [
+         "Unknown"
+        ],
+        "hasCeilingFan": null,
+        "hasFireplace": false,
+        "hasPatioBalcony": null,
+        "isFurnished": null,
+        "communityRooms": [
+         "Unknown"
+        ],
+        "sportsCourts": [
+         "Unknown"
+        ],
+        "hasBicycleStorage": null,
+        "hasGuestSuite": null,
+        "hasStorage": null,
+        "hasPetPark": null,
+        "hasTwentyFourHourMaintenance": null,
+        "hasDryCleaningDropOff": null,
+        "hasOnlineRentPayment": null,
+        "hasOnlineMaintenancePortal": null,
+        "hasOnsiteManagement": null,
+        "hasPackageService": null,
+        "hasValetTrash": null,
+        "hasSpanishSpeakingStaff": null,
+        "securityTypes": [
+         "Unknown"
+        ],
+        "viewType": [
+         "Unknown"
+        ],
+        "hasHotTub": false,
+        "hasSauna": null,
+        "hasSwimmingPool": false,
+        "hasAssistedLiving": false,
+        "hasDisabledAccess": null,
+        "hasSharedLaundry": null,
+        "outdoorCommonAreas": [
+         "Unknown"
+        ],
+        "hasBarbecue": null,
+        "heatingSource": "Unknown",
+        "petPolicies": [
+         "Unknown"
+        ],
+        "hasElevator": null,
+        "parkingDescription": null,
+        "petPolicyDescription": null,
+        "parkingRentDescription": null,
+        "isSmokeFree": null,
+        "applicationFee": null,
+        "administrativeFee": null,
+        "depositFeeMin": null,
+        "depositFeeMax": null,
+        "airConditioning": "Unknown",
+        "leaseTerms": [
+         "Unknown"
+        ],
+        "parkingTypes": [
+         "Unknown"
+        ],
+        "utilitiesIncluded": [
+         "Unknown"
+        ],
+        "detailedParkingPolicies": null,
+        "detailedPetPolicy": null,
+        "leaseLengths": null,
+        "rentalProductType": null,
+        "unitCount": null,
+        "incomeRestrictions": null,
+        "communityType": null,
+        "carouselDisabled": null,
+        "rentalCostAndFeesDisclaimer": null
+       },
+       "amenityDetails": {
+        "hours": [],
+        "pets": [],
+        "petDetails": [],
+        "customAmenities": null,
+        "unitFeatures": [
+         "Dishwasher",
+         "Hardwood flooring"
+        ]
+       },
+       "amenitySummary": {
+        "buildingDetails": null,
+        "laundry": [
+         "Washer/dryer"
+        ]
+       },
+       "rentalCostsAndFees": {
+        "leaseDuration": null,
+        "selectors": {
+         "beds": [
+          {
+           "numBeds": 0,
+           "selector": {
+            "displayName": "Studio",
+            "costs": {
+             "baseRent": {
+              "amount": {
+               "displayText": null,
+               "max": 4650,
+               "min": 4650
+              }
+             }
+            }
+           }
+          },
+          {
+           "numBeds": 1,
+           "selector": {
+            "displayName": "1 bd",
+            "costs": {
+             "baseRent": {
+              "amount": {
+               "displayText": null,
+               "max": 6750,
+               "min": 6150
+              }
+             }
+            }
+           }
+          },
+          {
+           "numBeds": 2,
+           "selector": {
+            "displayName": "2 bd",
+            "costs": {
+             "baseRent": {
+              "amount": {
+               "displayText": null,
+               "max": 9450,
+               "min": 8150
+              }
+             }
+            }
+           }
+          }
+         ]
+        }
+       },
+       "rentalUnitsSummary": {
+        "availableUnitCount": 6,
+        "unitCount": 6,
+        "listPriceIncludesRequiredMonthlyFees": false
+       },
+       "ungroupedUnits": [
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 214",
+         "zpid": "465883196",
+         "price": 4650,
+         "baths": 1,
+         "beds": 0,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-214-Brooklyn-NY-11249/465883196_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791442800000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4650,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 202",
+         "zpid": "465883221",
+         "price": 6150,
+         "baths": 1,
+         "beds": 1,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-202-Brooklyn-NY-11249/465883221_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791442800000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 6150,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 506",
+         "zpid": "465883222",
+         "price": 6750,
+         "baths": 1,
+         "beds": 1,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-506-Brooklyn-NY-11249/465883222_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791442800000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 6750,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 401",
+         "zpid": "465891228",
+         "price": 8150,
+         "baths": 2,
+         "beds": 2,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-401-Brooklyn-NY-11249/465891228_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791442800000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 8150,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 206",
+         "zpid": "465883230",
+         "price": 8750,
+         "baths": 2,
+         "beds": 2,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-206-Brooklyn-NY-11249/465883230_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791442800000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 8750,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 404",
+         "zpid": "465883214",
+         "price": 9450,
+         "baths": 2,
+         "beds": 2,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-404-Brooklyn-NY-11249/465883214_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791442800000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 9450,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 204",
+         "zpid": "465798842",
+         "price": null,
+         "baths": 1,
+         "beds": 0,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-204-Brooklyn-NY-11249/465798842_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791183600000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4650,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 504",
+         "zpid": "465798835",
+         "price": null,
+         "baths": 2,
+         "beds": 2,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-504-Brooklyn-NY-11249/465798835_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791183600000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 9525,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 301",
+         "zpid": "465798837",
+         "price": null,
+         "baths": 2,
+         "beds": 2,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-301-Brooklyn-NY-11249/465798837_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791183600000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 8100,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "OTHER",
+         "unitNumber": "Unit 306",
+         "zpid": "465798829",
+         "price": null,
+         "baths": 1,
+         "beds": 1,
+         "hdpUrl": "/homedetails/229-Wythe-Ave-306-Brooklyn-NY-11249/465798829_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1791183600000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 6600,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        }
+       ],
+       "floorPlans": null,
+       "detailedPetPolicy": null,
+       "zovInsight": null,
+       "photos": [
+        {
+         "caption": null,
+         "photoKey": "472290b1c47b2ae47c2e14b507a2f121",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/472290b1c47b2ae47c2e14b507a2f121-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/472290b1c47b2ae47c2e14b507a2f121-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/472290b1c47b2ae47c2e14b507a2f121-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/472290b1c47b2ae47c2e14b507a2f121-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/472290b1c47b2ae47c2e14b507a2f121-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/472290b1c47b2ae47c2e14b507a2f121-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/472290b1c47b2ae47c2e14b507a2f121-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "614cc6805d4ae20295e5b7c01aed9df2",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/614cc6805d4ae20295e5b7c01aed9df2-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/614cc6805d4ae20295e5b7c01aed9df2-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/614cc6805d4ae20295e5b7c01aed9df2-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/614cc6805d4ae20295e5b7c01aed9df2-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/614cc6805d4ae20295e5b7c01aed9df2-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/614cc6805d4ae20295e5b7c01aed9df2-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/614cc6805d4ae20295e5b7c01aed9df2-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "9fce6a7eff7e5d974ddf73d03e76fe6a",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/9fce6a7eff7e5d974ddf73d03e76fe6a-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9fce6a7eff7e5d974ddf73d03e76fe6a-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9fce6a7eff7e5d974ddf73d03e76fe6a-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9fce6a7eff7e5d974ddf73d03e76fe6a-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9fce6a7eff7e5d974ddf73d03e76fe6a-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9fce6a7eff7e5d974ddf73d03e76fe6a-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9fce6a7eff7e5d974ddf73d03e76fe6a-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "430ed0196b6142c8b81a65f5d7d5feea",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/430ed0196b6142c8b81a65f5d7d5feea-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/430ed0196b6142c8b81a65f5d7d5feea-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/430ed0196b6142c8b81a65f5d7d5feea-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/430ed0196b6142c8b81a65f5d7d5feea-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/430ed0196b6142c8b81a65f5d7d5feea-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/430ed0196b6142c8b81a65f5d7d5feea-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/430ed0196b6142c8b81a65f5d7d5feea-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "9096ea6978f143a8d62ca2ec2d892027",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/9096ea6978f143a8d62ca2ec2d892027-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9096ea6978f143a8d62ca2ec2d892027-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9096ea6978f143a8d62ca2ec2d892027-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9096ea6978f143a8d62ca2ec2d892027-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9096ea6978f143a8d62ca2ec2d892027-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9096ea6978f143a8d62ca2ec2d892027-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/9096ea6978f143a8d62ca2ec2d892027-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "38877153209a08bafc1b41b23dd2e843",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/38877153209a08bafc1b41b23dd2e843-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/38877153209a08bafc1b41b23dd2e843-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/38877153209a08bafc1b41b23dd2e843-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/38877153209a08bafc1b41b23dd2e843-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/38877153209a08bafc1b41b23dd2e843-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/38877153209a08bafc1b41b23dd2e843-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/38877153209a08bafc1b41b23dd2e843-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "24e1aa26f441bed983537a226e0e58bf",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/24e1aa26f441bed983537a226e0e58bf-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/24e1aa26f441bed983537a226e0e58bf-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/24e1aa26f441bed983537a226e0e58bf-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/24e1aa26f441bed983537a226e0e58bf-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/24e1aa26f441bed983537a226e0e58bf-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/24e1aa26f441bed983537a226e0e58bf-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/24e1aa26f441bed983537a226e0e58bf-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "5ea0b248f33520469e942edf7235af4b",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/5ea0b248f33520469e942edf7235af4b-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/5ea0b248f33520469e942edf7235af4b-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/5ea0b248f33520469e942edf7235af4b-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/5ea0b248f33520469e942edf7235af4b-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/5ea0b248f33520469e942edf7235af4b-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/5ea0b248f33520469e942edf7235af4b-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/5ea0b248f33520469e942edf7235af4b-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "6e84b1da49ecb3cc92d5bc7d4d36df30",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/6e84b1da49ecb3cc92d5bc7d4d36df30-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/6e84b1da49ecb3cc92d5bc7d4d36df30-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/6e84b1da49ecb3cc92d5bc7d4d36df30-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/6e84b1da49ecb3cc92d5bc7d4d36df30-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/6e84b1da49ecb3cc92d5bc7d4d36df30-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/6e84b1da49ecb3cc92d5bc7d4d36df30-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/6e84b1da49ecb3cc92d5bc7d4d36df30-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        }
+       ]
+      }
+     }
+    }
+   }
+  }
+ }
+}

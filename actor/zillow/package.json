@@ -5,7 +5,10 @@
   "private": true,
   "description": "Zillow NYC rental search results for nest (personal apartment search)",
   "main": "src/main.js",
-  "scripts": { "start": "node src/main.js" },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test test/"
+  },
   "dependencies": {
     "apify": "^3.2.6",
     "crawlee": "^3.13.0",
