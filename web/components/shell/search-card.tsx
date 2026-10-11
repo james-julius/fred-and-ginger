@@ -65,7 +65,7 @@ export function SearchCard({ tools, scans, places = [], running }: { tools: Tool
   ];
   // What floats over the skyline: the areas and filters Fred is searching, then listings from the
   // results ("2 bd · $3,400 · Harlem") once they're in, then what it's reading.
-  const samples = scans.flatMap((s) => (s as S["DataScan"] & { samples?: string[] }).samples ?? []);
+  const samples = scans.flatMap((s) => s.samples ?? []);
   const searched = [...searches.flatMap((t) => (Array.isArray(t.input.areas) ? (t.input.areas as string[]).map(titleCase) : ["All of NYC"])), ...filters];
   const labels = [...(samples.length ? samples : searched), ...research.map((t) => describe(t).now)];
 
@@ -121,9 +121,8 @@ export function SearchCard({ tools, scans, places = [], running }: { tools: Tool
   );
 }
 
-/** Chat part data-places: the places addToInbox added, best first, and which it hid as likely scams.
- * TODO: S["DataPlaces"] once `npm run gen:api` picks up openapi v5 (board #34). */
-export type DataPlaces = { ids: string[]; hidden: string[] };
+/** Chat part data-places: the places addToInbox added, best first, and which it hid as likely scams. */
+export type DataPlaces = S["DataPlaces"];
 
 function fromParts(parts: DataPlaces[]) {
   const all = [...new Set(parts.flatMap((p) => p.ids))], hidden = new Set(parts.flatMap((p) => p.hidden));
