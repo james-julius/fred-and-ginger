@@ -56,6 +56,15 @@ Counts are scaled by building size, then rolled into a 0–100 score with the re
 - **The UI:** New / Both like / I like / Erin likes / Passed, notes, filters and a map.
 - **Deploy:** `cd cloud && npx wrangler deploy`. Migrations: `npx wrangler d1 migrations apply nest --remote`.
 
+## The new app (web/)
+
+A Next.js 16 app with Tailwind 4 and Geist that will replace the grid the Worker serves today. The design is in two pages; ask Erin for access: the [app shell](https://claude.ai/artifact/7uQWQmj21bLe4dhVkFe8zd) and the [research behind it](https://claude.ai/artifact/SeW3ZkN9Rm7BWNP5ckdsyA).
+
+- **Local:** `cd web && npm install && npm run dev`, then open http://localhost:3000.
+- **Data:** `/api/*`, `/login` and `/logout` are proxied to the Worker. Production is the default. To use `wrangler dev`, put `FRED_API_URL=http://localhost:8787` in `web/.env.local`.
+- **Theme:** `web/app/globals.css`. Token names follow shadcn/ui, so shadcn and AI Elements components pick them up.
+- **Hosting:** not decided yet. The options are Vercel, or Cloudflare via OpenNext.
+
 ## Crawlers (actor/)
 
 Apify actors on the jamesjulius account (deploy with `apify push`). Every actor pushes rows in the shape described in `actor/SCHEMA.md`.
