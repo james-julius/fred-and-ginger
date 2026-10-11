@@ -10,6 +10,7 @@ import { cellOf, toSafety } from './safety';
 import { areaLabel } from './areas';
 import { costsOf, feeCallout, highlights, scamSigns, typicalKey, typicalRents, type Facts } from './facts';
 import { dealbreakerWhere } from './filter';
+import { checkMusts, mustsOf } from './musts';
 import { photosOf } from './photos';
 
 type Search = z.infer<typeof S.Search>;
@@ -79,9 +80,11 @@ export async function inbox(db: D1Database, user: string, st: MockState, s: Sear
     db.prepare(`SELECT ${COLS} FROM listings l LEFT JOIN buildings b ON b.bbl=l.bbl WHERE ${where.join(' AND ')} ORDER BY l.first_seen DESC LIMIT ${MAX}`).bind(...args),
     db.prepare(`SELECT ${COLS}, v.vote, v.note FROM votes v JOIN listings l ON l.id=v.listing_id LEFT JOIN buildings b ON b.bbl=l.bbl
                 WHERE v.user=? AND (v.vote IN (1,-1) OR v.note IS NOT NULL ${touched.length ? `OR l.id IN (${touched.join(',')})` : ''})`).bind(user),
-    db.prepare(`SELECT l.id FROM listings l LEFT JOIN buildings b ON b.bbl=l.bbl WHERE ${where.join(' AND ')} AND l.id IN (${created.join(',') || 'NULL'})`).bind(...args),
+    db.prepare(`SELECT l.id, l.facts FROM listings l LEFT JOIN buildings b ON b.bbl=l.bbl WHERE ${where.join(' AND ')} AND l.id IN (${created.join(',') || 'NULL'})`).bind(...args),
   ]);
-  const rows = [...(matched.results as any[]), ...(voted.results as any[])];
+  // a place that clearly lacks a must-have doesn't show, unless they already acted on it
+  const musts = mustsOf(s), ok = (r: any) => !checkMusts(musts, json<Facts | null>(r.facts, null)).lacks.length;
+  const rows = [...(matched.results as any[]).filter(ok), ...(voted.results as any[])];
   const typical = await typicalRents(db, rows.map((r) => r.neighbourhood));
   // area safety for every checked cell (a few hundred small rows), ranked against each other
   const areas = (await db.prepare('SELECT cell, violent, property, total, report FROM areas').all<any>()).results;
@@ -89,7 +92,7 @@ export async function inbox(db: D1Database, user: string, st: MockState, s: Sear
   const byCell = new Map(areas.map((a) => [a.cell, a]));
   const safer = (r: any) => { const a = r.lat != null && ranks && byCell.get(cellOf(r.lat, r.lon)); return !!a && toSafety(a, ranks!).percentile < 30; };
   // Fred's places stay while they still fit the search, or once this person acted on them
-  const fits = new Set((fitting.results as any[]).map((r) => `op_${r.id}`)), acted = (id: string) => { const m = st.cards[id]; return !!m && (!!m.status || m.note != null); };
+  const fits = new Set((fitting.results as any[]).filter(ok).map((r) => `op_${r.id}`)), acted = (id: string) => { const m = st.cards[id]; return !!m && (!!m.status || m.note != null); };
   const byId = new Map<string, Card>();
   for (const c of st.created ?? []) if (fits.has(c.id) || acted(c.id)) byId.set(c.id, { ...c, area: areaLabel(c.area, null) });
   for (const r of rows) {

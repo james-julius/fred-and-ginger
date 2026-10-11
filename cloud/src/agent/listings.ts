@@ -7,6 +7,7 @@ import { ranking, safetyFor } from '../safety';
 import { costsOf, feeCallout, highlights, petsLabel, petsSql, scamSigns, typicalKey, typicalRents, type Facts } from '../facts';
 import { areaLabel, areaSql, within } from '../areas';
 import { dealbreakerWhere } from '../filter';
+import { checkMusts, mustsOf } from '../musts';
 import { judge } from '../places';
 import { photosOf } from '../photos';
 
@@ -45,6 +46,8 @@ export type Found = {
   /** utilities included in the rent */
   utilities: string[];
   floor: number | null; leaseMonths: number | null;
+  /** must-haves the listing doesn't mention: say they're unconfirmed and what to ask */
+  unconfirmed: string[];
   /** only when the city record is genuinely bad (score under 60): what to warn about */
   buildingWarning: string[] | null;
 };
@@ -77,6 +80,10 @@ export async function search(db: D1Database, saved: Search, f: Filters) {
             (SELECT group_concat(DISTINCT CASE WHEN instr(s.source, ':') > 0 THEN substr(s.source, 1, instr(s.source, ':') - 1) ELSE s.source END) FROM sightings s WHERE s.listing_id = l.id) AS sites
      FROM listings l LEFT JOIN buildings b ON b.bbl = l.bbl
      WHERE ${where.join(' AND ')} ORDER BY l.first_seen DESC LIMIT 300`).bind(...args).all<any>();
+  // must-haves: a place that clearly lacks one is out; one that doesn't say is in, marked unconfirmed
+  const musts = mustsOf(saved), checked = new Map(pool.results.map((r) => [r.id, checkMusts(musts, json<Facts | null>(r.facts, null))]));
+  const lacking = pool.results.filter((r) => checked.get(r.id)!.lacks.length).length;
+  pool.results = pool.results.filter((r) => !checked.get(r.id)!.lacks.length);
   const typical = await typicalRents(db, pool.results.map((r) => r.neighbourhood));
   const fitOf = new Map(pool.results.map((r) => [r.id, judge(r, saved, typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null, false).fit]));
   const rows = { results: [...pool.results].sort((a, b) => fitOf.get(b.id)! - fitOf.get(a.id)!).slice(0, Math.min(f.limit ?? 15, 40)) };
@@ -96,10 +103,11 @@ export async function search(db: D1Database, saved: Search, f: Filters) {
       fees: (fx?.fees ?? []).map((x) => `${x.label}${x.amount ? ` $${x.amount.toLocaleString('en-US')}` : ''} ${x.period === 'monthly' ? 'a month' : 'once'}${x.required ? '' : ' (optional)'}`).slice(0, 8),
       utilities: fx?.utilities ?? [], floor: fx?.floor ?? null, leaseMonths: fx?.leaseMonths ?? null,
       areaSafety: safety[i] ? `${safety[i]!.label} (${safety[i]!.violent} violent crimes reported within ${safety[i]!.radiusMeters} m in a year)` : null,
+      unconfirmed: checked.get(r.id)!.unconfirmed,
       buildingWarning: r.bscore != null && r.bscore < 60 ? (json<{ flags?: string[] }>(r.breport, {}).flags ?? []).slice(0, 2) : null,
     };
   });
-  return { total: total?.n ?? 0, found, outside };
+  return { total: Math.max(0, (total?.n ?? 0) - lacking), found, outside, lacking };
 }
 
 const LABELS: Record<VerdictKind, [string, 'good' | 'warn' | 'bad' | 'neutral']> = {
