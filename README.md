@@ -1,17 +1,41 @@
-# Fred & Ginger (nest)
+# Fred & Ginger
 
-An NYC apartment hunter: it collects listings from the sites' own alert emails, checks every building against NYC Open Data, and ranks what's worth seeing.
+**Fred is an AI apartment hunter for New York.** You tell him what you want in chat; he watches every listing site, checks each building's record with the city, looks at the photos, researches the landlord, and only puts places worth seeing in your inbox.
 
-Plain Python 3.11+, standard library only. Data goes in `./data/nest.db`.
+Built at AI Engineer NYC 2026 (Oct 11). Live at https://fredandginger.jamesjuliusdarby.com (sign-in required: it's our own apartment hunt).
 
-## Setup
+## What Fred does
+
+- **Runs your search in chat.** Budget, beds, areas, pets and must-haves become dealbreakers and preferences. He remembers what you like across chats and learns from what you save and pass on.
+- **Watches every site.** Crawlers collect listings from StreetEasy, Zillow, RentHop, Zumper, Compass, Nooklyn, Craigslist and big landlords' own sites. The same apartment on several sites becomes one place.
+- **Checks the building with the city.** NYC Open Data: open HPD violations, heat/pest/leak complaints, 311 noise, bedbugs, evictions, owner and managing agent, rolled into a 0–100 score with the reasons. Area safety from NYPD complaint data.
+- **Looks at the photos with Gemini.** Light, kitchen, in-unit laundry, visible damage, whether the photos match the listed beds and baths, and red flags like stock photos, renders or virtual staging. Ask "is there a window in the bedroom?" and he looks (`cloud/src/vision.ts`).
+- **Researches the live web with Nimble.** Reads a listing's full page when the card leaves things out, and searches tenant reviews and the landlord's reputation (`cloud/src/nimble.ts`).
+- **Shows the real cost.** Fees read from the listing text, total monthly, broker fee, move-in estimate, scam signals.
+- **Acts for you.** Email alerts for strong fits, draft tour requests, and messages to landlords that are only sent after you approve them.
+
+## How it's built
+
+- **API and agent** (`cloud/`): a Cloudflare Worker with D1, R2 and Workers AI. Fred is a Mastra agent with ~20 tools that read and write the same data the app shows. Errors, traces and logs go to **Sentry**.
+- **App** (`web/`): Next.js on Cloudflare via OpenNext, with Sentry in the browser and server.
+- **Contract** (`packages/api/`): Zod schemas shared by both sides, with generated OpenAPI and TypeScript types.
+- **Crawlers:** Apify actors, kept in a separate private repo; their row format is `docs/crawlers.md`.
+- **Evals** (`evals/`): scripted conversations that check what Fred did, not just what he said, across models (Claude and Gemini).
+
+See [Built with](#built-with) for the sponsor integrations.
+
+## The original prototype (nest/)
+
+Fred started as a Python CLI that read listing alert emails and checked buildings against NYC Open Data. Plain Python 3.11+, standard library only; data goes in `./data/nest.db`.
+
+### Setup
 
 1. Copy `config.example.json` to `config.json` and fill in your search.
 2. **Alerts.** Save searches on StreetEasy, RentHop, Zumper, Zillow and Craigslist (needs an account), with instant email alerts. Then add a Gmail filter that labels them `nest-alerts`:
    `from:(streeteasy.com OR renthop.com OR zumper.com OR zillow.com OR craigslist.org OR listingsproject.com OR leasebreak.com)`
 3. **IMAP.** Create a Google app password (Account → Security → App passwords) and put it in `config.json` under `imap`.
 
-## Use
+### Use
 
 ```sh
 python3 -m nest building "170 N 10th St, Brooklyn"   # what the city knows about a building
@@ -20,7 +44,7 @@ python3 -m nest ingest --eml path/to/folder          # or saved .eml files
 python3 -m nest list                                 # listings, best building first
 ```
 
-## Where listings come from
+### Where listings come from
 
 | Source | How |
 |---|---|
