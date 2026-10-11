@@ -3,10 +3,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleCheck, Flag, X } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useState } from "react";
 import { FredMark } from "@/components/fred-mark";
 import { Gallery } from "@/components/gallery";
 import { updateOpportunity, useOpportunity, useSearch, type S } from "@/lib/api/client";
 import { money, scoreTone, shortDate, siteName, toneClass } from "@/lib/format";
+import { PassReasons } from "./pass-reasons";
 
 // MapLibre is big, so it loads with the first listing that has a location.
 const MiniMap = dynamic(() => import("./places-map").then((m) => m.MiniMap), {
@@ -18,16 +20,18 @@ const iconButton =
   "grid size-[30px] place-items-center rounded-lg border bg-background hover:bg-muted focus-visible:outline-2 focus-visible:outline-foreground";
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function ListingModal({ id, position, total, onStep, onClose, onAsk }: {
+export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onAsk }: {
   id: string | null;
-  /** 1-based, for the "2 of 4" label. */
-  position: number;
-  total: number;
-  onStep: (by: 1 | -1) => void;
+  /** 1-based, for the "2 of 4" label. 0 when the open place isn't in the list, say one opened from the chat. */
+  position?: number;
+  total?: number;
+  /** Leave out where there's no list to step through, like a tour's place. */
+  onStep?: (by: 1 | -1) => void;
   onClose: () => void;
   onAsk: (place: S["OpportunityDetail"]) => void;
 }) {
   const { data: place, error } = useOpportunity(id);
+  const [asking, setAsking] = useState<string | null>(null); // the place just passed: ask what put them off
 
   return (
     <Dialog.Root open={id !== null} onOpenChange={(open) => !open && onClose()}>
@@ -41,28 +45,42 @@ export function ListingModal({ id, position, total, onStep, onClose, onAsk }: {
             (e.currentTarget as HTMLElement | null)?.focus();
           }}
           onKeyDown={(e) => {
-            if (e.key === "ArrowRight") onStep(1);
-            if (e.key === "ArrowLeft") onStep(-1);
+            if (e.key === "ArrowRight") onStep?.(1);
+            if (e.key === "ArrowLeft") onStep?.(-1);
           }}
           className="fixed inset-0 z-50 flex flex-col bg-background text-foreground outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[min(900px,calc(100dvh-48px))] sm:w-[min(760px,calc(100vw-48px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-2xl"
         >
           <div className="flex items-center gap-1.5 border-b px-3 py-2.5">
-            <button type="button" className={iconButton} onClick={() => onStep(-1)} aria-label="Previous place">
-              <ChevronLeft size={15} strokeWidth={1.25} aria-hidden />
-            </button>
-            <button type="button" className={iconButton} onClick={() => onStep(1)} aria-label="Next place">
-              <ChevronRight size={15} strokeWidth={1.25} aria-hidden />
-            </button>
-            {total > 0 && (
+            {onStep && total > 0 && (
+              <>
+                <button type="button" className={iconButton} onClick={() => onStep(-1)} aria-label="Previous place">
+                  <ChevronLeft size={15} strokeWidth={1.25} aria-hidden />
+                </button>
+                <button type="button" className={iconButton} onClick={() => onStep(1)} aria-label="Next place">
+                  <ChevronRight size={15} strokeWidth={1.25} aria-hidden />
+                </button>
+              </>
+            )}
+            {position > 0 && total > 0 && (
               <span className="ml-1 text-[12.5px] text-muted-foreground tabular-nums">
                 {position} of {total}
               </span>
             )}
-            {place && <Votes place={place} />}
+            {place && <Votes place={place} onPass={(passed) => setAsking(passed ? place.id : null)} />}
             <Dialog.Close className={`${place ? "ml-1" : "ml-auto"} border-transparent ${iconButton}`} aria-label="Close">
               <X size={15} strokeWidth={1.25} aria-hidden />
             </Dialog.Close>
           </div>
+          {place && asking === place.id && (
+            <div className="flex items-start gap-3 border-b bg-muted/40 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <PassReasons place={place} onDone={() => setAsking(null)} />
+              </div>
+              <button type="button" onClick={() => setAsking(null)} className="text-[13px] text-muted-foreground hover:text-foreground">
+                Skip
+              </button>
+            </div>
+          )}
 
           {!place ? (
             <div className="grid flex-1 place-items-center p-10 text-sm text-muted-foreground">
@@ -91,8 +109,13 @@ export function ListingModal({ id, position, total, onStep, onClose, onAsk }: {
 }
 
 // Save and pass map to the API's status. Tapping the active one puts the place back in New.
-function Votes({ place }: { place: S["OpportunityDetail"] }) {
-  const set = (status: S["OpportunityStatus"]) => updateOpportunity(place.id, { status: place.status === status ? "new" : status });
+// Passing also asks what put them off (onPass(true)); un-passing or saving drops the question.
+function Votes({ place, onPass }: { place: S["OpportunityDetail"]; onPass: (passed: boolean) => void }) {
+  const set = (status: S["OpportunityStatus"]) => {
+    const next = place.status === status ? "new" : status;
+    onPass(next === "passed");
+    return updateOpportunity(place.id, { status: next });
+  };
   return (
     <div className="ml-auto flex items-center gap-1.5">
       <VoteButton active={place.status === "passed"} onClick={() => set("passed")} icon={<X size={14} strokeWidth={1.5} aria-hidden />}>
