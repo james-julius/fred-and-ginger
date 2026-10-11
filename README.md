@@ -24,7 +24,7 @@ python3 -m nest list                                 # listings, best building f
 
 | Source | How |
 |---|---|
-| StreetEasy, Zillow, RentHop, Zumper/PadMapper, Apartments.com, Craigslist | Saved-search alert emails. None has a public API, and all block automated browsing. |
+| StreetEasy, Zillow, RentHop, Zumper/PadMapper, Apartments.com, Craigslist | Saved-search alert emails. None has a public API. |
 | Listings Project, Leasebreak | Their email newsletters and alerts |
 | Building and management sites (RentCafe/Yardi, Entrata, AppFolio) | Next: polled daily |
 | NYC Housing Connect lotteries | Next: NYC Open Data |
@@ -47,10 +47,10 @@ Counts are scaled by building size, then rolled into a 0–100 score with the re
 
 ## The shared site (cloud/)
 
-`https://fredandginger.jamesjuliusdarby.com`, a Cloudflare Worker with D1 and static assets, on the personal Cloudflare account (jamesdarby7).
+`https://fredandginger.jamesjuliusdarby.com`, a Cloudflare Worker with D1 and static assets.
 
 - **Sign-in:** one login each for James and Erin. Passwords are Worker secrets: `npx wrangler secret put PASSWORD_JAMES` / `PASSWORD_ERIN`.
-- **Every 4 hours:** a cron starts each crawler on Apify with the saved search. Apify calls `/hooks/apify` when a run ends.
+- **Crawls:** Fred starts the crawlers on Apify when he needs fresh listings for the saved search (`cloud/src/agent/crawl.ts`). Apify calls `/hooks/apify` when a run ends.
 - **Every 2 minutes:** a cron stores a batch of finished-run rows, geocodes new addresses, and runs building checks. It does a few at a time to stay under Workers' per-invocation request limits.
 - **Same apartment, several sites:** it becomes one listing, matched by normalised street + unit, then by BBL + unit after geocoding.
 - **The UI:** New / Both like / I like / Erin likes / Passed, notes, filters and a map.
@@ -66,7 +66,7 @@ A Next.js app with Tailwind 4 and Geist that will replace the grid the Worker se
 - **Hosting:** Cloudflare, as its own Worker (`fred-web`) built with [OpenNext](https://opennext.js.org/cloudflare).
   - `npm run preview` runs the Cloudflare build locally.
   - `npm run deploy` ships it, but needs access to the Cloudflare account.
-  - It lives on workers.dev until we decide how it shares the domain with `nest`.
+  - It's served on fredandginger.jamesjuliusdarby.com through `nest`'s `WEB` service binding: `nest` keeps `/api`, `/login`, `/logout` and `/hooks` and hands every other page to `fred-web`. The old grid is still at nest.jamesjuliusdarby.com.
   - Next is pinned to 16.3.8 because the adapter doesn't support 16.4 yet: 16.4 adds a `preview-props.json` the adapter doesn't bundle, and every page returns 500.
 
 ## The API contract (packages/api)
@@ -80,18 +80,14 @@ The routes and data shapes the app and the Worker agree on, written once as Zod 
 - **Example data for the rest:** the other routes still serve the mockup's examples (`packages/api/src/fixtures.ts`), marked with an `X-Fred-Data: example` header. `POST /api/chat` streams the mockup's chat turn in the AI SDK format, so `useChat` works against it. Routes switch to real data one at a time without changing shape.
 - **Local:** `npm install` at the repo root (it's an npm workspace with `cloud` and `packages/*`; `web` keeps its own install), then `cd cloud && npx wrangler dev`.
 
-## Crawlers (actor/)
+## Crawlers
 
-Apify actors on the jamesjulius account (deploy with `apify push`). Every actor pushes rows in the shape described in `actor/SCHEMA.md`.
+The Apify actors that collect listings live in a separate private repo. Each one pushes dataset rows in the shape in [`docs/crawlers.md`](docs/crawlers.md); the Worker starts them (`cloud/src/ingest.ts`, `SOURCES`) and reads their datasets when Apify calls `/hooks/apify`.
 
-| Actor | How |
-|---|---|
-| `nest-streeteasy` | Crawlee + Playwright, residential proxy, fingerprints; reads the listing data embedded in the HTML, scripts blocked |
-| `nest-zillow` | Same approach, plus Zillow's own search endpoint for later pages |
-| `nest-renthop` | Playwright (Cloudflare challenge); search cards + detail HTML fetched in-page |
-| `nest-zumper` | Playwright (Fastly challenge); Zumper's JSON search API called in-page |
-| `nest-craigslist` | Cheerio + datacenter proxy against Craigslist's JSON search API; scam flags |
-| `nest-landlords` | Plain HTTP; adapters per platform (SightMap, own JSON, WordPress…) plus a browser pass, for 23 NYC landlords. Add one in `src/companies.js` |
-| `nest-compass` | Playwright; Compass search plus exclusives, every 12 hours |
-| `nest-nooklyn` | Nooklyn's listing API |
-| `apartments` | Probe only: Akamai blocks every approach, not deployed |
+## Built with
+
+- **Gemini:** Fred runs on any model Mastra knows, set as `provider/model` in `FRED_MODEL`. For Gemini, set `FRED_MODEL=google/gemini-3.8-flash` (or another `google/…` model) and add the key with `npx wrangler secret put GOOGLE_GENERATIVE_AI_API_KEY`. Fred's effort setting (`FRED_EFFORT`) becomes Gemini's thinking level. `evals/isolate.ts` runs the same failure cases on Gemini and Claude side by side.
+- **Nimble:** Fred's web research (`cloud/src/nimble.ts`): searching the web and reading listing pages and building reviews. Key: `NIMBLE_API_KEY`.
+- **Sentry:** errors, traces and logs from the API Worker (`cloud/src/index.ts`, `SENTRY_DSN` in `cloud/wrangler.jsonc`).
+- **Cloudflare:** Workers, D1, R2 (listing photos), Workers AI (chat recall embeddings), Email Sending.
+- **Apify:** runs the crawlers. **Mastra:** Fred's agent loop and tools. **NYC Open Data:** building checks.

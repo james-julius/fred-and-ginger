@@ -24,7 +24,7 @@ export type Facts = {
   scam: string[];                // scam signs a crawler saw, in plain words
 };
 
-// the craigslist actor's flags (actor/craigslist), as a cousin would say them
+// the craigslist actor's flags (the craigslist crawler), as a cousin would say them
 const SCAM: Record<string, string> = {
   price_far_below_norm: 'Rent is far below what the area goes for',
   deposit_before_viewing: 'Wants money before you see it',
@@ -95,10 +95,11 @@ export function factsFrom(raw: any): Facts {
 
   // pets: the most specific statement wins
   if (/no pets|pets not allowed|no dogs or cats/.test(all)) f.pets = 'none';
-  // "Cats and dogs allowed" names both before the verb
-  const both = /(cats? and dogs?|dogs? and cats?|cats? & dogs?|dogs? & cats?) (are )?(ok|allowed|welcome|permitted|friendly)/.test(all);
-  const dogs = both || /dogs? (are )?(ok|allowed|welcome|permitted|friendly)|dog.friendly|dogs? - wooof/.test(all);
-  const cats = both || /cats? (are )?(ok|allowed|welcome|permitted|friendly)|only cats|cats - purrr/.test(all);
+  // a list of animals before the verb: "Cats and dogs allowed", "Cats, Dogs, Small Dogs allowed"
+  const ANIMAL = String.raw`(?:small |large |big )?(?:cats?|dogs?)`;
+  const listed = [...all.matchAll(new RegExp(String.raw`(${ANIMAL}(?:\s*(?:,|and|&|/|or)\s*${ANIMAL})*)\s+(?:are\s+)?(?:ok|allowed|welcome|permitted|friendly)`, 'g'))].map((m) => m[1]).join(' ');
+  const dogs = /dog/.test(listed) || /dog.friendly|dogs? - wooof/.test(all);
+  const cats = /cat/.test(listed) || /only cats|cats - purrr/.test(all);
   if (dogs && cats) f.pets = 'dogs_and_cats';
   else if (dogs) f.pets = 'dogs';
   else if (cats || /only cats/.test(all)) f.pets = 'cats';
@@ -133,7 +134,7 @@ export function factsFrom(raw: any): Facts {
 
   if (Array.isArray(raw.subwayLines)) f.trains = raw.subwayLines.map(String);
 
-  // the listing's own page (actor/SCHEMA.md, raw.detail) says more than any card: it goes first
+  // the listing's own page (docs/crawlers.md, raw.detail) says more than any card: it goes first
   const d = raw.detail && typeof raw.detail === 'object' ? raw.detail : null;
   const seen = new Set<string>();
   for (const a of Array.isArray(d?.amenities) ? d.amenities : []) {
