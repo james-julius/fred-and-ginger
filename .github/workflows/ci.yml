@@ -41,5 +41,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - name: Next's route types (LayoutProps, PageProps), which a clean checkout doesn't have
+        run: npx next typegen
       - run: npx tsc --noEmit
       - run: npx eslint .
