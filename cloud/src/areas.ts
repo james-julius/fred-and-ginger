@@ -254,3 +254,23 @@ export async function areaSql(db: D1Database, areas: string[] | undefined, exclu
   if (!ok.length) return '0';
   return `${KEY_SQL} IN (${ok.map((p) => lit(key(p))).join(',')})`;
 }
+
+/* ── names to show ────────────────────────────────────────────────────── */
+
+const LABELS: Record<string, string> = {
+  'hells-kitchen': "Hell's Kitchen", soho: 'SoHo', noho: 'NoHo', dumbo: 'DUMBO', 'bedford-stuyvesant': 'Bed-Stuy',
+  'staten-island': 'Staten Island', bronx: 'The Bronx',
+};
+const titled = (slug: string) => LABELS[slug] ?? slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+/**
+ * One name per neighbourhood for the cards, whatever the site called it: "Spanish Harlem" and
+ * "East Harlem" are both East Harlem, "WILLIAMSBURG right @ L train…" is Williamsburg. Text we
+ * can't place shows as the site wrote it, then the borough.
+ */
+export function areaLabel(neighbourhood: string | null, borough: string | null): string {
+  const named = areasIn(neighbourhood).filter((s) => !isBorough(s));
+  if (named.length) return titled(named[0]);
+  const b = borough ? canonicalArea(borough) : null;
+  return neighbourhood?.trim() || (b && isBorough(b) ? titled(b) : borough) || 'New York';
+}
