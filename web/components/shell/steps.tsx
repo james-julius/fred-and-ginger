@@ -3,65 +3,19 @@
 import { Check, ChevronRight, X } from "lucide-react";
 import { FredMark } from "@/components/fred-mark";
 import type { S } from "@/lib/api/client";
+import { describe, plural, statusOf, type Status, type ToolCall } from "./fred-tools";
+import { isSearch, SearchCard } from "./search-card";
 
-/** A tool call from Fred's agent (cloud/src/agent/tools.ts), however it streams: tool-<name> or dynamic-tool. */
-export type ToolCall = { id: string; name: string; state: string; input: Record<string, unknown>; output: Record<string, unknown> };
-
-export function asTool(part: { type: string }): ToolCall | null {
-  const p = part as { type: string; toolCallId?: string; toolName?: string; state?: string; input?: unknown; output?: unknown };
-  const name = p.type === "dynamic-tool" ? p.toolName : p.type.startsWith("tool-") ? p.type.slice(5) : null;
-  if (!name) return null;
-  return { id: String(p.toolCallId), name, state: String(p.state), input: (p.input ?? {}) as ToolCall["input"], output: (p.output ?? {}) as ToolCall["output"] };
-}
-
-/** Tools whose results change the inbox, the search or the sidebar counts. */
-export const changesPlaces = (name: string) => ["addToInbox", "updateSearch", "updatePlace", "requestTour", "setAlerts"].includes(name);
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
-const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-const humanize = (name: string) => name.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^\w/, (c) => c.toUpperCase());
-
-type Status = "running" | "done" | "failed";
-const statusOf = (t: ToolCall): Status =>
-  t.state === "output-error" || typeof t.output.error === "string" ? "failed" : t.state === "output-available" ? "done" : "running";
-
-/** What Fred is doing (now) and what it did (done), in plain words. */
-function describe(t: ToolCall): { now: string; done: string } {
-  const i = t.input, o = t.output;
-  switch (t.name) {
-    case "searchListings": {
-      const areas = Array.isArray(i.areas) && i.areas.length ? (i.areas as string[]).map(titleCase).join(", ") : "all of NYC";
-      const matches = typeof o.matching === "number" ? `: ${plural(o.matching, "match", "matches")}` : "";
-      return { now: `Searching ${areas}`, done: `Searched ${areas}${matches}` };
-    }
-    case "addToInbox": {
-      const n = Array.isArray(o.added) ? o.added.length : null;
-      return { now: "Adding places to your inbox", done: n === null ? "Added places to your inbox" : n ? `Added ${plural(n, "place")} to your inbox` : "Nothing new to add to your inbox" };
-    }
-    case "updateSearch":
-      return { now: "Updating your search", done: typeof o.summary === "string" ? `Updated your search: ${o.summary}` : "Updated your search" };
-    case "getSearch":
-      return { now: "Checking your search", done: "Checked your search" };
-    case "listInbox":
-      return { now: "Looking through your inbox", done: "Looked through your inbox" };
-    case "getPlace":
-      return { now: "Reading a listing", done: "Read a listing" };
-    case "updatePlace":
-      return { now: "Updating a place", done: "Updated a place" };
-    case "requestTour":
-      return { now: "Drafting a tour request", done: "Drafted a tour request. Nothing was sent." };
-    case "setAlerts":
-      return { now: "Changing your alerts", done: "Changed your alerts" };
-    default:
-      return { now: humanize(t.name), done: humanize(t.name) };
-  }
-}
+export { asTool, changesPlaces, type ToolCall } from "./fred-tools";
 
 /**
  * One line per reply: live while Fred works ("Searching Brooklyn…"), then a summary you can open.
- * Real Fred streams tool calls; the canned replies only send data-scan, so fall back to its steps.
+ * A reply where Fred searches gets the search card instead. Real Fred streams tool calls; the
+ * canned replies only send data-scan, so fall back to its steps.
  */
 export function Steps({ tools, scans, running }: { tools: ToolCall[]; scans: S["DataScan"][]; running: boolean }) {
+  if (tools.some(isSearch)) return <SearchCard tools={tools} scans={scans} running={running} />;
+
   const shown = tools.filter((t) => t.name !== "suggestReplies"); // the reply pills already show this
   const items: { key: string; text: string; status: Status }[] = shown.length
     ? shown.map((t) => ({ key: t.id, text: statusOf(t) === "running" ? describe(t).now : describe(t).done, status: statusOf(t) }))
