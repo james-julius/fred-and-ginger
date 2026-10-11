@@ -14,7 +14,7 @@ import { toAISdkStream } from '@mastra/ai-sdk';
 import { fred, DEFAULT_MODEL, type Harness } from './agent/fred';
 import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
-import { AlertError, examplePlaces, getAlerts, patchAlerts, sendCode, sendTest, verifyCode } from './alerts';
+import { AlertError, examplePlaces, getAlerts, patchAlerts, sendCode, sendDueAlerts, sendTest, verifyCode } from './alerts';
 import { recall, taste } from './memory';
 import { backfill, exchanges, forget, placesIn, remember, worthRemembering } from './recall';
 
@@ -405,6 +405,12 @@ v2.get('/api/mock/code', async (c) => {
   if (c.env.FRED_DEV !== '1') return c.json(notFound, 404);
   const r = await c.env.DB.prepare('SELECT v FROM meta WHERE k=?').bind(`dev:code:${c.env.ME}:${c.req.query('channel') ?? 'email'}`).first<{ v: string }>();
   return c.json({ code: r?.v ?? null });
+});
+/* local dev only: run the alert sender now for the signed-in person; ?since=<unix seconds> widens the window */
+v2.post('/api/mock/run-alerts', async (c) => {
+  if (c.env.FRED_DEV !== '1') return c.json(notFound, 404);
+  const since = c.req.query('since');
+  return c.json(await sendDueAlerts(c.env, { only: c.env.ME, since: since ? Number(since) : undefined }));
 });
 v2.post('/api/mock/reset', async (c) => {
   await reset(c.env.DB, c.env.ME);

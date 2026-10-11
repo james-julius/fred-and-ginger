@@ -4,6 +4,7 @@ import { locate, report } from './building';
 
 export interface Env {
   DB: D1Database; ASSETS: Fetcher;
+  WEB?: Fetcher;                          // the new app (fred-web Worker), served on fredandginger.*
   APIFY_TOKEN: string; SESSION_KEY: string; HOOK_SECRET: string;
   PASSWORD_JAMES?: string; PASSWORD_ERIN?: string;
   FRED_MODEL?: string;                    // provider/model for the agent; its API key is a secret too
