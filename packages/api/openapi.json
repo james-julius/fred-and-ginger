@@ -3,7 +3,7 @@
   "info": {
     "title": "Fred API",
     "version": "0.1.0",
-    "description": "Generated from packages/api. Run `npm run gen:api` at the repo root after changing it.\n\nEvery route serves example data for now (response header `X-Fred-Data: example`). Sign in at /login first; \"Try it out\" uses your session."
+    "description": "Generated from packages/api. Run `npm run gen:api` at the repo root after changing it.\n\nEvery route is canned for now (response header `X-Fred-Data: example`): the mockup's example data, plus your own changes, which are saved. Saving a place moves it to Saved, marking it seen lowers the New count, search edits stick, and the chat answers what you send. `POST /api/mock/reset` starts your data over.\n\nSign in at /login first; \"Try it out\" uses your session."
   },
   "components": {
     "schemas": {
