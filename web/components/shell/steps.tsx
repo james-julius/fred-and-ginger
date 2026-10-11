@@ -4,7 +4,7 @@ import { Check, ChevronRight, X } from "lucide-react";
 import { FredMark } from "@/components/fred-mark";
 import type { S } from "@/lib/api/client";
 import { describe, plural, statusOf, type Status, type ToolCall } from "./fred-tools";
-import { isSearch, SearchCard } from "./search-card";
+import { isSearch, SearchCard, type DataPlaces } from "./search-card";
 
 export { asTool, changesPlaces, type ToolCall } from "./fred-tools";
 
@@ -13,8 +13,8 @@ export { asTool, changesPlaces, type ToolCall } from "./fred-tools";
  * A reply where Fred searches gets the search card instead. Real Fred streams tool calls; the
  * canned replies only send data-scan, so fall back to its steps.
  */
-export function Steps({ tools, scans, running }: { tools: ToolCall[]; scans: S["DataScan"][]; running: boolean }) {
-  if (tools.some(isSearch)) return <SearchCard tools={tools} scans={scans} running={running} />;
+export function Steps({ tools, scans, places, running }: { tools: ToolCall[]; scans: S["DataScan"][]; places?: DataPlaces[]; running: boolean }) {
+  if (tools.some(isSearch)) return <SearchCard tools={tools} scans={scans} places={places} running={running} />;
 
   const shown = tools.filter((t) => t.name !== "suggestReplies"); // the reply pills already show this
   const items: { key: string; text: string; status: Status }[] = shown.length

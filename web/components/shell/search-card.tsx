@@ -37,7 +37,7 @@ function useOpenPlace() {
  * Fred works, then the places it picked, to save or pass on without leaving the chat. Fred's
  * written answer follows the card.
  */
-export function SearchCard({ tools, scans, running }: { tools: ToolCall[]; scans: S["DataScan"][]; running: boolean }) {
+export function SearchCard({ tools, scans, places = [], running }: { tools: ToolCall[]; scans: S["DataScan"][]; places?: DataPlaces[]; running: boolean }) {
   const [open, setOpen] = useState(true);
 
   const searches = tools.filter((t) => t.name === "searchListings");
@@ -51,11 +51,8 @@ export function SearchCard({ tools, scans, running }: { tools: ToolCall[]; scans
     i < step ? "done" : i > step ? (running ? "pending" : "skipped") : running ? "active" : step === 1 ? "done" : "stopped";
   const status = step === 3 ? "done" : running ? "running" : STEPS.some((_, i) => phase(i) === "stopped") ? "stopped" : "done";
 
-  // The places Fred picked, from addToInbox's input. Likely scams go in hidden, so they aren't shown.
-  // TODO: read card ids from a data-places part once the Worker sends one (board #4).
-  const picks = add && statusOf(add) === "done" && Array.isArray(add.input.places) ? (add.input.places as { listingId: number; verdict: string }[]) : [];
-  const ids = picks.filter((p) => p.verdict !== "likely_scam").map((p) => `op_${p.listingId}`);
-  const scams = picks.length - ids.length;
+  // The places Fred added. Likely scams go in hidden, so they aren't shown.
+  const { ids, scams } = places.length ? fromParts(places) : fromInput(add);
 
   const checked = scans.reduce((n, s) => n + s.checked, 0);
   const matched = scans.reduce((n, s) => n + s.matched, 0);
@@ -66,8 +63,11 @@ export function SearchCard({ tools, scans, running }: { tools: ToolCall[]; scans
     reading ? describe(reading).now : matched ? `Comparing ${plural(matched, "match", "matches")}` : "Reading through the results",
     add && Array.isArray(add.input.places) ? `Writing up ${plural(add.input.places.length, "place")}` : "Choosing",
   ];
-  // What floats over the skyline: the areas and filters Fred is searching, then what it's reading.
-  const labels = [...searches.flatMap((t) => (Array.isArray(t.input.areas) ? (t.input.areas as string[]).map(titleCase) : ["All of NYC"])), ...filters, ...research.map((t) => describe(t).now)];
+  // What floats over the skyline: the areas and filters Fred is searching, then listings from the
+  // results ("2 bd · $3,400 · Harlem") once they're in, then what it's reading.
+  const samples = scans.flatMap((s) => (s as S["DataScan"] & { samples?: string[] }).samples ?? []);
+  const searched = [...searches.flatMap((t) => (Array.isArray(t.input.areas) ? (t.input.areas as string[]).map(titleCase) : ["All of NYC"])), ...filters];
+  const labels = [...(samples.length ? samples : searched), ...research.map((t) => describe(t).now)];
 
   return (
     <section aria-label="Apartment search" className="w-full max-w-[34rem] overflow-hidden rounded-xl border bg-background">
@@ -119,6 +119,27 @@ export function SearchCard({ tools, scans, running }: { tools: ToolCall[]; scans
         ))}
     </section>
   );
+}
+
+/** Chat part data-places: the places addToInbox added, best first, and which it hid as likely scams.
+ * TODO: S["DataPlaces"] once `npm run gen:api` picks up openapi v5 (board #34). */
+export type DataPlaces = { ids: string[]; hidden: string[] };
+
+function fromParts(parts: DataPlaces[]) {
+  const all = [...new Set(parts.flatMap((p) => p.ids))], hidden = new Set(parts.flatMap((p) => p.hidden));
+  const ids = all.filter((id) => !hidden.has(id));
+  return { ids, scams: all.length - ids.length };
+}
+
+/** Before data-places: what Fred asked addToInbox to add. "op_317" ids now, listing ids in older threads. */
+function fromInput(add: ToolCall | undefined) {
+  const picks = add && statusOf(add) === "done" && Array.isArray(add.input.places) ? (add.input.places as { id?: string; listingId?: number; verdict?: string }[]) : [];
+  const all = picks.flatMap((p) => {
+    const id = typeof p.id === "string" ? p.id : typeof p.listingId === "number" ? `op_${p.listingId}` : null;
+    return id ? [{ id, scam: p.verdict === "likely_scam" }] : [];
+  });
+  const ids = [...new Set(all.filter((p) => !p.scam).map((p) => p.id))];
+  return { ids, scams: all.filter((p) => p.scam).length };
 }
 
 /** "under $4,500", "2+ beds", "no fee", from what Fred searched with. */
