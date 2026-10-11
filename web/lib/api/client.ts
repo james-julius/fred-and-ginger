@@ -27,10 +27,11 @@ const opts = { revalidateOnFocus: false, shouldRetryOnError: (err: unknown) => !
 
 export const useMe = () => useSWR<S["Me"]>("/api/me", get, opts);
 export const useSearch = () => useSWR<S["Search"]>("/api/search", get, opts);
-export const useOpportunities = (view: "new" | "saved" | "hidden" | "all" = "new") =>
-  useSWR<S["OpportunityPage"]>(`/api/opportunities?view=${view}`, get, opts);
+export const useOpportunities = (view: "new" | "saved" | "hidden" | "all" = "new", limit?: number) =>
+  useSWR<S["OpportunityPage"]>(`/api/opportunities?view=${view}${limit ? `&limit=${limit}` : ""}`, get, opts);
 export const useOpportunity = (id: string | null) => useSWR<S["OpportunityDetail"]>(id ? `/api/opportunities/${id}` : null, get, opts);
-export const useTours = () => useSWR<S["Tour"][]>("/api/tours?when=upcoming", get, opts);
+export const useTours = (when: "upcoming" | "past" | "all" = "upcoming") => useSWR<S["Tour"][]>(`/api/tours?when=${when}`, get, opts);
+export const usePacket = () => useSWR<S["Packet"]>("/api/packet", get, opts);
 export const useMemory = () => useSWR<S["MemoryList"]>("/api/memory", get, opts);
 export const useThreads = () => useSWR<S["Thread"][]>("/api/threads", get, opts);
 export const useThread = (id: string | null) =>
@@ -65,6 +66,20 @@ export async function updateMe(patch: S["MePatch"]) {
   return me;
 }
 
+/** How Fred tells you about new places. The mode shows on /api/me, so refresh that. */
+export async function updateAlerts(patch: S["AlertsPatch"]) {
+  const alerts = await api<S["Alerts"]>("/api/alerts", { method: "PATCH", body: JSON.stringify(patch) });
+  await mutate("/api/me");
+  return alerts;
+}
+
+/** A tour's status, time or notes. The sidebar counts upcoming tours, so refresh /api/me too. */
+export async function updateTour(id: string, patch: S["TourPatch"]) {
+  const tour = await api<S["Tour"]>(`/api/tours/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  await mutate((key) => typeof key === "string" && (key.startsWith("/api/tours") || key === "/api/me"));
+  return tour;
+}
+
 /** What you're looking for. Changing it changes the inbox, so refresh that too. */
 export async function updateSearch(patch: S["SearchPatch"]) {
   const search = await api<S["Search"]>("/api/search", { method: "PATCH", body: JSON.stringify(patch) });
@@ -85,6 +100,10 @@ export async function forgetMemory(id: string) {
   await mutate("/api/memory");
 }
 
-/** After anything that can change the inbox or your profile: a vote, a chat reply that edits the search or Fred's notes. */
+/** After anything that can change the inbox or your profile: a vote, a chat reply that edits the search, a tour or Fred's notes. */
 export const refreshPlaces = () =>
-  mutate((key) => typeof key === "string" && (key.startsWith("/api/opportunities") || ["/api/me", "/api/search", "/api/memory"].includes(key)));
+  mutate(
+    (key) =>
+      typeof key === "string" &&
+      (key.startsWith("/api/opportunities") || key.startsWith("/api/tours") || ["/api/me", "/api/search", "/api/memory"].includes(key)),
+  );

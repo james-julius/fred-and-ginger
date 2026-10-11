@@ -1,15 +1,16 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { updateOpportunity, useOpportunities } from "@/lib/api/client";
+import { updateOpportunity } from "@/lib/api/client";
 import { arrange, sortParam } from "./arrange";
-import { Inbox, type View } from "./inbox";
+import { Inbox, usePlaces, type PlaceList, type View } from "./inbox";
 import { ListingModal } from "./listing-modal";
 import { useAskFred } from "./shell";
 
 // The URL holds the open listing (?place=op_inwood), the view (?view=map) and the sort (?sort=fit), so a
 // listing or the map can be shared, a reload keeps your view, and the back button closes the modal.
-export function InboxPage() {
+// New places, Saved and Passed are all this page, each with its own list.
+export function InboxPage({ list = "new" }: { list?: PlaceList }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -18,8 +19,8 @@ export function InboxPage() {
   const sort = sortParam(params.get("sort"));
   const askFred = useAskFred();
 
-  const { data: page } = useOpportunities("new");
-  const ids = arrange(page?.items ?? [], sort).flatMap((g) => g.items.map((c) => c.id)); // the modal steps in the order the list shows
+  const { items } = usePlaces(list);
+  const ids = arrange(items ?? [], sort).flatMap((g) => g.items.map((c) => c.id)); // the modal steps in the order the list shows
   const index = openId ? ids.indexOf(openId) : -1;
 
   const url = (changes: Record<string, string | null>) => {
@@ -32,7 +33,7 @@ export function InboxPage() {
     return q ? `${pathname}?${q}` : pathname;
   };
   const markSeen = (id: string) => {
-    if (page?.items.find((c) => c.id === id)?.seen === false) void updateOpportunity(id, { seen: true });
+    if (items?.find((c) => c.id === id)?.seen === false) void updateOpportunity(id, { seen: true });
   };
   const open = (id: string) => {
     markSeen(id);
@@ -49,6 +50,7 @@ export function InboxPage() {
   return (
     <>
       <Inbox
+        list={list}
         onOpen={open}
         openId={openId}
         view={view}

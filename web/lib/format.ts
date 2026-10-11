@@ -29,6 +29,36 @@ export function tourTime(iso: string, now = new Date()) {
   return `${day}, ${d.toLocaleTimeString("en-US", { timeZone: NYC, hour: "numeric", minute: "2-digit" })}`;
 }
 
+/** "2026-10-14T18:30", the New York wall time, for a datetime-local input. */
+export function nycInputValue(iso: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: NYC,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+/** A datetime-local value, read as New York time, as an ISO instant. */
+export function fromNycInput(value: string) {
+  const asUtc = new Date(`${value}Z`);
+  const offset = asUtc.getTime() - new Date(`${nycInputValue(asUtc.toISOString())}Z`).getTime();
+  return new Date(asUtc.getTime() + offset).toISOString();
+}
+
+export const tourStatusLabel: Record<S["Tour"]["status"], string> = {
+  draft: "Draft",
+  requested: "Requested",
+  confirmed: "Confirmed",
+  done: "Done",
+  cancelled: "Cancelled",
+};
+
 /** Ask Unsplash for a size that fits. Real listing photo URLs come as they are. */
 export const photoAt = (src: string, width: number) =>
   src.startsWith("https://images.unsplash.com/") ? `${src}${src.includes("?") ? "&" : "?"}w=${width}` : src;

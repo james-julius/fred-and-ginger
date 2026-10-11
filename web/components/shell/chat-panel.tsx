@@ -2,13 +2,14 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { ArrowUp, Mic, Pencil, Plus, X } from "lucide-react";
+import { ArrowUp, Mic, Pencil, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { FredMark } from "@/components/fred-mark";
 import { refreshPlaces, useThread, useThreads, type S } from "@/lib/api/client";
 import { dealbreakerChips } from "@/lib/format";
 import { linkPlaces, placeIdsIn, usePlaceNames } from "./place-links";
+import type { DataPlaces } from "./search-card";
 import { asTool, changesPlaces, Steps } from "./steps";
 
 // Fred's custom chat parts, as the API streams them (data-<key> in the AI SDK).
@@ -17,6 +18,7 @@ type FredData = {
   scan: S["DataScan"];
   suggestions: S["DataSuggestions"];
   watch: S["DataWatch"];
+  places: DataPlaces;
 };
 type FredMessage = UIMessage<unknown, FredData>;
 type Context = { id: string; label: string } | null;
@@ -168,9 +170,7 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
             className="max-h-40 resize-none bg-transparent outline-none field-sizing-content placeholder:text-muted-foreground"
           />
           <div className="flex items-center gap-3 text-muted-foreground">
-            <button type="button" aria-label="Add a listing link" className="hover:text-foreground">
-              <Plus size={18} strokeWidth={1.25} aria-hidden />
-            </button>
+            {/* "Add a listing link" comes back once Fred can read a listing you paste (asked on the board). */}
             <button type="button" aria-label="Talk to Fred" className="ml-auto hover:text-foreground">
               <Mic size={18} strokeWidth={1.25} aria-hidden />
             </button>
@@ -307,6 +307,7 @@ function Reply({ message, latest, busy, streaming, onPick, onPlace }: {
   const tools = message.parts.map(asTool).filter((t) => t !== null);
   const scans = message.parts.flatMap((p) => (p.type === "data-scan" ? [p.data] : []));
   const named = usePlaceNames(placeIdsIn(message.parts)); // so the addresses Fred writes open their places
+  const places = message.parts.flatMap((p) => (p.type === "data-places" ? [p.data] : []));
   // Reply pills and "Watching…" go under the words, even though Fred decides on them before it writes.
   const atEnd = (p: FredMessage["parts"][number]) => p.type === "data-suggestions" || p.type === "data-watch";
   const parts = [...message.parts.filter((p) => !atEnd(p)), ...message.parts.filter(atEnd)];
@@ -324,8 +325,8 @@ function Reply({ message, latest, busy, streaming, onPick, onPlace }: {
   return (
     <div className="grid gap-3.5">
       {parts.map((part, i) => {
-        if (i === firstStep) return <Steps key={i} tools={tools} scans={scans} running={working} />;
-        if (part.type === "data-scan" || asTool(part)) return null;
+        if (i === firstStep) return <Steps key={i} tools={tools} scans={scans} places={places} running={working} />;
+        if (part.type === "data-scan" || part.type === "data-places" || asTool(part)) return null;
         switch (part.type) {
           case "data-search-updated":
             return (

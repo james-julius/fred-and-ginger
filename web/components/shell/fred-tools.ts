@@ -11,9 +11,9 @@ export function asTool(part: { type: string }): ToolCall | null {
   return { id: String(p.toolCallId), name, state: String(p.state), input: (p.input ?? {}) as ToolCall["input"], output: (p.output ?? {}) as ToolCall["output"] };
 }
 
-/** Tools whose results change the inbox, the search, the sidebar counts or the Profile page. */
+/** Tools whose results change the inbox, the search, the sidebar counts, your tours or the Profile page. */
 export const changesPlaces = (name: string) =>
-  ["addToInbox", "updateSearch", "updatePlace", "requestTour", "setAlerts", "updateMemory", "updateProfile"].includes(name);
+  ["addToInbox", "updateSearch", "updatePlace", "requestTour", "updateTour", "setAlerts", "updateMemory", "updateProfile"].includes(name);
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 export const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());

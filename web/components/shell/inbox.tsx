@@ -1,16 +1,34 @@
 "use client";
 
-import { Bell, List, Map as MapIcon } from "lucide-react";
+import { Bell, Check, List, Map as MapIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BuildingTile } from "@/components/building-tile";
-import { useMe, useOpportunities, usePlaceLocations, type S } from "@/lib/api/client";
+import { updateAlerts, useMe, useOpportunities, usePlaceLocations, type S } from "@/lib/api/client";
 import { alertsLabel, buildingType, money, photoAt, toneClass, transitText } from "@/lib/format";
 import { arrange, isHidden, type Sort } from "./arrange";
 import type { Pin } from "./places-map";
 
 export type View = "list" | "map";
+export type PlaceList = "new" | "saved" | "passed";
+
+const LISTS: Record<PlaceList, { title: string; loading: string; empty: string }> = {
+  new: { title: "New places", loading: "Loading new places…", empty: "Nothing new yet. Fred is watching and will add places here as they come up." },
+  saved: { title: "Saved", loading: "Loading saved places…", empty: "Nothing saved yet. Save a place you like and it stays here." },
+  passed: {
+    title: "Passed",
+    loading: "Loading places you passed on…",
+    empty: "You haven’t passed on anything. Places you pass on wait here in case you change your mind.",
+  },
+};
+
+/** The places in one list. The API has no passed view yet (board #37), so Passed is every place, filtered. */
+export function usePlaces(list: PlaceList) {
+  const { data, error } = useOpportunities(list === "passed" ? "all" : list, list === "passed" ? 100 : undefined);
+  const items = useMemo(() => (list === "passed" ? data?.items.filter((c) => c.status === "passed") : data?.items), [data, list]);
+  return { items, error };
+}
 
 // The map library is big, so it only loads when you switch to Map.
 const PlacesMap = dynamic(() => import("./places-map"), {
@@ -18,7 +36,8 @@ const PlacesMap = dynamic(() => import("./places-map"), {
   loading: () => <p className="p-4 text-sm text-muted-foreground">Loading the map…</p>,
 });
 
-export function Inbox({ onOpen, openId, view, onView, sort, onSort }: {
+export function Inbox({ list = "new", onOpen, openId, view, onView, sort, onSort }: {
+  list?: PlaceList;
   onOpen: (id: string) => void;
   openId: string | null;
   view: View;
@@ -26,19 +45,20 @@ export function Inbox({ onOpen, openId, view, onView, sort, onSort }: {
   sort: Sort;
   onSort: (sort: Sort) => void;
 }) {
-  const { data: page, error } = useOpportunities("new");
+  const { items, error } = usePlaces(list);
   const { data: me } = useMe();
-  const groups = arrange(page?.items ?? [], sort);
+  const groups = arrange(items ?? [], sort);
+  const copy = LISTS[list];
 
   return (
     <section
-      aria-label="New places"
+      aria-label={copy.title}
       className={`bg-background px-4 py-5 lg:min-h-0 lg:px-7 ${view === "map" ? "flex flex-col lg:overflow-hidden" : "lg:overflow-y-auto"}`}
     >
       <div className="mx-auto grid w-full max-w-3xl gap-[18px]">
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-xl font-semibold tracking-tight">New places</h1>
+            <h1 className="text-xl font-semibold tracking-tight">{copy.title}</h1>
             <div role="group" aria-label="Show places as" className="ml-auto inline-flex rounded-lg border p-0.5">
               {(["list", "map"] as const).map((v) => (
                 <button
@@ -55,21 +75,14 @@ export function Inbox({ onOpen, openId, view, onView, sort, onSort }: {
                 </button>
               ))}
             </div>
-            {me && (
-              <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[13px] font-medium text-muted-foreground hover:text-foreground">
-                <Bell size={14} strokeWidth={1.25} aria-hidden />
-                {alertsLabel[me.alerts.mode]}
-              </button>
-            )}
+            {me && list === "new" && <AlertsMenu mode={me.alerts.mode} />}
           </div>
-          {view === "list" && page && page.items.length > 1 && <SortPills sort={sort} onSort={onSort} />}
+          {view === "list" && items && items.length > 1 && <SortPills sort={sort} onSort={onSort} />}
         </div>
 
-        {error && <p className="text-sm text-destructive">Couldn’t load new places. Try refreshing.</p>}
-        {!page && !error && <p className="text-sm text-muted-foreground">Loading new places…</p>}
-        {page && page.items.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nothing new yet. Fred is watching and will add places here as they come up.</p>
-        )}
+        {error && <p className="text-sm text-destructive">Couldn’t load these places. Try refreshing.</p>}
+        {!items && !error && <p className="text-sm text-muted-foreground">{copy.loading}</p>}
+        {items?.length === 0 && <p className="text-sm text-muted-foreground">{copy.empty}</p>}
 
         {view === "list" &&
           groups.map(({ label, items }) => (
@@ -86,8 +99,89 @@ export function Inbox({ onOpen, openId, view, onView, sort, onSort }: {
           ))}
       </div>
 
-      {view === "map" && page && page.items.length > 0 && <MapView cards={page.items} openId={openId} onOpen={onOpen} />}
+      {view === "map" && !!items?.length && <MapView cards={items} openId={openId} onOpen={onOpen} />}
     </section>
+  );
+}
+
+const ALERT_MODES: { mode: S["AlertMode"]; label: string; hint: string }[] = [
+  { mode: "instant_strong", label: "Strong fits right away", hint: "An email as soon as Fred finds a strong fit" },
+  { mode: "daily", label: "One daily digest", hint: "Everything new in one email a day. Coming soon." },
+  { mode: "off", label: "Off", hint: "Only here in the app" },
+];
+
+/**
+ * How Fred tells you about new places. Only the mode here for now; Fred sets up the email address and
+ * its code in the chat (board #33). An email step in this menu needs the v5 contract merged from main.
+ */
+function AlertsMenu({ mode }: { mode: S["AlertMode"] }) {
+  const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  // Close on a click outside or Escape.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const escape = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  const pick = async (next: S["AlertMode"]) => {
+    setOpen(false);
+    if (next === mode) return;
+    setFailed(false);
+    try {
+      await updateAlerts({ mode: next });
+    } catch {
+      setFailed(true);
+    }
+  };
+
+  return (
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[13px] font-medium text-muted-foreground hover:text-foreground"
+      >
+        <Bell size={14} strokeWidth={1.25} aria-hidden />
+        {alertsLabel[mode]}
+      </button>
+      {open && (
+        <div role="group" aria-label="Alerts" className="absolute right-0 z-30 mt-1.5 grid w-72 gap-0.5 rounded-xl border bg-background p-1.5 shadow-lg">
+          {ALERT_MODES.map((m) => (
+            <button
+              key={m.mode}
+              type="button"
+              aria-pressed={m.mode === mode}
+              onClick={() => pick(m.mode)}
+              className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-muted"
+            >
+              <Check size={14} strokeWidth={1.75} className={`mt-[3px] shrink-0 ${m.mode === mode ? "" : "invisible"}`} aria-hidden />
+              <span>
+                <span className="block text-[13.5px] font-medium">{m.label}</span>
+                <span className="block text-[12.5px] text-muted-foreground">{m.hint}</span>
+              </span>
+            </button>
+          ))}
+          <p className="mt-1 border-t px-2.5 pt-2 pb-1 text-[12px] text-muted-foreground">
+            Alerts come by email. To set yours up, tell Fred your email address in the chat.
+          </p>
+        </div>
+      )}
+      {failed && (
+        <p role="status" className="absolute right-0 mt-1 text-xs whitespace-nowrap text-destructive">
+          Couldn’t change your alerts. Try again.
+        </p>
+      )}
+    </div>
   );
 }
 
