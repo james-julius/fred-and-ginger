@@ -4,10 +4,12 @@ import { Check, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import useSWR, { mutate } from "swr";
 import { BuildingTile } from "@/components/building-tile";
-import { updateOpportunity, useOpportunity, type S } from "@/lib/api/client";
+import { api, updateOpportunity, type S } from "@/lib/api/client";
 import { buildingType, money, photoAt, toneClass } from "@/lib/format";
 import { areasOf, describe, plural, statusOf, titleCase, type ToolCall } from "./fred-tools";
+import { PassReasons } from "./pass-reasons";
 
 /** A reply gets the search card when Fred looks for places in it. */
 export const isSearch = (t: ToolCall) => t.name === "searchListings" || t.name === "addToInbox";
@@ -297,11 +299,40 @@ function Skyline({ labels }: { labels: string[] }) {
 
 const PEEK = 16; // the results track's left padding (px-4)
 
-/** The places Fred picked, one at a time, with Save and Pass. The next one peeks in from the right. */
+type Place = S["OpportunityDetail"];
+
+/**
+ * The places Fred picked, in full. The key starts with /api/opportunities, so refreshPlaces() reloads
+ * it after any save or pass, here or in the listing. Each one also fills that place's own cache, so
+ * opening its listing is instant.
+ */
+function usePicked(ids: string[]) {
+  return useSWR(
+    ids.length ? `/api/opportunities?picked=${ids.join(",")}` : null,
+    async () => {
+      const places = await Promise.all(ids.map((id) => api<Place>(`/api/opportunities/${id}`).catch(() => null)));
+      for (const d of places) if (d) void mutate(`/api/opportunities/${d.id}`, d, { revalidate: false });
+      return places;
+    },
+    { revalidateOnFocus: false },
+  );
+}
+
+/**
+ * The places Fred picked, one at a time, with Save and Pass. The next one peeks in from the right.
+ * Passing asks what put you off, then the place leaves the card; places passed earlier aren't shown.
+ */
 function Results({ ids, scams }: { ids: string[]; scams: number }) {
   const router = useRouter();
   const track = useRef<HTMLDivElement>(null);
+  const { data: places } = usePicked(ids);
   const [at, setAt] = useState(0);
+  const [asking, setAsking] = useState<string | null>(null); // just passed: asking why, with Undo
+  const [leaving, setLeaving] = useState<string | null>(null); // fading out
+
+  const shown = places?.filter((p): p is Place => !!p && (p.status !== "passed" || p.id === asking)) ?? null;
+  const count = shown?.length ?? ids.length;
+  const current = Math.min(at, Math.max(0, count - 1));
 
   const go = (i: number) => {
     const el = track.current, slide = el?.children[i] as HTMLElement | undefined;
@@ -311,10 +342,33 @@ function Results({ ids, scams }: { ids: string[]; scams: number }) {
   // Whichever slide's left edge is nearest the scroll position is the current one.
   const onScroll = () => {
     const el = track.current;
-    if (!el) return;
+    if (!el || !el.children.length) return;
     const off = (i: number) => Math.abs((el.children[i] as HTMLElement).offsetLeft - PEEK - el.scrollLeft);
-    const nearest = ids.reduce((best, _, i) => (off(i) < off(best) ? i : best), 0);
+    const nearest = [...el.children].reduce((best, _, i) => (off(i) < off(best) ? i : best), 0);
     if (nearest !== at) setAt(nearest);
+  };
+
+  // Tapping Saved again puts the place back in New, like the listing's own buttons.
+  const save = async (place: Place, i: number) => {
+    const undo = place.status === "saved";
+    await updateOpportunity(place.id, { status: undo ? "new" : "saved" });
+    if (!undo && i + 1 < count) setTimeout(() => go(i + 1), 350);
+  };
+  const pass = async (place: Place) => {
+    setAsking(place.id); // before the refresh lands, so the place stays to ask why
+    await updateOpportunity(place.id, { status: "passed" });
+  };
+  const undo = async (place: Place) => {
+    await updateOpportunity(place.id, { status: "new" });
+    setAsking(null);
+  };
+  // After a reason or Skip: fade out, then the next place slides into its spot.
+  const done = (place: Place) => {
+    setLeaving(place.id);
+    setTimeout(() => {
+      setAsking(null);
+      setLeaving(null);
+    }, reducedMotion() ? 0 : 250);
   };
 
   return (
@@ -324,36 +378,52 @@ function Results({ ids, scams }: { ids: string[]; scams: number }) {
           Found {plural(ids.length, "place")}
           {scams > 0 && <span className="normal-case"> · hid {scams} likely {scams === 1 ? "scam" : "scams"}</span>}
         </span>
-        {ids.length > 1 && (
+        {count > 1 && (
           <span className="tabular-nums">
-            {at + 1} of {ids.length}
+            {current + 1} of {count}
           </span>
         )}
       </div>
 
-      <div className="bg-muted/60 py-4">
-        <div
-          ref={track}
-          onScroll={onScroll}
-          className="relative flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 [scrollbar-width:none]"
-        >
-          {ids.map((id, i) => (
-            <Slide key={id} id={id} solo={ids.length === 1} onVoted={() => i + 1 < ids.length && setTimeout(() => go(i + 1), 350)} />
-          ))}
-        </div>
-        {ids.length > 1 && (
-          <div className="mt-3 flex justify-center gap-2">
-            <button type="button" onClick={() => go(at - 1)} disabled={at === 0} className="grid size-9 place-items-center rounded-full border bg-background hover:border-foreground/40 disabled:opacity-40">
-              <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
-              <span className="sr-only">Previous place</span>
-            </button>
-            <button type="button" onClick={() => go(at + 1)} disabled={at === ids.length - 1} className="grid size-9 place-items-center rounded-full border bg-background hover:border-foreground/40 disabled:opacity-40">
-              <ChevronRight size={16} strokeWidth={1.5} aria-hidden />
-              <span className="sr-only">Next place</span>
-            </button>
+      {shown?.length === 0 ? (
+        <p className="px-4 text-[13.5px] text-muted-foreground">You passed on {ids.length === 1 ? "it" : "all of them"}.</p>
+      ) : (
+        <div className="bg-muted/60 py-4">
+          <div
+            ref={track}
+            onScroll={onScroll}
+            className="relative flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 [scrollbar-width:none]"
+          >
+            {shown
+              ? shown.map((place, i) => (
+                  <Slide
+                    key={place.id}
+                    place={place}
+                    solo={count === 1}
+                    asking={asking === place.id}
+                    leaving={leaving === place.id}
+                    onSave={() => save(place, i)}
+                    onPass={() => pass(place)}
+                    onUndo={() => undo(place)}
+                    onDone={() => done(place)}
+                  />
+                ))
+              : ids.map((id) => <Loading key={id} solo={count === 1} />)}
           </div>
-        )}
-      </div>
+          {count > 1 && (
+            <div className="mt-3 flex justify-center gap-2">
+              <button type="button" onClick={() => go(current - 1)} disabled={current === 0} className="grid size-9 place-items-center rounded-full border bg-background hover:border-foreground/40 disabled:opacity-40">
+                <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
+                <span className="sr-only">Previous place</span>
+              </button>
+              <button type="button" onClick={() => go(current + 1)} disabled={current === count - 1} className="grid size-9 place-items-center rounded-full border bg-background hover:border-foreground/40 disabled:opacity-40">
+                <ChevronRight size={16} strokeWidth={1.5} aria-hidden />
+                <span className="sr-only">Next place</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <button type="button" onClick={() => router.push("/")} className="mx-4 rounded-lg border py-2 text-[14px] font-medium hover:bg-muted/60">
         View in New places
@@ -362,34 +432,60 @@ function Results({ ids, scams }: { ids: string[]; scams: number }) {
   );
 }
 
-function Slide({ id, solo, onVoted }: { id: string; solo: boolean; onVoted: () => void }) {
-  const { data: place, error } = useOpportunity(id);
-  const openPlace = useOpenPlace();
-  const slide = `flex ${solo ? "w-full" : "w-[85%]"} shrink-0 snap-start flex-col overflow-hidden rounded-xl border bg-background shadow-xs`;
+const slideClass = (solo: boolean) => `flex ${solo ? "w-full" : "w-[85%]"} shrink-0 snap-start flex-col overflow-hidden rounded-xl border bg-background shadow-xs`;
 
-  if (error) return <article className={`${slide} p-4 text-[13.5px] text-muted-foreground`}>This place isn’t available anymore.</article>;
-  if (!place)
+function Loading({ solo }: { solo: boolean }) {
+  return (
+    <article className={slideClass(solo)} aria-busy>
+      <div className="aspect-[16/9] bg-muted" />
+      <div className="grid gap-2 p-4">
+        <div className="h-4 w-2/3 rounded bg-muted" />
+        <div className="h-3.5 w-1/2 rounded bg-muted" />
+        <div className="mt-8 h-9 rounded-lg bg-muted" />
+      </div>
+    </article>
+  );
+}
+
+function Slide({ place, solo, asking, leaving, onSave, onPass, onUndo, onDone }: {
+  place: Place;
+  solo: boolean;
+  /** Just passed: ask what put them off. */
+  asking: boolean;
+  leaving: boolean;
+  onSave: () => void;
+  onPass: () => void;
+  onUndo: () => void;
+  onDone: () => void;
+}) {
+  const openPlace = useOpenPlace();
+  const slide = `${slideClass(solo)} transition-opacity duration-200 ${leaving ? "opacity-0" : ""}`;
+  const where = place.address ? `${place.address}${place.unit ? ` #${place.unit}` : ""}` : place.area;
+
+  if (asking)
     return (
-      <article className={slide} aria-busy>
-        <div className="aspect-[16/9] bg-muted" />
-        <div className="grid gap-2 p-4">
-          <div className="h-4 w-2/3 rounded bg-muted" />
-          <div className="h-3.5 w-1/2 rounded bg-muted" />
-          <div className="mt-8 h-9 rounded-lg bg-muted" />
+      <article className={slide}>
+        <div className="flex items-center gap-3 border-b px-4 py-3 text-[13.5px]">
+          <X size={14} strokeWidth={1.75} className="shrink-0 text-muted-foreground" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">
+            <b className="font-semibold">Passed</b> · {where}
+          </span>
+          <button type="button" onClick={onUndo} className="font-semibold underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground">
+            Undo
+          </button>
         </div>
+        <div className="p-4">
+          <PassReasons place={place} onDone={onDone} />
+        </div>
+        <button type="button" onClick={onDone} className="mt-auto self-start px-4 pb-4 text-[13px] text-muted-foreground hover:text-foreground">
+          Skip
+        </button>
       </article>
     );
 
   const photo = place.thumbnail ?? place.photos[0] ?? null;
-  const where = place.address ? `${place.address}${place.unit ? ` #${place.unit}` : ""}` : place.area;
   const size = `${place.beds === 0 ? "Studio" : `${place.beds} bed`}${place.baths != null ? `, ${place.baths} bath` : ""}`;
   const take = place.highlight ?? place.verdict.reason;
-  // Tapping the active one puts the place back in New, like the listing's own buttons.
-  const vote = async (status: "saved" | "passed") => {
-    const undo = place.status === status;
-    await updateOpportunity(place.id, { status: undo ? "new" : status });
-    if (!undo) onVoted();
-  };
 
   return (
     <article className={slide}>
@@ -415,21 +511,14 @@ function Slide({ id, solo, onVoted }: { id: string; solo: boolean; onVoted: () =
         {take && <span className="text-muted-foreground"> · {take}</span>}
       </p>
       <div className="mt-auto grid grid-cols-2 gap-2 p-4 pt-3">
-        <button
-          type="button"
-          aria-pressed={place.status === "passed"}
-          onClick={() => vote("passed")}
-          className={`inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-[13.5px] font-semibold ${
-            place.status === "passed" ? "border border-foreground/30 bg-background" : "bg-muted hover:bg-muted/70"
-          }`}
-        >
+        <button type="button" onClick={onPass} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-muted py-2 text-[13.5px] font-semibold hover:bg-muted/70">
           <X size={14} strokeWidth={1.75} aria-hidden />
-          {place.status === "passed" ? "Passed" : "Pass"}
+          Pass
         </button>
         <button
           type="button"
           aria-pressed={place.status === "saved"}
-          onClick={() => vote("saved")}
+          onClick={onSave}
           className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-[13.5px] font-semibold text-primary-foreground hover:bg-primary/90"
         >
           <Check size={14} strokeWidth={1.75} aria-hidden />
