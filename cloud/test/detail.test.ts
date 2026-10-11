@@ -1,4 +1,4 @@
-// What a listing's own page (raw.detail, actor/SCHEMA.md) adds: fees classified into real costs,
+// What a listing's own page (raw.detail, docs/crawlers.md) adds: fees classified into real costs,
 // utilities, lease length, floor, page amenities and description, and highlights from sqft.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
