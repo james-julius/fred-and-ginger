@@ -1,0 +1,11 @@
+config.json
+data/
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/
+.wrangler/
+storage/
+.dev.vars
+.env*
+*.log

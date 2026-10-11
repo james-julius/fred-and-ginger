@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fred &amp; Ginger</title>
+<meta name="theme-color" content="#f6f3ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23c4552d'/><path d='M16 34 32 20l16 14v14H16z' fill='none' stroke='white' stroke-width='5' stroke-linejoin='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header id="top">
+  <div class="bar">
+    <a class="brand" href="/">Fred <i>&amp;</i> Ginger</a>
+    <nav id="views" aria-label="Views"></nav>
+    <span class="grow"></span>
+    <button id="mapbtn" class="icon" aria-label="Map" title="Map"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg></button>
+    <button id="setbtn" class="icon" aria-label="Search settings" title="Search settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+    <a id="me" class="me" href="/logout" title="Sign out"></a>
+  </div>
+  <div class="filters" id="filters">
+    <label>Max <input id="fmax" type="number" inputmode="numeric" step="100" placeholder="any"></label>
+    <label>Beds <select id="fbeds"><option value="">any</option><option value="0">studio+</option><option value="1">1+</option><option value="2">2+</option><option value="3">3+</option></select></label>
+    <label>Area <select id="farea"><option value="">ours</option><option value="*">all NYC</option></select></label>
+    <label>Building <select id="fscore"><option value="">any</option><option value="60">60+</option><option value="80">80+</option><option value="95">95+</option></select></label>
+    <label>Sort <select id="fsort"><option value="">newest</option><option value="price">price</option><option value="score">building</option><option value="ppsf">$/ft²</option></select></label>
+  </div>
+</header>
+<main>
+  <div id="map" hidden></div>
+  <div id="list" class="grid"></div>
+  <div id="empty" class="empty" hidden></div>
+</main>
+<dialog id="settings">
+  <form method="dialog" id="sform">
+    <h2>What we're looking for</h2>
+    <p class="sub">The crawlers run every 4 hours with this search.</p>
+    <label>Max rent<input name="maxRent" type="number" inputmode="numeric" step="100" placeholder="4500"></label>
+    <label>Min bedrooms<select name="minBeds"><option value="0">studio</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+    <label>Neighbourhoods<textarea name="areas" rows="3" placeholder="williamsburg, greenpoint, east-village"></textarea><small>StreetEasy names, comma separated (as in streeteasy.com/for-rent/<b>williamsburg</b>)</small></label>
+    <div class="row"><button type="button" id="ssave" class="primary">Save</button><button type="button" id="srun">Run crawlers now</button><span class="grow"></span><button value="close">Close</button></div>
+    <h3>Recent runs</h3>
+    <div id="runs" class="runs"></div>
+  </form>
+</dialog>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
