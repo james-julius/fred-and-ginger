@@ -101,7 +101,7 @@ export async function upsert(env: Env, r: any): Promise<'new' | 'seen' | 'skip'>
 
 // ── Apify ──────────────────────────────────────────────────────────────
 const APIFY = 'https://api.apify.com/v2';
-const apify = (env: Env, path: string, init?: RequestInit) =>
+export const apify = (env: Env, path: string, init?: RequestInit) =>
   fetch(APIFY + path, { ...init, headers: { Authorization: `Bearer ${env.APIFY_TOKEN}`, 'Content-Type': 'application/json', ...(init?.headers || {}) } });
 
 export interface Criteria { maxRent?: number; minBeds?: number; areas?: string[] }

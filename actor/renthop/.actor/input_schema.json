@@ -60,6 +60,12 @@
       "description": "Also fetch each listing's page (HTML only) for agency, photos, move-in date and RentHop's Listing Quality breakdown. Off = search cards only (less proxy traffic).",
       "default": true
     },
+    "savePhotos": {
+      "title": "Save photos",
+      "type": "boolean",
+      "description": "Open each listing's photos once and keep them in the nest-renthop-photos store, so the app can show them (photos.renthop.com blocks other sites). Needs fetchDetails. Photos already saved are skipped.",
+      "default": true
+    },
     "maxItems": {
       "title": "Max listings",
       "type": "integer",
