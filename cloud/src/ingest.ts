@@ -25,14 +25,33 @@ export function normStreet(s: string) {
 }
 export const normUnit = (u?: string | null) => (u || '').toUpperCase().replace(/^(APT|UNIT|#)\s*/, '').replace(/[^A-Z0-9]/g, '').replace(/^0+(?=\w)/, '');
 
+// Sites get specs wrong (a Zillow 1 bed once said 1 full + 3 half baths). Drop what can't be true:
+// unknown shows as unknown, and the next sighting fills it in.
+export function specs(r: any) {
+  const n = (v: any) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+  let beds = n(r.beds), baths = n(r.baths), sqft = n(r.sqft);
+  if (beds != null && (beds < 0 || beds > 10)) beds = null;
+  if (baths != null && (baths <= 0 || baths > 10 || baths * 2 !== Math.round(baths * 2))) baths = null;
+  if (baths != null && beds != null && baths > Math.max(beds, 1) + 1) baths = null;
+  if (sqft != null && (sqft < 100 || sqft > 20000)) sqft = null;
+  return { beds, baths, sqft };
+}
+
+// A street with no unit could be any apartment in the building, so it only matches itself.
+export function keyOf(r: any) {
+  const unit = normUnit(r.unit);
+  return r.street && unit ? `${normStreet(r.street)}#${unit}` : `${r.source}:${r.sourceId}`;
+}
+
 export async function upsert(env: Env, r: any): Promise<'new' | 'seen' | 'skip'> {
   if (!r?.source || !r.sourceId || !r.price) return 'skip';
   const t = now(), db = env.DB;
+  const { beds, baths, sqft } = specs(r);
   const photos = JSON.stringify((r.photos || []).slice(0, 8));
   const s = await db.prepare('SELECT listing_id, price FROM sightings WHERE source=? AND source_id=?').bind(r.source, String(r.sourceId)).first<any>();
   let id: number | undefined = s?.listing_id;
   if (!id) {
-    const key = r.street ? `${normStreet(r.street)}#${normUnit(r.unit) || '?'}` : `${r.source}:${r.sourceId}`;
+    const key = keyOf(r);
     const hit = await db.prepare('SELECT id FROM listings WHERE key=?').bind(key).first<any>();
     if (hit) id = hit.id;
     else {
@@ -41,7 +60,7 @@ export async function upsert(env: Env, r: any): Promise<'new' | 'seen' | 'skip'>
            no_fee, available, photos, agency, open_house, first_seen, last_seen, price_history, geo_state)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
         key, r.street ?? null, normUnit(r.unit) || null, r.neighbourhood ?? null, r.borough ?? null, r.zip ?? null,
-        r.lat ?? null, r.lon ?? null, r.price, r.netEffective ?? null, r.beds ?? null, r.baths ?? null, r.sqft ?? null,
+        r.lat ?? null, r.lon ?? null, r.price, r.netEffective ?? null, beds, baths, sqft,
         r.noFee == null ? null : r.noFee ? 1 : 0, r.available ?? null, photos, r.agency ?? null,
         JSON.stringify(r.raw?.upcomingOpenHouse ?? null), t, t, JSON.stringify([[t, r.price]]), r.street ? 'pending' : 'none').run();
       id = res.meta.last_row_id as number;
@@ -51,18 +70,20 @@ export async function upsert(env: Env, r: any): Promise<'new' | 'seen' | 'skip'>
     }
   }
   // seen before (here or on another site): refresh, note price moves, and clear facts so the cron
-  // re-reads them from every sighting (facts.ts)
+  // re-reads them from every sighting (facts.ts). Specs follow the latest site that states them, so a
+  // listing the site corrects gets corrected here too.
   const l = await db.prepare('SELECT price, price_history, photos FROM listings WHERE id=?').bind(id).first<any>();
   const hist: [number, number][] = JSON.parse(l?.price_history || '[]');
   if (l && r.price !== l.price && (!hist.length || hist[hist.length - 1][1] !== r.price)) hist.push([t, r.price]);
   await db.batch([
     db.prepare(`UPDATE listings SET price=?, last_seen=?, status='active', price_history=?,
                 photos=CASE WHEN photos IS NULL OR photos='[]' THEN ? ELSE photos END,
-                no_fee=COALESCE(?, no_fee), available=COALESCE(?, available), sqft=COALESCE(sqft, ?),
+                no_fee=COALESCE(?, no_fee), available=COALESCE(?, available),
+                beds=COALESCE(?, beds), baths=COALESCE(?, baths), sqft=COALESCE(?, sqft),
                 lat=COALESCE(lat, ?), lon=COALESCE(lon, ?), open_house=COALESCE(?, open_house),
                 facts=NULL WHERE id=?`)
       .bind(r.price, t, JSON.stringify(hist.slice(-20)), photos, r.noFee == null ? null : r.noFee ? 1 : 0, r.available ?? null,
-            r.sqft ?? null, r.lat ?? null, r.lon ?? null, r.raw?.upcomingOpenHouse ? JSON.stringify(r.raw.upcomingOpenHouse) : null, id),
+            beds, baths, sqft, r.lat ?? null, r.lon ?? null, r.raw?.upcomingOpenHouse ? JSON.stringify(r.raw.upcomingOpenHouse) : null, id),
     db.prepare(`INSERT INTO sightings VALUES (?,?,?,?,?,?,?,?) ON CONFLICT (source, source_id)
                 DO UPDATE SET price=excluded.price, url=excluded.url, last_seen=excluded.last_seen, raw=excluded.raw`)
       .bind(r.source, String(r.sourceId), id, r.url ?? null, r.price, t, t, JSON.stringify(r.raw ?? {})),
