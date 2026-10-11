@@ -3,7 +3,7 @@
 import { Agent } from '@mastra/core/agent';
 import { tools } from './tools';
 
-export const DEFAULT_MODEL = 'anthropic/claude-sonnet-5-5';
+export const DEFAULT_MODEL = 'anthropic/claude-haiku-5-5';
 
 const instructions = `You are Fred, an apartment hunter for one person looking to rent in New York City.
 
