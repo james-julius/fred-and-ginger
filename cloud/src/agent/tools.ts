@@ -269,10 +269,19 @@ export const researchWeb = createTool({
   description: "Search the web to research a place for the user: tenant reviews of a building (Openigloo, StreetEasy, Google), the landlord or management company, what the block is like, whether a building has an elevator or laundry. Include the street address and 'NYC' in the query. Returns titles, links and snippets; say where a claim came from.",
   inputSchema: z.object({ query: z.string().describe('e.g. "376 Graham Ave Brooklyn tenant reviews"') }),
   execute: async ({ query }, c) => {
-    const { nimble } = who(c as Ctx);
+    const { db, nimble } = who(c as Ctx);
     if (!nimble) return { error: 'Web research is not set up (no NIMBLE_API_KEY)' };
     await emit(c as Ctx, 'data-scan', { checked: 0, matched: 0, hidden: 0, steps: [{ label: `Looked up "${query}"`, toolCallId: null }] });
-    try { return { results: await webSearch(nimble, query, 5) }; } catch (e) { return { error: String(e).slice(0, 200) }; }
+    // each search is a paid call: the same question within a week reads the saved answer
+    const key = `web:${query.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`, now = Math.floor(Date.now() / 1000);
+    const hit = await db.prepare('SELECT v FROM meta WHERE k=?').bind(key).first<{ v: string }>();
+    const saved = hit && JSON.parse(hit.v);
+    if (saved && now - saved.at < WEEK) return { results: saved.results, cachedDaysAgo: Math.floor((now - saved.at) / 86400) };
+    try {
+      const results = await webSearch(nimble, query, 5);
+      await db.prepare('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)').bind(key, JSON.stringify({ at: now, results })).run();
+      return { results };
+    } catch (e) { return { error: String(e).slice(0, 200) }; }
   },
 });
 
