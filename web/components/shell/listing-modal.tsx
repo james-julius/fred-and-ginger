@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleCheck, Flag, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleCheck, Flag, Share, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { FredMark } from "@/components/fred-mark";
@@ -16,8 +16,9 @@ const MiniMap = dynamic(() => import("./places-map").then((m) => m.MiniMap), {
   loading: () => <div className="size-full bg-muted" />,
 });
 
-const iconButton =
-  "grid size-[30px] place-items-center rounded-lg border bg-background hover:bg-muted focus-visible:outline-2 focus-visible:outline-foreground";
+// Stepping between places and closing are the header's main moves, so they get big, thumb-sized buttons.
+const bigButton =
+  "grid size-10 shrink-0 place-items-center rounded-full border bg-background hover:bg-muted focus-visible:outline-2 focus-visible:outline-foreground";
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onAsk }: {
@@ -48,16 +49,17 @@ export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onA
             if (e.key === "ArrowRight") onStep?.(1);
             if (e.key === "ArrowLeft") onStep?.(-1);
           }}
-          className="fixed inset-0 z-50 flex flex-col bg-background text-foreground outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[min(900px,calc(100dvh-48px))] sm:w-[min(760px,calc(100vw-48px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-2xl"
+          // On a phone it's a sheet with a strip of the page showing above it: tap there to close, like outside a dialog.
+          className="fixed inset-x-0 top-10 bottom-0 z-50 flex flex-col rounded-t-2xl bg-background text-foreground outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[min(900px,calc(100dvh-48px))] sm:w-[min(760px,calc(100vw-48px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-2xl"
         >
           <div className="flex items-center gap-1.5 border-b px-3 py-2.5">
             {onStep && total > 0 && (
               <>
-                <button type="button" className={iconButton} onClick={() => onStep(-1)} aria-label="Previous place">
-                  <ChevronLeft size={15} strokeWidth={1.25} aria-hidden />
+                <button type="button" className={bigButton} onClick={() => onStep(-1)} aria-label="Previous place">
+                  <ChevronLeft size={20} strokeWidth={1.5} aria-hidden />
                 </button>
-                <button type="button" className={iconButton} onClick={() => onStep(1)} aria-label="Next place">
-                  <ChevronRight size={15} strokeWidth={1.25} aria-hidden />
+                <button type="button" className={bigButton} onClick={() => onStep(1)} aria-label="Next place">
+                  <ChevronRight size={20} strokeWidth={1.5} aria-hidden />
                 </button>
               </>
             )}
@@ -67,8 +69,8 @@ export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onA
               </span>
             )}
             {place && <Votes place={place} onPass={(passed) => setAsking(passed ? place.id : null)} />}
-            <Dialog.Close className={`${place ? "ml-1" : "ml-auto"} border-transparent ${iconButton}`} aria-label="Close">
-              <X size={15} strokeWidth={1.25} aria-hidden />
+            <Dialog.Close className={`${place ? "ml-1" : "ml-auto"} border-transparent ${bigButton}`} aria-label="Close">
+              <X size={20} strokeWidth={1.5} aria-hidden />
             </Dialog.Close>
           </div>
           {place && asking === place.id && (
@@ -99,12 +101,38 @@ export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onA
                   <FredMark className="h-[17px] w-[13px]" />
                   Ask Fred about this place
                 </button>
+                <ShareButton place={place} />
               </div>
             </>
           )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/**
+ * Shares the listing's own page (StreetEasy and the like), since that opens for anyone, where a Fred
+ * link would ask them to sign in. Browsers that can't share copy it instead.
+ */
+function ShareButton({ place }: { place: S["OpportunityDetail"] }) {
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const address = `${place.address}${place.unit ? ` #${place.unit}` : ""}`;
+    const text = `${money(place.price)} · ${place.beds} bed${place.baths != null ? `, ${place.baths} bath` : ""} in ${place.area}: ${address}`;
+    const url = place.sources[0]?.url ?? window.location.href;
+    if (navigator.share) return navigator.share({ title: address, text, url }).catch(() => {}); // closing the share sheet rejects
+    try {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+  return (
+    <button type="button" onClick={share} className="ml-auto inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13.5px] font-medium hover:bg-muted">
+      {copied ? <Check size={16} strokeWidth={1.5} aria-hidden /> : <Share size={16} strokeWidth={1.25} aria-hidden />}
+      <span aria-live="polite">{copied ? "Link copied" : "Share"}</span>
+    </button>
   );
 }
 

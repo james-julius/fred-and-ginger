@@ -96,7 +96,11 @@ export function Gallery({ photos, label }: { photos: string[]; label: string }) 
                 <X size={18} strokeWidth={1.5} aria-hidden />
               </Dialog.Close>
             </div>
-            <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-6 sm:px-16">
+            {/* Clicking the black around the photo closes it, like clicking outside a dialog. Escape does too. */}
+            <div
+              onClick={(e) => e.target === e.currentTarget && setFullScreen(false)}
+              className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-6 sm:px-16"
+            >
               <Image
                 src={photoAt(photos[index], 2400)}
                 alt={alt(index)}
