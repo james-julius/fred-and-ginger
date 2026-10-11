@@ -193,18 +193,52 @@ export function mergeFacts(list: Facts[]): Facts {
   return f;
 }
 
+/* ── square feet from the listing's own words ──────────────────────────── */
+
+// "740 sq. ft.", "Approx 1,500 Sq Ft", "461.73 SQFT", "1000+ square feet", "600 SF of living space"
+const SQFT = /(\d{1,2},\d{3}|\d{3,4})(\.\d+)?\s*\+?\s*(?:sq\.?\s*f(?:ee)?t\.?|sq\.?\s*feet|sqft|square\s*f(?:ee|oo)t|sf\b|ft²|ft2\b)/gi;
+// the clause around the number is about something else: outdoor space, the building, an addition
+const NOT_THE_APARTMENT = /yard|garden|terrace|roof|deck|patio|balcon|outdoor|courtyard|amenit|gym|fitness|lobby|lounge|building|retail|commercial|storage|garage|extra|additional|bonus|lot\b|office/i;
+// plausible sizes by bedrooms (studio, 1, 2, 3, 4+), so a typo or a building total doesn't stick
+const SQFT_RANGE: [number, number][] = [[200, 1000], [300, 1600], [450, 2500], [600, 3500], [800, 6000]];
+
+/** The apartment's size, when its description states it; null when it doesn't, or isn't sure. */
+export function sqftFromText(text: string | null | undefined, beds: number | null) {
+  if (!text) return null;
+  for (const m of text.matchAll(SQFT)) {
+    const n = Math.round(Number(m[1].replace(/,/g, '') + (m[2] ?? '')));
+    // only this clause: from the last , ; . ! or newline before the number to the next one after it
+    const start = m.index!, end = start + m[0].length;
+    const before = text.slice(Math.max(0, start - 60), start).split(/[,;.!?\n•✨]/).pop() ?? '';
+    const after = (text.slice(end, end + 60).split(/[,;.!?\n•✨]/)[0]) ?? '';
+    if (NOT_THE_APARTMENT.test(before) || NOT_THE_APARTMENT.test(after)) continue;
+    const [lo, hi] = SQFT_RANGE[Math.min(4, Math.max(0, Math.floor(beds ?? 1)))];
+    if (n >= lo && n <= hi) return n;
+  }
+  return null;
+}
+
 /** Recompute one listing's facts from all its sightings. */
 export async function refreshFacts(db: D1Database, ids: number[]) {
   if (!ids.length) return 0;
   // D1 allows 100 bound values per query
   const chunks = Array.from({ length: Math.ceil(ids.length / 90) }, (_, i) => ids.slice(i * 90, i * 90 + 90));
-  const res = await db.batch(chunks.map((c) => db.prepare(`SELECT listing_id, raw FROM sightings WHERE listing_id IN (${c.map(() => '?').join(',')})`).bind(...c)));
+  const res = await db.batch(chunks.map((c) => db.prepare(`SELECT s.listing_id, s.raw, l.beds, l.sqft FROM sightings s JOIN listings l ON l.id=s.listing_id WHERE s.listing_id IN (${c.map(() => '?').join(',')})`).bind(...c)));
+  // no site gave the size, but a description states it: keep that (a site's own number always wins)
+  const sized = new Map<number, number>();
   const by = new Map<number, Facts[]>(ids.map((id) => [id, []]));
-  for (const r of res.flatMap((x) => x.results as { listing_id: number; raw: string }[])) { try { by.get(r.listing_id)?.push(factsFrom(JSON.parse(r.raw))); } catch { /* bad raw: skip */ } }
+  for (const r of res.flatMap((x) => x.results as { listing_id: number; raw: string; beds: number | null; sqft: number | null }[])) {
+    try {
+      const f = factsFrom(JSON.parse(r.raw));
+      by.get(r.listing_id)?.push(f);
+      const n = r.sqft == null && !sized.has(r.listing_id) ? sqftFromText(f.description, r.beds) : null;
+      if (n) sized.set(r.listing_id, n);
+    } catch { /* bad raw: skip */ }
+  }
   const ups = [...by].map(([id, fs]) => {
     const f = mergeFacts(fs);
     // a site saying "no fee" in its tags fills the column the filters use
-    return db.prepare(`UPDATE listings SET facts=?, no_fee=COALESCE(no_fee, ?) WHERE id=?`).bind(JSON.stringify(f), f.noFee == null ? null : f.noFee ? 1 : 0, id);
+    return db.prepare(`UPDATE listings SET facts=?, no_fee=COALESCE(no_fee, ?), sqft=COALESCE(sqft, ?) WHERE id=?`).bind(JSON.stringify(f), f.noFee == null ? null : f.noFee ? 1 : 0, sized.get(id) ?? null, id);
   });
   for (let i = 0; i < ups.length; i += 50) await db.batch(ups.slice(i, i + 50));
   return ups.length;
