@@ -11,6 +11,7 @@
 // canned data of the signed-in user (james), so it only runs against localhost.
 import { createHmac, randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { canonicalArea, inArea } from '../cloud/src/areas';
 
 const args = process.argv.slice(2);
 const flag = (name: string) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
@@ -112,6 +113,15 @@ function basics(t: Turn, earlier: Turn[] = []): Check[] {
 }
 
 const areasInclude = (input: any, area: string) => (input?.dealbreakers?.areas ?? input?.areas ?? []).some((a: string) => a.toLowerCase().includes(area));
+
+/** listings or cards outside a saved search: not in one of its areas, or in one it leaves out */
+const outside = (items: { area?: string | null; borough?: string | null }[], d: any) => items.filter((l) => {
+  const at = { borough: l.borough ?? null, neighbourhood: l.area ?? null };
+  return (d.areas.length && !d.areas.some((a: string) => inArea(at, a))) || (d.excludeAreas ?? []).some((a: string) => inArea(at, a));
+});
+const found = (t: Turn) => called(t, 'searchListings').flatMap((c) => c.output?.listings ?? []);
+/** start from a known saved search */
+const searchIs = (dealbreakers: object) => api('/api/search', { method: 'PATCH', body: JSON.stringify({ dealbreakers }) });
 
 type Case = { name: string; run: () => Promise<{ turns: Turn[]; checks: Check[] }> };
 
@@ -286,6 +296,68 @@ const cases: Case[] = [
       check('steps it back to nice', s2.length > 0 && s2.every((x: any) => x.weight === 'nice'), JSON.stringify(s2)),
     ] };
   } },
+
+  { name: 'leaves out the areas they rule out', run: async () => {
+    const thread = await fresh();
+    const t = await say(thread, 'Find me a 1 bedroom in Manhattan under $4,000, but nothing in Harlem or Washington Heights please');
+    const d = (await getJson('/api/search')).dealbreakers;
+    // places they saved or passed on stay whatever the search; only the rest must fit
+    const cards = (await getJson('/api/opportunities?view=all&limit=100')).items.filter((c: any) => c.status === 'new' || c.status === 'hidden');
+    const ruledOut = (a: string) => (d.excludeAreas ?? []).map(canonicalArea).includes(a);
+    return { turns: [t], checks: [
+      ...basics(t),
+      check('saves Harlem and Washington Heights as left out', ruledOut('central-harlem') && ruledOut('washington-heights'), JSON.stringify(d.excludeAreas)),
+      check('keeps Manhattan as the area', d.areas.includes('manhattan'), JSON.stringify(d.areas)),
+      check('searches', found(t).length > 0, 'no listings searched'),
+      check('no listing from a left-out area', outside(found(t), d).length === 0, outside(found(t), d).map((l: any) => `${l.id} ${l.area}`).join(', ')),
+      check('inbox has nothing from a left-out area', outside(cards, d).length === 0, outside(cards, d).map((c: any) => `${c.id} ${c.area}`).join(', ')),
+    ] };
+  } },
+
+  { name: 'East Harlem is not Harlem', run: async () => {
+    const thread = await fresh();
+    await searchIs({ areas: ['manhattan'], excludeAreas: ['central-harlem'], maxTotalMonthly: 4000, minBeds: 1, minBaths: null, pets: null });
+    const t = await say(thread, 'Anything good in East Harlem?');
+    const d = (await getJson('/api/search')).dealbreakers;
+    const at = (l: any) => ({ borough: l.borough, neighbourhood: l.area });
+    const central = found(t).filter((l: any) => inArea(at(l), 'central-harlem'));
+    return { turns: [t], checks: [
+      ...basics(t),
+      check('searches', called(t, 'searchListings').length > 0, 'no searchListings call'),
+      check('still leaves out Central Harlem', (d.excludeAreas ?? []).includes('central-harlem'), JSON.stringify(d.excludeAreas)),
+      check('no Central Harlem listings', central.length === 0, central.map((l: any) => `${l.id} ${l.area}`).join(', ')),
+      check('finds East Harlem places', found(t).some((l: any) => inArea(at(l), 'east-harlem')), JSON.stringify(found(t).map((l: any) => l.area))),
+    ] };
+  } },
+
+  { name: 'an area outside the search needs the search changed', run: async () => {
+    const thread = await fresh();
+    await searchIs({ areas: ['upper-west-side'], excludeAreas: [], maxTotalMonthly: 4500, minBeds: 1, minBaths: null, pets: null });
+    const t = await say(thread, 'What about Williamsburg?');
+    const d = (await getJson('/api/search')).dealbreakers;
+    const wburg = found(t).filter((l: any) => inArea({ borough: l.borough, neighbourhood: l.area }, 'williamsburg'));
+    return { turns: [t], checks: [
+      ...basics(t),
+      // either he adds Williamsburg to the search and shows it, or he says it's outside and offers to
+      check('adds Williamsburg or offers to', d.areas.includes('williamsburg') || t.parts.includes('data-suggestions') || /\?/.test(t.finalText), JSON.stringify(d.areas)),
+      check('only shows Williamsburg once the search has it', !wburg.length || d.areas.includes('williamsburg'), `${wburg.length} Williamsburg listings, areas ${JSON.stringify(d.areas)}`),
+      check('keeps the Upper West Side', d.areas.includes('upper-west-side'), JSON.stringify(d.areas)),
+    ] };
+  } },
+
+  { name: 'a bare search stays in the saved areas', run: async () => {
+    const thread = await fresh();
+    await searchIs({ areas: ['east-village', 'west-village'], excludeAreas: [], maxTotalMonthly: 4000, minBeds: 1, minBaths: null, pets: null });
+    const t = await say(thread, 'Show me the three best places right now');
+    const d = (await getJson('/api/search')).dealbreakers;
+    return { turns: [t], checks: [
+      ...basics(t),
+      check('searches', found(t).length > 0, 'no listings searched'),
+      check("doesn't change the areas", JSON.stringify(d.areas) === JSON.stringify(['east-village', 'west-village']), JSON.stringify(d.areas)),
+      check('every listing is in the East or West Village', outside(found(t), d).length === 0, outside(found(t), d).map((l: any) => `${l.id} ${l.area}`).join(', ')),
+      check('nothing over budget', found(t).every((l: any) => l.price <= 4000), JSON.stringify(found(t).map((l: any) => l.price))),
+    ] };
+  } },
 ];
 
 /* ── run and report ──────────────────────────────────────────────────── */
@@ -304,6 +376,12 @@ for (const c of cases.filter((x) => !ONLY || x.name.includes(ONLY))) {
   for (let i = 0; i < RUNS; i++) {
     let r: { turns: Turn[]; checks: Check[] };
     try { r = await c.run(); } catch (e) { r = { turns: [], checks: [check('ran', false, String(e))] }; }
+    // whatever the case, Fred's last search stayed inside the search as it ended
+    try {
+      const last = r.turns.at(-1), d = (await getJson('/api/search')).dealbreakers;
+      const out = last ? outside(found(last), d) : [];
+      r.checks.push(check('search stayed inside the saved search', out.length === 0, out.map((l: any) => `${l.id} ${l.area}`).join(', ')));
+    } catch (e) { r.checks.push(check('search stayed inside the saved search', false, String(e))); }
     // every [address](place:op_id) link Fred wrote must point at a place in the inbox
     try {
       const inbox = new Set((await getJson('/api/opportunities?view=all&limit=100')).items.map((o: any) => o.id));
