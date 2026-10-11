@@ -122,10 +122,12 @@ v2.openapi(R.chat, async (c) => {
   const userMsg: Message = { id: user.id ?? crypto.randomUUID(), role: 'user', parts: user.parts ?? [{ type: 'text', text: said }] };
 
   if (hasModelKey(c.env)) {
+    // an id already in the thread means the user edited that message: Fred sees only what came before it
+    const keep = (msgs: Message[] = []) => { const i = user.id ? msgs.findIndex((m) => m.id === user.id) : -1; return i === -1 ? msgs : msgs.slice(0, i); };
     const prior = view(st).threads[threadId];
     // history as plain text for now; Mastra memory in Postgres replaces this
     type Turn = { role: 'user'; content: string } | { role: 'assistant'; content: string };
-    const history: Turn[] = (prior?.messages ?? []).flatMap((m): Turn[] => {
+    const history: Turn[] = keep(prior?.messages).flatMap((m): Turn[] => {
       const content = m.parts.filter((p) => p.type === 'text').map((p) => String(p.text)).join('\n');
       return !content ? [] : [m.role === 'user' ? { role: 'user', content } : { role: 'assistant', content }];
     });
@@ -163,9 +165,9 @@ v2.openapi(R.chat, async (c) => {
         writer.write({ type: 'finish' });
       },
       onFinish: async ({ responseMessage }) => {
-        const fresh = await state(c), was = view(fresh).threads[threadId];
-        fresh.threads[threadId] = { title: was?.title ?? (said.slice(0, 60) || 'New chat'), updatedAt: new Date().toISOString(),
-          messages: [...(was?.messages ?? []), userMsg, { id: responseMessage.id, role: 'assistant', parts: responseMessage.parts as Message['parts'] }] };
+        const fresh = await state(c), was = view(fresh).threads[threadId], kept = keep(was?.messages);
+        fresh.threads[threadId] = { title: kept.length && was?.title ? was.title : (said.slice(0, 60) || 'New chat'), updatedAt: new Date().toISOString(),
+          messages: [...kept, userMsg, { id: responseMessage.id, role: 'assistant', parts: responseMessage.parts as Message['parts'] }] };
         await store(c, fresh);
       },
       onError: (e) => { console.error('fred', e); return 'Fred hit a problem answering that. Try again in a moment.'; },
