@@ -4,11 +4,15 @@ import { locate, report } from './building';
 
 export interface Env {
   DB: D1Database; ASSETS: Fetcher;
+  WEB?: Fetcher;                          // the new app (fred-web Worker), served on fredandginger.*
   APIFY_TOKEN: string; SESSION_KEY: string; HOOK_SECRET: string;
   PASSWORD_JAMES?: string; PASSWORD_ERIN?: string;
   FRED_MODEL?: string;                    // provider/model for the agent; its API key is a secret too
   FRED_EFFORT?: 'low' | 'medium' | 'high'; // Anthropic effort for chat; default low, for speed
   NIMBLE_API_KEY?: string;                // web search and page reads for Fred's research tools
+  EMAIL?: SendEmail;                      // Cloudflare Email Sending, from fred@jamesjuliusdarby.com
+  AI?: Ai;                                // Workers AI: embeddings for chat recall (recall.ts)
+  CHATS?: VectorizeIndex;                 // past chat exchanges, by meaning
   FRED_DEV?: string;                      // '1' only in cloud/.dev.vars: enables eval-only overrides and routes
   ANTHROPIC_API_KEY?: string; OPENAI_API_KEY?: string; GOOGLE_GENERATIVE_AI_API_KEY?: string;
 }

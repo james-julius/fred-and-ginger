@@ -39,15 +39,17 @@ const api = async (path: string, init: RequestInit = {}) => {
 const getJson = async <T = any>(path: string) => (await api(path)).json() as Promise<T>;
 
 type ToolCall = { name: string; input: any; output?: any };
-type Turn = { said: string; seq: ('text' | 'tool')[]; text: string; finalText: string; tools: ToolCall[]; parts: string[]; meta: any; ms: number; error?: string };
+type Turn = { said: string; saved: string; seq: ('text' | 'tool')[]; text: string; finalText: string; tools: ToolCall[]; parts: string[]; meta: any; ms: number; error?: string };
 
 async function say(threadId: string, text: string, opportunityId?: string): Promise<Turn> {
   const t0 = Date.now();
+  // Fred sees the saved search every turn, so its numbers count as known
+  const savedSearch = JSON.stringify(await (await api('/api/search')).json());
   const r = await api('/api/chat', { method: 'POST', body: JSON.stringify({
     threadId, context: opportunityId ? { opportunityId } : null,
     message: { id: randomUUID(), role: 'user', parts: [{ type: 'text', text }] },
   }) });
-  const turn: Turn = { said: text, seq: [], text: '', finalText: '', tools: [], parts: [], meta: null, ms: 0 };
+  const turn: Turn = { said: text, saved: savedSearch, seq: [], text: '', finalText: '', tools: [], parts: [], meta: null, ms: 0 };
   const byId = new Map<string, ToolCall>();
   const body = await r.text();
   for (const line of body.split('\n')) {
@@ -79,12 +81,12 @@ const norm = (s: string) => s.toLowerCase().replace(/\./g, '').replace(/\b(stree
 
 function basics(t: Turn, earlier: Turn[] = []): Check[] {
   const seen = JSON.stringify([...earlier, t].flatMap((x) => x.tools.map((c) => c.output ?? null)));
-  const knownText = norm(seen + ' ' + [...earlier, t].map((x) => x.said).join(' '));
+  const knownText = norm(seen + ' ' + [...earlier, t].map((x) => `${x.said} ${x.saved}`).join(' '));
   const badAddresses = [...t.text.matchAll(ADDRESS)].map((m) => m[0]).filter((a) => !knownText.includes(norm(a).replace(/ (st|ave)$/, '')));
   const textThenTool = t.seq.indexOf('text') >= 0 && t.seq.lastIndexOf('tool') > t.seq.indexOf('text');
   // numbers from tool results, plus ones the user said ("$5k" counts as 5000)
   const fromUser = (t.said.match(/\d[\d,.]*k?/gi) ?? []).map((n) => /k$/i.test(n) ? String(Number(n.slice(0, -1).replace(/,/g, '')) * 1000) : n.replace(/,/g, ''));
-  const nums = new Set([...(seen.match(/\d[\d,]*(\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, '')), ...fromUser]);
+  const nums = new Set([...((seen + t.saved).match(/\d[\d,]*(\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, '')), ...fromUser]);
   // amounts Fred works out ("about $1,000 over the area's usual", "$600 under") are differences, not listing prices
   const relative = /^\s*(under|over|below|above|less|more|cheaper|off|a month (under|over|less|more))\b/i;
   const dollars = [...t.text.matchAll(/(about |around |roughly |~)?\$\s?\d[\d,]*(\.\d+)?k?/gi)]
@@ -92,9 +94,12 @@ function basics(t: Turn, earlier: Turn[] = []): Check[] {
     .map((m) => m[0].replace(/[$\s,]/g, ''));
   // "$5k" or "$5,000" when the user said it is fine; only flag amounts that look like listing prices
   const invented = dollars.filter((d) => !/k$/i.test(d) && Number(d) >= 1000 && !nums.has(d) && !nums.has(String(Number(d))));
-  const searchedIds = new Set(called(t, 'searchListings').flatMap((c) => (c.output?.listings ?? []).map((l: any) => l.listingId)));
-  const added = called(t, 'addToInbox').flatMap((c) => c.input.places.map((p: any) => p.listingId));
+  const searchedIds = new Set(called(t, 'searchListings').flatMap((c) => (c.output?.listings ?? []).map((l: any) => l.listingId ?? Number(String(l.id).slice(3)))));
+  // what actually reached the inbox; the server rejects ids that no search returned (they show up in output.rejected)
+  const added = called(t, 'addToInbox').flatMap((c) => (c.output?.added ?? []).map((p: any) => Number(String(p.id).replace('op_', ''))));
   const strays = added.filter((id) => !searchedIds.has(id));
+  const rejected = called(t, 'addToInbox').flatMap((c) => c.output?.rejected ?? []);
+  if (rejected.length) console.log(`    note: Fred tried listing ids no search returned (server rejected them): ${rejected.join(', ')}`);
   return [
     check('answered without error', !t.error && t.text.trim().length > 0, t.error ?? 'empty reply'),
     check('no invented prices', invented.length === 0, `not in any tool result: ${invented.join(', ')}`),
@@ -132,12 +137,14 @@ const cases: Case[] = [
     return { turns: [t], checks: [
       ...basics(t),
       check('saves the search', !!up, 'no updateSearch call'),
-      check('budget is 5000', up?.dealbreakers?.maxTotalMonthly === 5000, JSON.stringify(up?.dealbreakers)),
-      check('2 beds', up?.dealbreakers?.minBeds === 2, JSON.stringify(up?.dealbreakers)),
+      // Fred passes only what changed, and the example search already has $5,000 and 2 beds, so check the result
+      check('budget is 5000', search.dealbreakers.maxTotalMonthly === 5000, JSON.stringify(search.dealbreakers)),
+      check('2 beds', search.dealbreakers.minBeds === 2, JSON.stringify(search.dealbreakers)),
       // the example search already has dogs, so Fred may rightly leave pets out of updateSearch
       check('dogs', ['dogs', 'dogs_and_cats'].includes(search.dealbreakers.pets), JSON.stringify(search.dealbreakers)),
-      check('Brooklyn', areasInclude(up, 'brooklyn'), JSON.stringify(up?.dealbreakers?.areas)),
-      check('searches with the filters', !!sl && sl.maxRent <= 5000 && sl.minBeds === 2 && areasInclude(sl, 'brooklyn'), JSON.stringify(sl)),
+      check('Brooklyn', search.dealbreakers.areas.some((a: string) => /brooklyn/i.test(a)), JSON.stringify(search.dealbreakers.areas)),
+      // searchListings now stays inside the saved search on its own, so explicit filters are optional
+      check('searches', !!sl, 'no searchListings call'),
       check('adds places to the inbox', inbox.items.some((o: any) => /^op_\d+$/.test(o.id)), 'no Fred-created cards'),
       check('app shows the new search', search.dealbreakers.maxTotalMonthly === 5000 && search.dealbreakers.minBeds === 2, JSON.stringify(search.dealbreakers)),
       check('shows the Dealbreakers chips', t.parts.includes('data-search-updated'), t.parts.join(', ')),
@@ -242,6 +249,41 @@ const cases: Case[] = [
       check('t2 saves the light and subway preferences', called(t2, 'updateSearch').some((c) => (c.input.addPreferences ?? []).length >= 1), JSON.stringify(called(t2, 'updateSearch').map((c) => c.input))),
       check('t3 looks the place up', called(t3, 'getPlace').some((c) => c.input.id === placeId), JSON.stringify(t3.tools.map((c) => c.name))),
       check('t3 offers a next step when the data is missing', offers, t3.text),
+    ] };
+  } },
+  { name: 'alerts: asks where, sends a code, verifies', run: async () => {
+    const thread = await fresh();
+    const t1 = await say(thread, 'Can you let me know when strong places come up?');
+    const t2 = await say(thread, 'email me at james+fredtest@juliusdarby.com');
+    const sent = called(t2, 'setAlerts').find((c) => c.input.email);
+    const before = await getJson('/api/alerts');
+    const { code } = await getJson('/api/mock/code?channel=email');
+    const t3 = code ? await say(thread, `the code is ${code}`) : null;
+    const after = await getJson('/api/alerts');
+    const claimsOn = /\b(alerts are (on|set up|live)|you('re| are) (all )?set|you'll (now )?get)\b/i;
+    return { turns: [t1, t2, ...(t3 ? [t3] : [])], checks: [
+      ...basics(t1), ...basics(t2, [t1]),
+      check('asks where before saving anything', called(t1, 'setAlerts').every((c) => !c.input.email), JSON.stringify(called(t1, 'setAlerts').map((c) => c.input))),
+      check('saves the email with setAlerts', sent?.input.email === 'james+fredtest@juliusdarby.com', JSON.stringify(called(t2, 'setAlerts').map((c) => c.input))),
+      check('a code was sent', !!code && before.email.address === 'james+fredtest@juliusdarby.com' && !before.email.verified, JSON.stringify(before.email)),
+      // "Once it's verified, you'll get…" is fine; "You're all set" before the code isn't
+      check("doesn't say alerts are on before the code", !t2.finalText.split(/(?<=[.!?])\s+/).some((x) => claimsOn.test(x) && !/^\s*(once|after|when|until|as soon as)\b/i.test(x)), t2.finalText.replace(/\n+/g, ' ')),
+      check('verifies the code', !!t3 && called(t3, 'verifyAlerts').some((c) => c.input.code === code), JSON.stringify(t3?.tools.map((c) => c.name))),
+      check('email alerts end up verified and on', after.email.verified && after.email.enabled, JSON.stringify(after.email)),
+    ] };
+  } },
+  { name: 'must-haves: set, honest about unknowns, step back', run: async () => {
+    const thread = await fresh();
+    const laundry = (x: any) => /washer|laundry|w\/d/i.test(x.label);
+    const t1 = await say(thread, 'It has to have a washer/dryer in the unit, that one is a dealbreaker');
+    const s1 = (await getJson('/api/search')).preferences.filter(laundry);
+    const t2 = await say(thread, "Actually it doesn't have to have in-unit laundry, it's just nice");
+    const s2 = (await getJson('/api/search')).preferences.filter(laundry);
+    return { turns: [t1, t2], checks: [
+      ...basics(t1), ...basics(t2, [t1]),
+      check('saves it as a must', s1.some((x: any) => x.weight === 'must'), JSON.stringify(s1)),
+      check('says when a must-have is unconfirmed', called(t1, 'addToInbox').length === 0 || /\b(unconfirmed|not confirmed|doesn't say|don't say|not listed|confirm|ask (the|each) (landlord|agent))\b/i.test(t1.finalText), t1.finalText),
+      check('steps it back to nice', s2.length > 0 && s2.every((x: any) => x.weight === 'nice'), JSON.stringify(s2)),
     ] };
   } },
 ];

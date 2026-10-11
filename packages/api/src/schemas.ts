@@ -11,11 +11,36 @@ export const AlertMode = z.enum(['instant_strong', 'daily', 'off']).openapi('Ale
   description: 'instant_strong = message me about strong fits right away; daily = one digest; off = only in the app',
 });
 
+export const AlertChannel = z.enum(['email', 'sms']).openapi('AlertChannel');
+
+const deliveryFields = {
+  enabled: z.boolean().openapi({ description: 'The person wants alerts here. Nothing is sent until verified is true too.' }),
+  verified: z.boolean().openapi({ description: 'They entered the code sent to this address or number' }),
+  available: z.boolean().openapi({ description: "False when we can't send on this channel yet (texts, for now)" }),
+};
+
 export const Alerts = z.object({
   mode: AlertMode,
-  channel: z.enum(['email', 'sms', 'push']),
-  quietHours: z.object({ start: z.string(), end: z.string() }).nullable().openapi({ example: { start: '22:00', end: '08:00' } }),
+  quietHours: z.object({ start: z.string(), end: z.string() }).nullable().openapi({ example: { start: '22:00', end: '08:00' }, description: 'New York time; alerts wait until it ends' }),
+  email: z.object({ address: z.string().nullable().openapi({ example: 'erin@example.com' }), ...deliveryFields }).openapi('EmailAlerts'),
+  sms: z.object({ number: z.string().nullable().openapi({ example: '+12125551234', description: 'E.164' }), ...deliveryFields }).openapi('SmsAlerts'),
 }).openapi('Alerts');
+
+export const AlertsPatch = z.object({
+  mode: AlertMode.optional(),
+  quietHours: Alerts.shape.quietHours.optional(),
+  email: z.object({ address: z.string().trim().email().max(254).optional(), enabled: z.boolean().optional() }).optional()
+    .openapi({ description: 'A new address is saved unverified and a 6-digit code is emailed to it' }),
+  sms: z.object({ number: z.string().trim().min(7).max(20).optional(), enabled: z.boolean().optional() }).optional()
+    .openapi({ description: 'A new number is saved unverified. US numbers can be given as 10 digits.' }),
+}).openapi('AlertsPatch');
+
+export const AlertsVerify = z.object({ channel: AlertChannel, code: z.string().trim().regex(/^\d{6}$/, '6 digits') }).openapi('AlertsVerify');
+export const AlertsChannelRequest = z.object({ channel: AlertChannel }).openapi('AlertsChannelRequest');
+export const CodeSent = z.object({
+  sentTo: z.string().openapi({ example: 'j•••@gmail.com' }),
+  expiresAt: z.string().openapi({ format: 'date-time' }),
+}).openapi('CodeSent');
 
 export const Me = z.object({
   user: z.object({
@@ -78,7 +103,7 @@ export const Dealbreakers = z.object({
 export const Preference = z.object({
   id: z.string(),
   label: z.string().openapi({ example: 'Washer/dryer in unit' }),
-  weight: z.enum(['nice', 'important']),
+  weight: z.enum(['nice', 'important', 'must']).openapi({ description: "must = a dealbreaker Fred can't filter on yet: he won't add places that clearly lack it, and says when it's unconfirmed. The app calls it Dealbreaker." }),
 }).openapi('Preference');
 
 export const Commute = z.object({
@@ -224,6 +249,23 @@ export const OpportunityPage = z.object({
   nextCursor: z.string().nullable(),
 }).openapi('OpportunityPage');
 
+/* ── saved places ────────────────────────────────────────────────────── */
+
+// A saved place is an opportunity with status 'saved'; its id is the opportunity's id.
+export const SavedPlace = OpportunityCard.extend({
+  savedAt: iso,
+  note: z.string().nullable(),
+}).openapi('SavedPlace');
+
+export const SavedPlaceCreate = z.object({
+  opportunityId: z.string(),
+  note: z.string().nullable().optional(),
+}).openapi('SavedPlaceCreate');
+
+export const SavedPlacePatch = z.object({
+  note: z.string().nullable().optional(),
+}).openapi('SavedPlacePatch');
+
 /* ── tours ───────────────────────────────────────────────────────────── */
 
 export const Tour = z.object({
@@ -274,7 +316,13 @@ export const DataScan = z.object({
   matched: z.number().int(),
   hidden: z.number().int(),
   steps: z.array(z.object({ label: z.string(), toolCallId: z.string().nullable() })),
+  samples: z.array(z.string()).optional().openapi({ example: ['2 bd · $3,400 · Harlem'], description: 'A few short labels for listings being looked at' }),
 }).openapi('DataScan', { description: 'Chat part data-scan: "Checked 186 new listings · 9 steps"' });
+
+export const DataPlaces = z.object({
+  ids: z.array(z.string()).openapi({ example: ['op_1101', 'op_1109'], description: 'Places Fred actually added to the inbox this step, best first' }),
+  hidden: z.array(z.string()).openapi({ description: 'Of those, the ones he hid as likely scams' }),
+}).openapi('DataPlaces', { description: 'Chat part data-places: emitted by addToInbox' });
 
 export const DataSuggestions = z.object({
   options: z.array(z.object({ label: z.string(), patch: SearchPatch.nullable() })),

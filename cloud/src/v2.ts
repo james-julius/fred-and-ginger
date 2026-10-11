@@ -8,13 +8,15 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { routes as R } from '@fng/api';
 import * as S from '@fng/api';
 import type { Env } from './ingest';
-import { applySearch, load, meFor, reset, reply, save, view, type Message } from './mock';
+import { applySearch, load, meFor, reset, reply, save, savedPlaces, setStatus, summarize, view, type Message } from './mock';
 import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context';
 import { toAISdkStream } from '@mastra/ai-sdk';
 import { fred, DEFAULT_MODEL, type Harness } from './agent/fred';
 import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
+import { AlertError, examplePlaces, getAlerts, patchAlerts, sendCode, sendDueAlerts, sendTest, verifyCode } from './alerts';
 import { recall, taste } from './memory';
+import { backfill, exchanges, forget, placesIn, remember, worthRemembering } from './recall';
 
 /** Keep only text written after the last tool call: a draft Fred wrote mid-turn and then corrected
  *  shouldn't come back on reload or be reread as history. The app shows the same thing live. */
@@ -47,7 +49,7 @@ const places = async (c: { env: Ctx['Bindings'] }) => {
 /* you */
 const meWithCounts = async (c: { env: Ctx['Bindings'] }, st: Awaited<ReturnType<typeof load>>) => {
   const v = view(st), cards = await inbox(c.env.DB, c.env.ME, st, v.search);
-  return { ...meFor(st, c.env.ME), counts: counts(cards, v.tours) };
+  return { ...meFor(st, c.env.ME), counts: counts(cards, v.tours), alerts: await getAlerts(c.env.DB, c.env.ME) };
 };
 v2.openapi(R.getMe, async (c) => c.json(await meWithCounts(c, await state(c)), 200));
 v2.openapi(R.patchMe, async (c) => {
@@ -73,13 +75,36 @@ v2.openapi(R.deleteMemory, async (c) => {
   await store(c, st);
   return c.body(null, 204);
 });
-v2.openapi(R.getAlerts, async (c) => c.json(view(await state(c)).alerts, 200));
+/* alerts: real, in D1 (src/alerts.ts) */
+const alertsLine = (a: Awaited<ReturnType<typeof getAlerts>>) =>
+  `${a.mode}; email ${a.email.address ? `${a.email.address} (${a.email.verified ? 'verified' : 'not verified'}${a.email.enabled ? ', on' : ', off'})` : 'none'}; texts not available yet${a.sms.number ? ' (number saved)' : ''}`;
+const alertError = (e: unknown) => {
+  if (e instanceof AlertError) return { body: { error: e.message }, status: e.status };
+  throw e;
+};
+v2.openapi(R.getAlerts, async (c) => c.json(await getAlerts(c.env.DB, c.env.ME), 200));
 v2.openapi(R.patchAlerts, async (c) => {
-  const st = await state(c);
-  st.alerts = { ...view(st).alerts, ...c.req.valid('json') };
-  await store(c, st);
-  return c.json(st.alerts, 200);
+  try { return c.json((await patchAlerts(c.env, c.env.ME, c.req.valid('json'))).alerts, 200); }
+  catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400); }
 });
+v2.openapi(R.verifyAlerts, async (c) => {
+  const b = c.req.valid('json');
+  try { return c.json(await verifyCode(c.env, c.env.ME, b.channel, b.code), 200); }
+  catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400 | 429); }
+});
+v2.openapi(R.resendAlertCode, async (c) => {
+  try { return c.json(await sendCode(c.env, c.env.ME, c.req.valid('json').channel), 200); }
+  catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400 | 429 | 501); }
+});
+v2.openapi(R.testAlert, async (c) => {
+  try {
+    const st = await state(c), v = view(st);
+    const places = await examplePlaces(c.env.DB, await inbox(c.env.DB, c.env.ME, st, v.search));
+    return c.json(await sendTest(c.env, c.env.ME, c.req.valid('json').channel, places, summarize(v.search)), 200);
+  } catch (e) { const r = alertError(e); return c.json(r.body, r.status as 400 | 429 | 501); }
+});
+
+
 
 /* search */
 v2.openapi(R.getSearch, async (c) => c.json(view(await state(c)).search, 200));
@@ -111,9 +136,55 @@ v2.openapi(R.patchOpportunity, async (c) => {
   const card = cards.find((o) => o.id === id);
   if (!card) return c.json(notFound, 404);
   const p = c.req.valid('json');
-  st.cards[id] = { ...st.cards[id], ...(p.seen !== undefined && { seen: p.seen }), ...(p.status && { status: p.status }), ...(p.note !== undefined && { note: p.note }) };
+  if (p.status) setStatus(st, id, p.status);
+  st.cards[id] = { ...st.cards[id], ...(p.seen !== undefined && { seen: p.seen }), ...(p.note !== undefined && { note: p.note }) };
   await Promise.all([store(c, st), vote(c.env.DB, c.env.ME, card, p)]);
   return c.json({ ...card, ...st.cards[id] }, 200);
+});
+
+/* saved places: the same state as status 'saved' above, as its own resource */
+v2.openapi(R.listSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c);
+  return c.json(savedPlaces(st, cards), 200);
+});
+v2.openapi(R.createSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c), { opportunityId: id, note } = c.req.valid('json');
+  const card = cards.find((o) => o.id === id);
+  if (!card) return c.json(notFound, 404);
+  const already = card.status === 'saved';
+  // a place saved in the old grid has no savedAt here yet; keep it saved and stamp it now
+  if (!already || !st.cards[id]?.savedAt) st.cards[id] = { ...st.cards[id], status: 'saved', savedAt: new Date().toISOString() };
+  st.cards[id] = { ...st.cards[id], seen: true, ...(note !== undefined && { note }) };
+  await Promise.all([store(c, st), vote(c.env.DB, c.env.ME, card, { status: 'saved', note })]);
+  return c.json(savedPlaces(st, [{ ...card, ...st.cards[id] }])[0], already ? 200 : 201);
+});
+v2.openapi(R.getSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c), id = c.req.valid('param').id;
+  const place = savedPlaces(st, cards).find((s) => s.id === id);
+  return place ? c.json(place, 200) : c.json(notFound, 404);
+});
+v2.openapi(R.patchSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c), id = c.req.valid('param').id;
+  const card = cards.find((o) => o.id === id && o.status === 'saved');
+  if (!card) return c.json(notFound, 404);
+  const { note } = c.req.valid('json');
+  if (note !== undefined) st.cards[id] = { ...st.cards[id], note };
+  await Promise.all([store(c, st), vote(c.env.DB, c.env.ME, card, { note })]);
+  return c.json(savedPlaces(st, [{ ...card, ...st.cards[id] }])[0], 200);
+});
+v2.openapi(R.deleteSaved, async (c) => {
+  real(c);
+  const { st, cards } = await places(c), id = c.req.valid('param').id;
+  const card = cards.find((o) => o.id === id && o.status === 'saved');
+  if (!card) return c.json(notFound, 404);
+  setStatus(st, id, 'new');
+  st.cards[id] = { ...st.cards[id], seen: true };
+  await Promise.all([store(c, st), vote(c.env.DB, c.env.ME, card, { status: 'new' })]);
+  return c.body(null, 204);
 });
 
 /* tours */
@@ -175,6 +246,12 @@ v2.openapi(R.chat, async (c) => {
     // Save the user's message now, so an edit sticks even if the reply fails or they leave mid-reply.
     st.threads[threadId] = { title, updatedAt: new Date().toISOString(), messages: [...kept, userMsg] };
     await store(c, st);
+    // recall: an edit drops the exchanges it replaced; old chats get indexed the first time
+    const dropped = (prior?.messages ?? []).slice(kept.length), me = c.env.ME, threads = st.threads;
+    c.executionCtx.waitUntil((async () => {
+      if (dropped.length) await forget(c.env, me, dropped);
+      await backfill(c.env, me, threads);
+    })().catch((e) => console.error('recall', e)));
     // history as plain text for now; Mastra memory in Postgres replaces this
     type Turn = { role: 'user'; content: string } | { role: 'assistant'; content: string };
     const history: Turn[] = kept.flatMap((m): Turn[] => {
@@ -184,7 +261,7 @@ v2.openapi(R.chat, async (c) => {
       // it added, with their exact addresses. Without this it misremembers addresses on follow-ups.
       if (m.role === 'assistant' && !harnessV1) {
         const found = new Map<number, { address: string; price: number }>();
-        for (const p of m.parts) if (p.type === 'tool-searchListings') for (const l of ((p.output as any)?.listings ?? [])) found.set(l.listingId, l);
+        for (const p of m.parts) if (p.type === 'tool-searchListings') for (const l of ((p.output as any)?.listings ?? [])) found.set(l.listingId ?? Number(String(l.id).slice(3)), l);
         const added = m.parts.filter((p) => p.type === 'tool-addToInbox').flatMap((p) => ((p.output as any)?.added ?? []) as { id: string; listingId?: number; area: string; price: number }[]);
         const lines = added.map((a) => { const f = found.get(Number(a.id.replace('op_', ''))); return `${a.id}: ${f?.address ?? a.area}, $${a.price}`; });
         if (lines.length) content += `\n[Places I added: ${lines.join('; ')}]`;
@@ -198,7 +275,8 @@ v2.openapi(R.chat, async (c) => {
     const known = recall(st.memory), pattern = await taste(c.env.DB, st).catch(() => null);
     const note = [
       `(Now: ${now}, New York.)`,
-      `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.weight === 'important' ? `${p.label} (important)` : p.label) })})`,
+      `(Alerts: ${alertsLine(await getAlerts(c.env.DB, c.env.ME))})`,
+      `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.weight === 'must' ? `${p.label} (dealbreaker)` : p.weight === 'important' ? `${p.label} (important)` : p.label) })})`,
       context?.opportunityId && `(The user has place ${context.opportunityId} open.)`,
       `(What you remember about them:\n${known ?? 'Nothing yet.'})`,
       pattern && `(From their saves and passes, hints to confirm, not facts:\n${pattern})`,
@@ -206,7 +284,8 @@ v2.openapi(R.chat, async (c) => {
     const rc = new RequestContext();
     rc.set('env', c.env);
     rc.set(MASTRA_RESOURCE_ID_KEY, c.env.ME);
-    rc.set('said', said);   // updateMemory turns away notes that just repeat this
+    rc.set('said', said);
+    rc.set('threadId', threadId);   // recallChats looks in other chats   // updateMemory turns away notes that just repeat this
     // addToInbox takes ids from this turn's search, and the open place: Fred's verdict on it replaces the first take
     const open = Number(String(context?.opportunityId ?? '').replace(/^op_/, ''));
     rc.set('seenListings', new Set<number>(Number.isFinite(open) && open > 0 ? [open] : []));
@@ -245,6 +324,9 @@ v2.openapi(R.chat, async (c) => {
         fresh.threads[threadId] = { title, updatedAt: new Date().toISOString(),
           messages: [...upTo, { id: responseMessage.id, role: 'assistant', parts: harnessV1 ? parts : finalTextOnly(parts) }] };
         await store(c, fresh);
+        // so a later chat can find this one by meaning
+        const [x] = exchanges(threadId, title, [userMsg, { id: responseMessage.id, role: 'assistant', parts: finalTextOnly(parts) }]);
+        if (x && worthRemembering(parts)) c.executionCtx.waitUntil(remember(c.env, c.env.ME, [{ ...x, places: placesIn(parts) }]).catch((e) => console.error('recall', e)));
       },
       onError: (e) => { console.error('fred', e); return 'Fred hit a problem answering that. Try again in a moment.'; },
     });
@@ -318,14 +400,31 @@ v2.post('/api/mock/thread', async (c) => {
   await store(c, st);
   return c.json({ ok: true, messages: b.messages.length });
 });
-v2.post('/api/mock/reset', async (c) => { await reset(c.env.DB, c.env.ME); return c.json({ ok: true }); });
+/* local dev only: the last verification code, so evals don't need an inbox */
+v2.get('/api/mock/code', async (c) => {
+  if (c.env.FRED_DEV !== '1') return c.json(notFound, 404);
+  const r = await c.env.DB.prepare('SELECT v FROM meta WHERE k=?').bind(`dev:code:${c.env.ME}:${c.req.query('channel') ?? 'email'}`).first<{ v: string }>();
+  return c.json({ code: r?.v ?? null });
+});
+/* local dev only: run the alert sender now for the signed-in person; ?since=<unix seconds> widens the window */
+v2.post('/api/mock/run-alerts', async (c) => {
+  if (c.env.FRED_DEV !== '1') return c.json(notFound, 404);
+  const since = c.req.query('since');
+  return c.json(await sendDueAlerts(c.env, { only: c.env.ME, since: since ? Number(since) : undefined }));
+});
+v2.post('/api/mock/reset', async (c) => {
+  await reset(c.env.DB, c.env.ME);
+  // local dev only: alert settings are real data, so production resets leave them alone
+  if (c.env.FRED_DEV === '1') for (const t of ['alert_settings', 'alert_codes', 'alert_log']) await c.env.DB.prepare(`DELETE FROM ${t} WHERE user=?`).bind(c.env.ME).run();
+  return c.json({ ok: true });
+});
 
 export const openapiDoc = {
   openapi: '3.1.0',
   info: { title: 'Fred API', version: '0.1.0', description: [
     'Generated from packages/api. Run `npm run gen:api` at the repo root after changing it.',
     '',
-    'Every route is canned for now (response header `X-Fred-Data: example`): the mockup\'s example data, plus your own changes, which are saved. Saving a place moves it to Saved, marking it seen lowers the New count, search edits stick, and the chat answers what you send. `POST /api/mock/reset` starts your data over.',
+    'Every route is canned for now (response header `X-Fred-Data: example`): the mockup\'s example data, plus your own changes, which are saved. Saving a place moves it to Saved (`/api/saved` lists, saves, edits the note on and unsaves places), marking it seen lowers the New count, search edits stick, and the chat answers what you send. `POST /api/mock/reset` starts your data over.',
     '',
     'Sign in at /login first; "Try it out" uses your session.',
   ].join('\n') },
@@ -333,7 +432,7 @@ export const openapiDoc = {
 
 // Chat parts and live events aren't request or response bodies, so list them to get them into the spec.
 for (const [name, schema] of Object.entries({
-  DataSearchUpdated: S.DataSearchUpdated, DataScan: S.DataScan, DataSuggestions: S.DataSuggestions, DataWatch: S.DataWatch, Event: S.Event,
+  DataSearchUpdated: S.DataSearchUpdated, DataScan: S.DataScan, DataPlaces: S.DataPlaces, DataSuggestions: S.DataSuggestions, DataWatch: S.DataWatch, Event: S.Event,
 })) v2.openAPIRegistry.register(name, schema);
 
 // The spec, and Swagger UI to browse and call it

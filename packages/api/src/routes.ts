@@ -17,7 +17,17 @@ export const patchMe = createRoute({ method: 'patch', path: '/api/me', tags: ['y
 export const getAlerts = createRoute({ method: 'get', path: '/api/alerts', tags: ['you'],
   responses: { 200: json(S.Alerts, 'Alert settings'), ...errors } });
 export const patchAlerts = createRoute({ method: 'patch', path: '/api/alerts', tags: ['you'],
-  request: body(S.Alerts.partial()), responses: { 200: json(S.Alerts, 'Updated'), ...errors } });
+  request: body(S.AlertsPatch),
+  responses: { 200: json(S.Alerts, 'Updated. A new email address gets a verification code automatically.'), 400: json(S.ErrorBody, 'Invalid address or number'), ...errors } });
+export const verifyAlerts = createRoute({ method: 'post', path: '/api/alerts/verify', tags: ['you'],
+  request: body(S.AlertsVerify),
+  responses: { 200: json(S.Alerts, 'Verified'), 400: json(S.ErrorBody, 'Wrong or expired code'), 429: json(S.ErrorBody, 'Too many tries'), ...errors } });
+export const resendAlertCode = createRoute({ method: 'post', path: '/api/alerts/resend', tags: ['you'],
+  request: body(S.AlertsChannelRequest),
+  responses: { 200: json(S.CodeSent, 'Code sent'), 400: json(S.ErrorBody, 'No address yet, or already verified'), 429: json(S.ErrorBody, 'Wait before asking again'), 501: json(S.ErrorBody, 'Texts aren\'t available yet'), ...errors } });
+export const testAlert = createRoute({ method: 'post', path: '/api/alerts/test', tags: ['you'],
+  request: body(S.AlertsChannelRequest),
+  responses: { 200: json(z.object({ sentTo: z.string() }), 'Sent an example alert'), 400: json(S.ErrorBody, 'Not verified yet'), 429: json(S.ErrorBody, 'Wait before asking again'), 501: json(S.ErrorBody, 'Texts aren\'t available yet'), ...errors } });
 
 /* what Fred remembers (he keeps it himself; the person can correct or delete it) */
 export const listMemory = createRoute({ method: 'get', path: '/api/memory', tags: ['you'],
@@ -45,6 +55,19 @@ export const getOpportunity = createRoute({ method: 'get', path: '/api/opportuni
   request: { params: idParam }, responses: { 200: json(S.OpportunityDetail, 'The open listing'), ...errors } });
 export const patchOpportunity = createRoute({ method: 'patch', path: '/api/opportunities/{id}', tags: ['places'],
   request: { params: idParam, ...body(S.OpportunityPatch) }, responses: { 200: json(S.OpportunityCard, 'Updated card'), ...errors } });
+
+/* saved places */
+export const listSaved = createRoute({ method: 'get', path: '/api/saved', tags: ['saved'],
+  responses: { 200: json(z.array(S.SavedPlace), 'Most recently saved first'), ...errors } });
+export const createSaved = createRoute({ method: 'post', path: '/api/saved', tags: ['saved'],
+  request: body(S.SavedPlaceCreate),
+  responses: { 201: json(S.SavedPlace, 'Saved'), 200: json(S.SavedPlace, 'Already saved; the note is updated if one was sent'), ...errors } });
+export const getSaved = createRoute({ method: 'get', path: '/api/saved/{id}', tags: ['saved'],
+  request: { params: idParam }, responses: { 200: json(S.SavedPlace, 'The saved place'), ...errors } });
+export const patchSaved = createRoute({ method: 'patch', path: '/api/saved/{id}', tags: ['saved'],
+  request: { params: idParam, ...body(S.SavedPlacePatch) }, responses: { 200: json(S.SavedPlace, 'Updated'), ...errors } });
+export const deleteSaved = createRoute({ method: 'delete', path: '/api/saved/{id}', tags: ['saved'],
+  request: { params: idParam }, responses: { 204: { description: 'Unsaved. The place goes back to the inbox, marked seen.' }, ...errors } });
 
 /* tours */
 export const listTours = createRoute({ method: 'get', path: '/api/tours', tags: ['tours'],

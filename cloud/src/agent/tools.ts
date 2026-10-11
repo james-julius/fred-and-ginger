@@ -12,13 +12,15 @@ import { readPage, webSearch } from '../nimble';
 import { factsFrom, mergeFacts, type Facts } from '../facts';
 import { knownArea } from '../areas';
 import { checkSites, crawlStatus } from './crawl';
+import { AlertError, examplePlaces, patchAlerts, sendTest, verifyCode } from '../alerts';
 import { write as writeMemory } from '../memory';
+import { search as searchChats } from '../recall';
 
 type Ctx = { requestContext?: { get(k: string): unknown; set?(k: string, v: unknown): void }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
   const env = c.requestContext?.get('env') as (Env & { ME: string }) | undefined;
   if (!env) throw new Error('No request context: tools must run inside a signed-in request');
-  return { db: env.DB, user: env.ME, nimble: env.NIMBLE_API_KEY };
+  return { db: env.DB, user: env.ME, nimble: env.NIMBLE_API_KEY, env };
 };
 const emit = (c: Ctx, type: string, data: unknown) => c.writer?.custom({ type, data });
 /** listing ids searchListings returned this turn; addToInbox only accepts these */
@@ -50,6 +52,8 @@ export const updateSearch = createTool({
     dealbreakers: S.Dealbreakers.partial().optional().describe('Hard filters to change'),
     addPreferences: z.array(z.string()).optional().describe('Nice-to-haves to add, e.g. "Washer/dryer in unit"'),
     importantPreferences: z.array(z.string()).optional().describe('Preferences the user says matter a lot; adds them or raises existing ones to important'),
+    mustPreferences: z.array(z.string()).optional().describe('Things a place has to have ("has to have a washer/dryer", "a dealbreaker"); adds them or raises existing ones to must'),
+    nicePreferences: z.array(z.string()).optional().describe('Existing preferences to step back down to nice-to-have ("it doesn\'t have to have X")'),
     removePreferences: z.array(z.string()).optional(),
   }),
   execute: (input, c) => {
@@ -60,15 +64,18 @@ export const updateSearch = createTool({
   },
 });
 
-async function changeSearch(input: { dealbreakers?: Partial<z.infer<typeof S.Dealbreakers>>; addPreferences?: string[]; importantPreferences?: string[]; removePreferences?: string[] }, c: Ctx) {
+async function changeSearch(input: { dealbreakers?: Partial<z.infer<typeof S.Dealbreakers>>; addPreferences?: string[]; importantPreferences?: string[]; mustPreferences?: string[]; nicePreferences?: string[]; removePreferences?: string[] }, c: Ctx) {
   const { db, user } = who(c);
   const st = await load(db, user), cur = view(st).search;
   const prefs = cur.preferences.filter((p) => !(input.removePreferences ?? []).some((r) => r.toLowerCase() === p.label.toLowerCase()));
   for (const label of input.addPreferences ?? []) if (!prefs.some((p) => p.label.toLowerCase() === label.toLowerCase())) prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'nice' });
-  for (const label of input.importantPreferences ?? []) {
-    const p = prefs.find((x) => x.label.toLowerCase() === label.toLowerCase());
-    if (p) p.weight = 'important'; else prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'important' });
-  }
+  const weigh = (labels: string[] | undefined, weight: 'nice' | 'important' | 'must') => {
+    for (const label of labels ?? []) {
+      const p = prefs.find((x) => x.label.toLowerCase() === label.toLowerCase());
+      if (p) p.weight = weight; else prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight });
+    }
+  };
+  weigh(input.importantPreferences, 'important'); weigh(input.mustPreferences, 'must'); weigh(input.nicePreferences, 'nice');
   st.search = applySearch(cur, { dealbreakers: input.dealbreakers, preferences: prefs });
   await save(db, user, st);
   await emit(c, 'data-search-updated', { changed: Object.keys(input.dealbreakers ?? {}), dealbreakers: st.search.dealbreakers });
@@ -94,8 +101,11 @@ export const searchListings = createTool({
     for (const l of r.found) seen(c as Ctx).add(l.listingId);
     const areas = input.areas?.length ? input.areas : saved.dealbreakers.areas;
     const where = areas.length ? areas.join(', ') : 'all of NYC';
-    await emit(c as Ctx, 'data-scan', { checked: r.total, matched: r.found.length, hidden: 0, steps: [{ label: `Searched ${where}${input.maxRent ? ` up to $${input.maxRent.toLocaleString('en-US')}` : ''}`, toolCallId: null }] });
-    return { matching: r.total, showing: r.found.length, listings: r.found,
+    const samples = r.found.slice(0, 6).map((l) => [l.beds != null && (l.beds === 0 ? 'Studio' : `${l.beds} bd`), `$${l.price.toLocaleString('en-US')}`, l.area ?? l.borough].filter(Boolean).join(' · '));
+    await emit(c as Ctx, 'data-scan', { checked: r.total, matched: r.found.length, hidden: 0, samples, steps: [{ label: `Searched ${where}${input.maxRent ? ` up to $${input.maxRent.toLocaleString('en-US')}` : ''}`, toolCallId: null }] });
+    // Ids are "op_317", the same as inbox places and place: links. A bare number sat next to
+    // addresses like "1584 Bushwick Ave" and Fred mixed the two up.
+    return { matching: r.total, showing: r.found.length, listings: r.found.map(({ listingId, ...l }) => ({ id: `op_${listingId}`, ...l })),
              ...(r.outside.length && { outsideSearch: r.outside, note: 'These areas are outside the saved search, so nothing there was searched. If the user wants them, updateSearch first.' }) };
   },
 });
@@ -105,28 +115,30 @@ export const addToInbox = createTool({
   description: "Put listings from searchListings into the user's inbox as places, each with your verdict. Use likely_scam to hide a suspicious one with the reason. Over-budget ones can still go in with over_budget_with_fees.",
   inputSchema: z.object({
     places: z.array(z.object({
-      listingId: z.number(),
+      id: z.string().regex(/^op_\d+$/).describe('The id from searchListings, like "op_317"'),
       verdict: S.Verdict.shape.kind,
       fit: z.number().min(0).max(100).describe('How well it fits this user'),
       highlight: z.string().nullable().optional().describe('The one feature this user will care about most, e.g. "Washer/dryer in unit"'),
       reason: z.string().nullable().optional().describe('Short reason shown on the card, mainly for warnings'),
     })).min(1).max(20),
   }),
-  execute: async ({ places }, c) => {
+  execute: async ({ places: picked }, c) => {
     const { db, user } = who(c as Ctx);
+    const places = picked.map((p) => ({ ...p, listingId: Number(p.id.slice(3)) }));
     const { st, v, cards } = await real(db, user);
     // Fred's verdict replaces an earlier one for the same place
     const redo = new Set(places.filter((p) => seen(c as Ctx).has(p.listingId)).map((p) => `op_${p.listingId}`));
     st.created = (st.created ?? []).filter((x) => !redo.has(x.id));
     const existing = new Set<string>();
     const added: Card[] = [], known = seen(c as Ctx);
-    const rejected = places.filter((p) => !known.has(p.listingId)).map((p) => p.listingId);
+    const rejected = places.filter((p) => !known.has(p.listingId)).map((p) => p.id);
     for (const p of places.filter((x) => known.has(x.listingId))) {
       const card = await toCard(db, p.listingId, p);
       if (card && !existing.has(card.id)) { added.push(card); existing.add(card.id); }
     }
     st.created = [...added, ...(st.created ?? [])];
     await save(db, user, st);
+    if (added.length) await emit(c as Ctx, 'data-places', { ids: added.map((x) => x.id), hidden: added.filter((x) => x.status === 'hidden').map((x) => x.id) });
     return {
       added: added.map(compact), alreadyInInbox: places.length - rejected.length - added.length,
       counts: counts([...added, ...cards.filter((x) => !added.some((a) => a.id === x.id))], v.tours),
@@ -191,14 +203,52 @@ export const requestTour = createTool({
 
 export const setAlerts = createTool({
   id: 'setAlerts',
-  description: 'Change how the user hears about new places: instant_strong (strong fits right away), daily (one digest) or off.',
-  inputSchema: z.object({ mode: S.AlertMode, channel: z.enum(['email', 'sms', 'push']).optional() }),
+  description: "Turn alerts on or off, choose how often, and set where they go. Giving a new email address saves it unverified and emails it a 6-digit code; then ask the user for the code. Texts aren't available yet: a phone number can be saved, but nothing is sent to it.",
+  inputSchema: z.object({
+    mode: S.AlertMode.optional().describe('instant_strong: strong fits right away; daily: one digest; off'),
+    email: z.string().email().optional().describe('Where to email alerts'),
+    emailOn: z.boolean().optional().describe('Turn email alerts on or off (only sends once the address is verified)'),
+    phone: z.string().optional().describe('For texts later. US numbers can be 10 digits.'),
+    quietHours: z.object({ start: z.string(), end: z.string() }).nullable().optional().describe('New York time, HH:MM'),
+  }),
   execute: async (input, c) => {
-    const { db, user } = who(c as Ctx);
-    const st = await load(db, user);
-    st.alerts = { ...view(st).alerts, ...input };
-    await save(db, user, st);
-    return st.alerts;
+    const { env } = who(c as Ctx), user = env.ME;
+    try {
+      const { alerts, codeSent } = await patchAlerts(env, user, {
+        mode: input.mode, quietHours: input.quietHours,
+        email: input.email !== undefined || input.emailOn !== undefined ? { address: input.email, enabled: input.emailOn } : undefined,
+        sms: input.phone !== undefined ? { number: input.phone } : undefined,
+      });
+      return { alerts, ...(codeSent && { codeSentTo: codeSent.sentTo, next: 'Ask the user for the 6-digit code from that email, then call verifyAlerts.' }),
+        ...(input.phone && { note: "Saved the number. Texts aren't available yet, so alerts go by email for now." }) };
+    } catch (e) {
+      if (e instanceof AlertError) return { error: e.message };
+      throw e;
+    }
+  },
+});
+
+export const verifyAlerts = createTool({
+  id: 'verifyAlerts',
+  description: 'Check the 6-digit code the user got by email. On success, alerts to that address are on.',
+  inputSchema: z.object({ channel: S.AlertChannel.default('email'), code: z.string().regex(/^\d{6}$/) }),
+  execute: async ({ channel, code }, c) => {
+    const { env } = who(c as Ctx);
+    try { return { verified: true, alerts: await verifyCode(env, env.ME, channel, code) }; }
+    catch (e) { if (e instanceof AlertError) return { verified: false, error: e.message }; throw e; }
+  },
+});
+
+export const sendTestAlert = createTool({
+  id: 'sendTestAlert',
+  description: 'Email an example alert with the best places in their inbox, so they can see what alerts look like. Only after the address is verified.',
+  inputSchema: z.object({}),
+  execute: async (_in, c) => {
+    const { env, db } = who(c as Ctx), user = env.ME;
+    try {
+      const st = await load(db, user), v = view(st);
+      return await sendTest(env, user, 'email', await examplePlaces(db, await inbox(db, user, st, v.search)), summarize(v.search));
+    } catch (e) { if (e instanceof AlertError) return { error: e.message }; throw e; }
   },
 });
 
@@ -219,10 +269,19 @@ export const researchWeb = createTool({
   description: "Search the web to research a place for the user: tenant reviews of a building (Openigloo, StreetEasy, Google), the landlord or management company, what the block is like, whether a building has an elevator or laundry. Include the street address and 'NYC' in the query. Returns titles, links and snippets; say where a claim came from.",
   inputSchema: z.object({ query: z.string().describe('e.g. "376 Graham Ave Brooklyn tenant reviews"') }),
   execute: async ({ query }, c) => {
-    const { nimble } = who(c as Ctx);
+    const { db, nimble } = who(c as Ctx);
     if (!nimble) return { error: 'Web research is not set up (no NIMBLE_API_KEY)' };
     await emit(c as Ctx, 'data-scan', { checked: 0, matched: 0, hidden: 0, steps: [{ label: `Looked up "${query}"`, toolCallId: null }] });
-    try { return { results: await webSearch(nimble, query, 5) }; } catch (e) { return { error: String(e).slice(0, 200) }; }
+    // each search is a paid call: the same question within a week reads the saved answer
+    const key = `web:${query.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`, now = Math.floor(Date.now() / 1000);
+    const hit = await db.prepare('SELECT v FROM meta WHERE k=?').bind(key).first<{ v: string }>();
+    const saved = hit && JSON.parse(hit.v);
+    if (saved && now - saved.at < WEEK) return { results: saved.results, cachedDaysAgo: Math.floor((now - saved.at) / 86400) };
+    try {
+      const results = await webSearch(nimble, query, 5);
+      await db.prepare('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)').bind(key, JSON.stringify({ at: now, results })).run();
+      return { results };
+    } catch (e) { return { error: String(e).slice(0, 200) }; }
   },
 });
 
@@ -281,6 +340,22 @@ from: "said" when they told you, "inferred" when you read it from their saves an
   },
 });
 
+export const recallChats = createTool({
+  id: 'recallChats',
+  description: 'Search this person\'s earlier chats with you by meaning, when they refer back to something ("that place with the big kitchen", "what did you say about Bushwick?", "the one near Sam\'s office"). Returns the closest exchanges with the places in them; open one with getPlace. Describe what you\'re looking for in plain words.',
+  inputSchema: z.object({ query: z.string().describe('What to look for, e.g. "apartment with a big kitchen and a dishwasher"') }),
+  execute: async ({ query }, c) => {
+    const env = (c as Ctx).requestContext?.get('env') as (Env & { ME: string }) | undefined;
+    if (!env) throw new Error('No request context: tools must run inside a signed-in request');
+    try {
+      const hits = await searchChats(env, env.ME, query, { exceptThread: (c as Ctx).requestContext?.get('threadId') as string | undefined });
+      return hits.length
+        ? { matches: hits, note: 'Old chats can be out of date: your notes and the saved search are current and win over them. Mention when something was said (the when field).' }
+        : { matches: [], note: 'Nothing close in earlier chats. Say so; don\'t guess.' };
+    } catch (e) { return { error: String(e).slice(0, 200) }; }
+  },
+});
+
 export const updateProfile = createTool({
   id: 'updateProfile',
   description: 'Change the name the app shows for this person, when they ask ("call me Jim").',
@@ -320,4 +395,4 @@ export const updateTour = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, updateProfile, listTours, updateTour };
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, recallChats, updateProfile, listTours, updateTour };

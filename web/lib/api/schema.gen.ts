@@ -306,31 +306,26 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        mode?: components["schemas"]["AlertMode"];
-                        /** @enum {string} */
-                        channel?: "email" | "sms" | "push";
-                        /**
-                         * @example {
-                         *       "start": "22:00",
-                         *       "end": "08:00"
-                         *     }
-                         */
-                        quietHours?: {
-                            start: string;
-                            end: string;
-                        } | null;
-                    };
+                    "application/json": components["schemas"]["AlertsPatch"];
                 };
             };
             responses: {
-                /** @description Updated */
+                /** @description Updated. A new email address gets a verification code automatically. */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": components["schemas"]["Alerts"];
+                    };
+                };
+                /** @description Invalid address or number */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
                 /** @description Signed out */
@@ -353,6 +348,251 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/alerts/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AlertsVerify"];
+                };
+            };
+            responses: {
+                /** @description Verified */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Alerts"];
+                    };
+                };
+                /** @description Wrong or expired code */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many tries */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AlertsChannelRequest"];
+                };
+            };
+            responses: {
+                /** @description Code sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CodeSent"];
+                    };
+                };
+                /** @description No address yet, or already verified */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Wait before asking again */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Texts aren't available yet */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AlertsChannelRequest"];
+                };
+            };
+            responses: {
+                /** @description Sent an example alert */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            sentTo: string;
+                        };
+                    };
+                };
+                /** @description Not verified yet */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Wait before asking again */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Texts aren't available yet */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/search": {
@@ -580,6 +820,244 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["OpportunityCard"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Most recently saved first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SavedPlace"][];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SavedPlaceCreate"];
+                };
+            };
+            responses: {
+                /** @description Already saved; the note is updated if one was sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SavedPlace"];
+                    };
+                };
+                /** @description Saved */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SavedPlace"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/saved/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The saved place */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SavedPlace"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Unsaved. The place goes back to the inbox, marked seen. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SavedPlacePatch"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SavedPlace"];
                     };
                 };
                 /** @description Signed out */
@@ -1085,6 +1563,26 @@ export interface components {
                 label: string;
                 toolCallId: string | null;
             }[];
+            /**
+             * @description A few short labels for listings being looked at
+             * @example [
+             *       "2 bd · $3,400 · Harlem"
+             *     ]
+             */
+            samples?: string[];
+        };
+        /** @description Chat part data-places: emitted by addToInbox */
+        DataPlaces: {
+            /**
+             * @description Places Fred actually added to the inbox this step, best first
+             * @example [
+             *       "op_1101",
+             *       "op_1109"
+             *     ]
+             */
+            ids: string[];
+            /** @description Of those, the ones he hid as likely scams */
+            hidden: string[];
         };
         /** @description Chat part data-suggestions: quick replies. Tapping one sends its label as a message. */
         DataSuggestions: {
@@ -1127,8 +1625,11 @@ export interface components {
             id: string;
             /** @example Washer/dryer in unit */
             label: string;
-            /** @enum {string} */
-            weight: "nice" | "important";
+            /**
+             * @description must = a dealbreaker Fred can't filter on yet: he won't add places that clearly lack it, and says when it's unconfirmed. The app calls it Dealbreaker.
+             * @enum {string}
+             */
+            weight: "nice" | "important" | "must";
         };
         Commute: {
             id: string;
@@ -1292,9 +1793,8 @@ export interface components {
         };
         Alerts: {
             mode: components["schemas"]["AlertMode"];
-            /** @enum {string} */
-            channel: "email" | "sms" | "push";
             /**
+             * @description New York time; alerts wait until it ends
              * @example {
              *       "start": "22:00",
              *       "end": "08:00"
@@ -1304,12 +1804,37 @@ export interface components {
                 start: string;
                 end: string;
             } | null;
+            email: components["schemas"]["EmailAlerts"];
+            sms: components["schemas"]["SmsAlerts"];
         };
         /**
          * @description instant_strong = message me about strong fits right away; daily = one digest; off = only in the app
          * @enum {string}
          */
         AlertMode: "instant_strong" | "daily" | "off";
+        EmailAlerts: {
+            /** @example erin@example.com */
+            address: string | null;
+            /** @description The person wants alerts here. Nothing is sent until verified is true too. */
+            enabled: boolean;
+            /** @description They entered the code sent to this address or number */
+            verified: boolean;
+            /** @description False when we can't send on this channel yet (texts, for now) */
+            available: boolean;
+        };
+        SmsAlerts: {
+            /**
+             * @description E.164
+             * @example +12125551234
+             */
+            number: string | null;
+            /** @description The person wants alerts here. Nothing is sent until verified is true too. */
+            enabled: boolean;
+            /** @description They entered the code sent to this address or number */
+            verified: boolean;
+            /** @description False when we can't send on this channel yet (texts, for now) */
+            available: boolean;
+        };
         Error: {
             error: string;
         };
@@ -1353,6 +1878,46 @@ export interface components {
             kind?: components["schemas"]["MemoryKind"];
             /** @enum {string} */
             strength?: "must" | "strong" | "mild";
+        };
+        AlertsPatch: {
+            mode?: components["schemas"]["AlertMode"];
+            /**
+             * @description New York time; alerts wait until it ends
+             * @example {
+             *       "start": "22:00",
+             *       "end": "08:00"
+             *     }
+             */
+            quietHours?: {
+                start: string;
+                end: string;
+            } | null;
+            /** @description A new address is saved unverified and a 6-digit code is emailed to it */
+            email?: {
+                /** Format: email */
+                address?: string;
+                enabled?: boolean;
+            };
+            /** @description A new number is saved unverified. US numbers can be given as 10 digits. */
+            sms?: {
+                number?: string;
+                enabled?: boolean;
+            };
+        };
+        AlertsVerify: {
+            channel: components["schemas"]["AlertChannel"];
+            code: string;
+        };
+        /** @enum {string} */
+        AlertChannel: "email" | "sms";
+        CodeSent: {
+            /** @example j•••@gmail.com */
+            sentTo: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        AlertsChannelRequest: {
+            channel: components["schemas"]["AlertChannel"];
         };
         OpportunityPage: {
             items: components["schemas"]["OpportunityCard"][];
@@ -1474,6 +2039,21 @@ export interface components {
         OpportunityPatch: {
             seen?: boolean;
             status?: components["schemas"]["OpportunityStatus"];
+            note?: string | null;
+        };
+        SavedPlace: components["schemas"]["OpportunityCard"] & {
+            /**
+             * Format: date-time
+             * @example 2026-10-11T14:30:00Z
+             */
+            savedAt: string;
+            note: string | null;
+        };
+        SavedPlaceCreate: {
+            opportunityId: string;
+            note?: string | null;
+        };
+        SavedPlacePatch: {
             note?: string | null;
         };
         TourRequest: {

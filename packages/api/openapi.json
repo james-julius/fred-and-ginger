@@ -3,7 +3,7 @@
   "info": {
     "title": "Fred API",
     "version": "0.1.0",
-    "description": "Generated from packages/api. Run `npm run gen:api` at the repo root after changing it.\n\nEvery route is canned for now (response header `X-Fred-Data: example`): the mockup's example data, plus your own changes, which are saved. Saving a place moves it to Saved, marking it seen lowers the New count, search edits stick, and the chat answers what you send. `POST /api/mock/reset` starts your data over.\n\nSign in at /login first; \"Try it out\" uses your session."
+    "description": "Generated from packages/api. Run `npm run gen:api` at the repo root after changing it.\n\nEvery route is canned for now (response header `X-Fred-Data: example`): the mockup's example data, plus your own changes, which are saved. Saving a place moves it to Saved (`/api/saved` lists, saves, edits the note on and unsaves places), marking it seen lowers the New count, search edits stick, and the chat answers what you send. `POST /api/mock/reset` starts your data over.\n\nSign in at /login first; \"Try it out\" uses your session."
   },
   "components": {
     "schemas": {
@@ -140,6 +140,16 @@
                 "toolCallId"
               ]
             }
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "2 bd · $3,400 · Harlem"
+            ],
+            "description": "A few short labels for listings being looked at"
           }
         },
         "required": [
@@ -149,6 +159,34 @@
           "steps"
         ],
         "description": "Chat part data-scan: \"Checked 186 new listings · 9 steps\""
+      },
+      "DataPlaces": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "op_1101",
+              "op_1109"
+            ],
+            "description": "Places Fred actually added to the inbox this step, best first"
+          },
+          "hidden": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Of those, the ones he hid as likely scams"
+          }
+        },
+        "required": [
+          "ids",
+          "hidden"
+        ],
+        "description": "Chat part data-places: emitted by addToInbox"
       },
       "DataSuggestions": {
         "type": "object",
@@ -280,8 +318,10 @@
             "type": "string",
             "enum": [
               "nice",
-              "important"
-            ]
+              "important",
+              "must"
+            ],
+            "description": "must = a dealbreaker Fred can't filter on yet: he won't add places that clearly lack it, and says when it's unconfirmed. The app calls it Dealbreaker."
           }
         },
         "required": [
@@ -847,14 +887,6 @@
           "mode": {
             "$ref": "#/components/schemas/AlertMode"
           },
-          "channel": {
-            "type": "string",
-            "enum": [
-              "email",
-              "sms",
-              "push"
-            ]
-          },
           "quietHours": {
             "type": [
               "object",
@@ -875,13 +907,21 @@
             "example": {
               "start": "22:00",
               "end": "08:00"
-            }
+            },
+            "description": "New York time; alerts wait until it ends"
+          },
+          "email": {
+            "$ref": "#/components/schemas/EmailAlerts"
+          },
+          "sms": {
+            "$ref": "#/components/schemas/SmsAlerts"
           }
         },
         "required": [
           "mode",
-          "channel",
-          "quietHours"
+          "quietHours",
+          "email",
+          "sms"
         ]
       },
       "AlertMode": {
@@ -892,6 +932,67 @@
           "off"
         ],
         "description": "instant_strong = message me about strong fits right away; daily = one digest; off = only in the app"
+      },
+      "EmailAlerts": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "erin@example.com"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "The person wants alerts here. Nothing is sent until verified is true too."
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "They entered the code sent to this address or number"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "False when we can't send on this channel yet (texts, for now)"
+          }
+        },
+        "required": [
+          "address",
+          "enabled",
+          "verified",
+          "available"
+        ]
+      },
+      "SmsAlerts": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+12125551234",
+            "description": "E.164"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "The person wants alerts here. Nothing is sent until verified is true too."
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "They entered the code sent to this address or number"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "False when we can't send on this channel yet (texts, for now)"
+          }
+        },
+        "required": [
+          "number",
+          "enabled",
+          "verified",
+          "available"
+        ]
       },
       "Error": {
         "type": "object",
@@ -1015,6 +1116,116 @@
             ]
           }
         }
+      },
+      "AlertsPatch": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/AlertMode"
+          },
+          "quietHours": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "start": {
+                "type": "string"
+              },
+              "end": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ],
+            "example": {
+              "start": "22:00",
+              "end": "08:00"
+            },
+            "description": "New York time; alerts wait until it ends"
+          },
+          "email": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string",
+                "maxLength": 254,
+                "format": "email"
+              },
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "description": "A new address is saved unverified and a 6-digit code is emailed to it"
+          },
+          "sms": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 20
+              },
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "description": "A new number is saved unverified. US numbers can be given as 10 digits."
+          }
+        }
+      },
+      "AlertsVerify": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/AlertChannel"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          }
+        },
+        "required": [
+          "channel",
+          "code"
+        ]
+      },
+      "AlertChannel": {
+        "type": "string",
+        "enum": [
+          "email",
+          "sms"
+        ]
+      },
+      "CodeSent": {
+        "type": "object",
+        "properties": {
+          "sentTo": {
+            "type": "string",
+            "example": "j•••@gmail.com"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "sentTo",
+          "expiresAt"
+        ]
+      },
+      "AlertsChannelRequest": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/AlertChannel"
+          }
+        },
+        "required": [
+          "channel"
+        ]
       },
       "OpportunityPage": {
         "type": "object",
@@ -1480,6 +1691,61 @@
           }
         }
       },
+      "SavedPlace": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/OpportunityCard"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "savedAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-10-11T14:30:00Z"
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "savedAt",
+              "note"
+            ]
+          }
+        ]
+      },
+      "SavedPlaceCreate": {
+        "type": "object",
+        "properties": {
+          "opportunityId": {
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "opportunityId"
+        ]
+      },
+      "SavedPlacePatch": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "TourRequest": {
         "type": "object",
         "properties": {
@@ -1932,53 +2198,28 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "mode": {
-                    "$ref": "#/components/schemas/AlertMode"
-                  },
-                  "channel": {
-                    "type": "string",
-                    "enum": [
-                      "email",
-                      "sms",
-                      "push"
-                    ]
-                  },
-                  "quietHours": {
-                    "type": [
-                      "object",
-                      "null"
-                    ],
-                    "properties": {
-                      "start": {
-                        "type": "string"
-                      },
-                      "end": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "start",
-                      "end"
-                    ],
-                    "example": {
-                      "start": "22:00",
-                      "end": "08:00"
-                    }
-                  }
-                }
+                "$ref": "#/components/schemas/AlertsPatch"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Updated",
+            "description": "Updated. A new email address gets a verification code automatically.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Alerts"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid address or number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -1995,6 +2236,241 @@
           },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alerts/verify": {
+      "post": {
+        "tags": [
+          "you"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertsVerify"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Alerts"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Wrong or expired code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many tries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alerts/resend": {
+      "post": {
+        "tags": [
+          "you"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertsChannelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Code sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeSent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No address yet, or already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Wait before asking again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Texts aren't available yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alerts/test": {
+      "post": {
+        "tags": [
+          "you"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertsChannelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sent an example alert",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sentTo": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "sentTo"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not verified yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Wait before asking again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Texts aren't available yet",
             "content": {
               "application/json": {
                 "schema": {
@@ -2249,6 +2725,251 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/saved": {
+      "get": {
+        "tags": [
+          "saved"
+        ],
+        "responses": {
+          "200": {
+            "description": "Most recently saved first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SavedPlace"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "saved"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedPlaceCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Already saved; the note is updated if one was sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPlace"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPlace"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/saved/{id}": {
+      "get": {
+        "tags": [
+          "saved"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The saved place",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPlace"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "saved"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedPlacePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPlace"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "saved"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unsaved. The place goes back to the inbox, marked seen."
           },
           "401": {
             "description": "Signed out",

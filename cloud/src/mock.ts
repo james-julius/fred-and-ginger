@@ -13,11 +13,12 @@ type Search = I<typeof S.Search>;
 type Alerts = I<typeof S.Alerts>;
 type Tour = I<typeof S.Tour>;
 type SearchPatch = I<typeof S.SearchPatch>;
+type SavedPlace = I<typeof S.SavedPlace>;
 type Part = { type: string; [k: string]: unknown };
 export type Message = { id: string; role: 'user' | 'assistant'; parts: Part[] };
 
 export type MockState = {
-  cards: Record<string, { seen?: boolean; status?: Card['status']; note?: string | null }>;
+  cards: Record<string, { seen?: boolean; status?: Card['status']; note?: string | null; savedAt?: string }>;
   search?: Search;
   alerts?: Alerts;
   tours?: Tour[];
@@ -76,6 +77,20 @@ export function meFor(st: MockState, user: string, now = new Date()) {
   const name = st.profile?.name ?? user.charAt(0).toUpperCase() + user.slice(1);
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
   return { ...me, user: { id: user, name, initials, photo: st.profile?.photo ?? null } };
+}
+
+/** Change a place's status; saving stamps savedAt, anything else clears it. The note stays. */
+export function setStatus(st: MockState, id: string, status: Card['status']) {
+  const prev = st.cards[id] ?? {};
+  if (prev.status === status) return;
+  st.cards[id] = { ...prev, status, savedAt: status === 'saved' ? new Date().toISOString() : undefined };
+}
+
+/** Saved places, most recently saved first. A place saved before savedAt existed sorts by foundAt. */
+export function savedPlaces(st: MockState, cards: Card[]): SavedPlace[] {
+  return cards.filter((c) => c.status === 'saved')
+    .map((c) => ({ ...c, savedAt: st.cards[c.id]?.savedAt ?? c.foundAt, note: st.cards[c.id]?.note ?? null }))
+    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 
 /* ── chat ─────────────────────────────────────────────────────────────── */

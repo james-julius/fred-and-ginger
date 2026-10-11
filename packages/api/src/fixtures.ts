@@ -35,7 +35,11 @@ export function fixtures(now = new Date()) {
     updatedAt: at(1),
   };
 
-  const alerts: T<'Alerts'> = { mode: 'instant_strong', channel: 'push', quietHours: { start: '22:00', end: '08:00' } };
+  const alerts: T<'Alerts'> = {
+    mode: 'instant_strong', quietHours: { start: '22:00', end: '08:00' },
+    email: { address: null, enabled: false, verified: false, available: true },
+    sms: { number: null, enabled: false, verified: false, available: false },
+  };
 
   const strong = (reason: string | null = null): T<'Verdict'> => ({ kind: 'strong_fit', label: 'Strong fit', tone: 'good', reason });
 
