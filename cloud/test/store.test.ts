@@ -114,3 +114,29 @@ test('reset starts over, blob included', async () => {
   await reset(db, 'james');
   assert.deepEqual(await load(db, 'james'), { cards: {}, threads: {} });
 });
+
+test('someone new starts empty: no example search, tours, places or chats', async () => {
+  const { view } = await import('../src/mock');
+  const { inbox } = await import('../src/places');
+  const { env, sql } = d1(), db = env.DB;
+  sql.prepare(`INSERT INTO listings (id, street, neighbourhood, borough, price, beds, baths, first_seen, status) VALUES (1, '1 Main St', 'Williamsburg', 'Brooklyn', 3000, 1, 1, 1, 'active')`).run();
+  const v = view(await load(db, 'newbie'));
+  assert.deepEqual(v.search.dealbreakers.areas, []);
+  assert.equal(v.search.dealbreakers.maxTotalMonthly, null);
+  assert.deepEqual([v.tours, v.cards, Object.keys(v.threads)], [[], [], []]);
+  assert.deepEqual(v.me.counts, { new: 0, saved: 0, tours: 0 });
+  // the inbox waits for a search instead of showing all of NYC
+  assert.deepEqual(await inbox(db, 'newbie', await load(db, 'newbie'), v.search), []);
+  const withArea = { ...v.search, dealbreakers: { ...v.search.dealbreakers, areas: ['williamsburg'] } };
+  assert.deepEqual((await inbox(db, 'newbie', await load(db, 'newbie'), withArea)).map((c) => c.id), ['op_1']);
+});
+
+test("Fred's search asks for a search first when there isn't one", async () => {
+  const { RequestContext } = await import('@mastra/core/request-context');
+  const { searchListings } = await import('../src/agent/tools');
+  const { env } = d1();
+  const rc = new RequestContext();
+  rc.set('env', { DB: env.DB, ME: 'newbie' });
+  const r: any = await searchListings.execute!({} as any, { requestContext: rc } as any);
+  assert.match(r.error, /search is empty/);
+});
