@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/cloudflare';
 // nest: the shared apartment hunt for James and Erin.
 //   /login            sign in (one password each, set as Worker secrets)
 //   /api/*            listings, votes, notes, searches, runs
@@ -172,7 +173,7 @@ async function api(req: Request, env: Env, me: string, url: URL) {
   return json({ error: 'not found' }, 404);
 }
 
-export default {
+const handler = {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     if (url.pathname === '/hooks/apify' && req.method === 'POST') {
@@ -190,6 +191,7 @@ export default {
     if (url.pathname === '/logout') return new Response(null, { status: 303, headers: { Location: '/login', 'Set-Cookie': 'nest_s=; Path=/; Max-Age=0' } });
     const me = await sessionUser(req, env);
     if (!me) return url.pathname.startsWith('/api/') && url.pathname !== '/api/docs' ? json({ error: 'signed out' }, 401) : Response.redirect(url.origin + '/login', 303);
+    Sentry.setUser({ id: me });
     if (url.pathname.startsWith('/api/')) {
       // the new Fred API first; paths it doesn't know go to the old routes below
       const res = await v2.fetch(req, { ...env, ME: me }, ctx);
@@ -199,11 +201,16 @@ export default {
     if (env.WEB && url.hostname.startsWith('fredandginger.')) return env.WEB.fetch(req);
     return env.ASSETS.fetch(req);
   },
-  async scheduled(ev: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    await env.DB.prepare(`INSERT OR REPLACE INTO meta VALUES ('cron:' || ?, ?)`).bind(ev.cron, new Date().toISOString()).run();
-    // area safety: two NYPD queries per ~100 m cell, on its own trigger so it has its own request budget;
-    // and strong-fit email alerts (src/alerts.ts)
-    if (ev.cron === '*/5 * * * *') ctx.waitUntil(Promise.all([checkAreas(env.DB, 20), sendDueAlerts(env).then((r) => r.some((x) => x.sent || x.error) && console.log('alerts', JSON.stringify(r)))]));
+  async scheduled(ev: ScheduledController, env: Env, ctx: ExecutionContext) {
+    // Cloudflare has delivered the */5 trigger labelled "*/2 * * * *" (seen 19:15 on Oct 11), so
+    // don't trust ev.cron alone: an odd multiple of 5 minutes is the 5-minute run too.
+    const minute = new Date(ev.scheduledTime).getUTCMinutes();
+    const fiveMinute = ev.cron === '*/5 * * * *' || (minute % 5 === 0 && minute % 2 === 1);
+    await env.DB.prepare(`INSERT OR REPLACE INTO meta VALUES (?, ?)`).bind(fiveMinute ? 'cron:*/5 * * * *' : 'cron:*/2 * * * *', `${new Date().toISOString()} (label ${ev.cron}, minute ${minute})`).run();
+    // strong-fit email alerts on every run: each place is claimed before sending, so overlap is safe (src/alerts.ts)
+    ctx.waitUntil(sendDueAlerts(env).then((r) => { if (r.some((x) => x.sent || x.error)) console.log('alerts', JSON.stringify(r)); }));
+    // area safety: two NYPD queries per ~100 m cell, on its own run so it has its own request budget
+    if (fiveMinute) ctx.waitUntil(checkAreas(env.DB, 20));
     // ~50 outbound requests per invocation: one dataset page, then geocodes, then building checks
     else ctx.waitUntil((async () => {
       const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3);
@@ -212,4 +219,16 @@ export default {
       await refreshFacts(env.DB, due.results.map((r) => r.id));
     })());
   },
-};
+} satisfies ExportedHandler<Env>;
+
+// Errors, traces and logs go to Sentry (no cookies, headers or bodies). The DSN is in wrangler
+// vars (SENTRY_DSN), so local dev reports too, as environment "development". Cron runs are sampled
+// lightly: they fire every 2 and 5 minutes and would drown out requests.
+export default Sentry.withSentry((env: Env) => ({
+  dsn: env.SENTRY_DSN,
+  release: env.CF_VERSION_METADATA?.id,
+  environment: env.FRED_DEV === '1' ? 'development' : 'production',
+  tracesSampler: ({ name }) => (/^\S+ \* \* \* \*$|scheduled|cron/i.test(name ?? '') ? 0.05 : 1.0),
+  // the session cookie, chat messages and verification codes travel in cookies, headers and bodies: keep them out
+  dataCollection: { cookies: false, httpHeaders: false, httpBodies: [] },
+}), handler);
