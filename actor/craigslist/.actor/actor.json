@@ -1,0 +1,9 @@
+{
+  "actorSpecification": 1,
+  "name": "nest-craigslist",
+  "title": "nest: Craigslist NYC apartments",
+  "version": "0.1",
+  "buildTag": "latest",
+  "input": "./input_schema.json",
+  "dockerfile": "./Dockerfile"
+}

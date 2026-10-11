@@ -1,0 +1,46 @@
+{
+  "title": "nest StreetEasy input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "searches": {
+      "title": "Searches",
+      "type": "array",
+      "description": "StreetEasy rental search URLs, e.g. https://streeteasy.com/for-rent/williamsburg/price:-4500%7Cbeds:1",
+      "editor": "stringList",
+      "prefill": [
+        "https://streeteasy.com/for-rent/williamsburg/price:-4500%7Cbeds:1"
+      ]
+    },
+    "maxPages": {
+      "title": "Max pages per search",
+      "type": "integer",
+      "default": 5,
+      "minimum": 1,
+      "maximum": 40,
+      "description": "StreetEasy shows 14 listings per page."
+    },
+    "noFeePass": {
+      "title": "Also run each search with no_fee:1 to mark no-fee listings",
+      "type": "boolean",
+      "default": false,
+      "description": "Off by default: since the FARE Act (June 2025) StreetEasy dropped its no-fee filter, and the actor ignores the pass unless StreetEasy confirms it applied the filter."
+    },
+    "proxyCountry": {
+      "title": "Residential proxy country",
+      "type": "string",
+      "default": "US",
+      "editor": "textfield",
+      "description": "Two-letter country code for the residential proxy."
+    },
+    "blockScripts": {
+      "title": "Block scripts",
+      "type": "boolean",
+      "default": true,
+      "description": "Load only the HTML document (listings are embedded in it). Turn off if StreetEasy starts blocking."
+    }
+  },
+  "required": [
+    "searches"
+  ]
+}

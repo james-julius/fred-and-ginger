@@ -1,0 +1,10 @@
+{
+  "actorSpecification": 1,
+  "name": "nest-landlords",
+  "title": "nest: NYC landlord availability pages",
+  "version": "0.1",
+  "buildTag": "latest",
+  "input": "./input_schema.json",
+  "dockerfile": "./Dockerfile",
+  "defaultMemoryMbytes": 4096
+}

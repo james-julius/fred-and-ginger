@@ -1,0 +1,13 @@
+{
+  "name": "nest-nooklyn",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Nooklyn (nooklyn.com) NYC rentals, for nest (personal apartment search)",
+  "main": "src/main.js",
+  "scripts": { "start": "node src/main.js" },
+  "dependencies": {
+    "apify": "^3.2.6",
+    "got-scraping": "^4.0.6"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "nest-apartments",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Apartments.com NYC rental search results for nest (personal apartment search)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "apify": "^3.2.6",
+    "crawlee": "^3.13.0",
+    "patchright": "1.62.1",
+    "playwright": "1.62.1"
+  }
+}

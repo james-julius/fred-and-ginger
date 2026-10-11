@@ -1,0 +1,19 @@
+{
+  "search": {
+    "max_rent": 4500,
+    "min_beds": 1,
+    "neighbourhoods": ["Williamsburg", "Greenpoint", "East Village", "West Village", "Lower East Side"],
+    "move_by": "2026-12-01",
+    "no_fee_only": false,
+    "must_have": ["laundry in building"],
+    "deal_breakers": ["basement"]
+  },
+  "commute": [{"name": "work", "address": "", "max_minutes": 40}],
+  "imap": {
+    "host": "imap.gmail.com",
+    "user": "",
+    "app_password": "",
+    "folder": "nest-alerts"
+  },
+  "socrata_app_token": ""
+}

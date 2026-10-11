@@ -1,0 +1,93 @@
+{
+  "title": "nest Apartments.com input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "neighbourhoods": {
+      "title": "Neighbourhoods",
+      "type": "array",
+      "description": "StreetEasy-style neighbourhood slugs, e.g. williamsburg, east-village, long-island-city. Each becomes its own Apartments.com search (/williamsburg-brooklyn-ny/). A slug that already ends in -ny is used as the Apartments.com location as-is. Overrides borough.",
+      "editor": "stringList",
+      "prefill": [
+        "williamsburg"
+      ]
+    },
+    "borough": {
+      "title": "Borough",
+      "type": "string",
+      "description": "Used when no neighbourhoods are given. Leave empty for all of NYC.",
+      "editor": "select",
+      "enum": [
+        "",
+        "Manhattan",
+        "Brooklyn",
+        "Queens",
+        "Bronx",
+        "Staten Island"
+      ],
+      "enumTitles": [
+        "All NYC",
+        "Manhattan",
+        "Brooklyn",
+        "Queens",
+        "Bronx",
+        "Staten Island"
+      ],
+      "default": ""
+    },
+    "maxPrice": {
+      "title": "Max price (USD/month)",
+      "type": "integer",
+      "description": "Maximum monthly rent. Leave empty for no limit.",
+      "minimum": 0
+    },
+    "minBeds": {
+      "title": "Min bedrooms",
+      "type": "integer",
+      "description": "Minimum bedrooms (0 = studio). Leave empty for any.",
+      "minimum": 0,
+      "maximum": 6
+    },
+    "maxItems": {
+      "title": "Max rows",
+      "type": "integer",
+      "description": "Stop after this many dataset rows in total (a building with several bed types counts once per bed type).",
+      "default": 100,
+      "minimum": 1,
+      "maximum": 2000
+    },
+    "maxPages": {
+      "title": "Max pages per search",
+      "type": "integer",
+      "description": "Apartments.com shows about 40 properties per page and stops at 28 pages.",
+      "default": 5,
+      "minimum": 1,
+      "maximum": 28
+    },
+    "searchUrls": {
+      "title": "Search URLs (advanced)",
+      "type": "array",
+      "description": "Full Apartments.com search URLs, e.g. https://www.apartments.com/williamsburg-brooklyn-ny/min-1-bedrooms-under-4500/. When given, the fields above are ignored.",
+      "editor": "stringList"
+    },
+    "proxyCountry": {
+      "title": "Residential proxy country",
+      "type": "string",
+      "description": "Two-letter country code for the residential proxy.",
+      "editor": "textfield",
+      "default": "US"
+    },
+    "blockScripts": {
+      "title": "Block all scripts",
+      "type": "boolean",
+      "description": "Load only the server-rendered HTML, no JavaScript (much less proxy traffic). Turn off if Apartments.com (Akamai) starts blocking.",
+      "default": true
+    },
+    "debug": {
+      "title": "Debug dump",
+      "type": "boolean",
+      "description": "Save page HTML to the key-value store (for development).",
+      "default": false
+    }
+  }
+}

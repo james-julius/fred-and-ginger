@@ -1,0 +1,48 @@
+{
+  "title": "nest Zillow input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "searches": {
+      "title": "Searches",
+      "type": "array",
+      "description": "Zillow rental search URLs, copied from the browser after setting filters, e.g. https://www.zillow.com/brooklyn-new-york-ny/rentals/?searchQueryState=... A bare region URL like https://www.zillow.com/brooklyn-new-york-ny/rentals/ also works.",
+      "editor": "stringList",
+      "prefill": [
+        "https://www.zillow.com/brooklyn-new-york-ny/rentals/?searchQueryState=%7B%22pagination%22%3A%7B%7D%2C%22isMapVisible%22%3Afalse%2C%22isListVisible%22%3Atrue%2C%22filterState%22%3A%7B%22fr%22%3A%7B%22value%22%3Atrue%7D%2C%22fsba%22%3A%7B%22value%22%3Afalse%7D%2C%22fsbo%22%3A%7B%22value%22%3Afalse%7D%2C%22nc%22%3A%7B%22value%22%3Afalse%7D%2C%22cmsn%22%3A%7B%22value%22%3Afalse%7D%2C%22auc%22%3A%7B%22value%22%3Afalse%7D%2C%22fore%22%3A%7B%22value%22%3Afalse%7D%2C%22mp%22%3A%7B%22max%22%3A4500%7D%2C%22beds%22%3A%7B%22min%22%3A1%7D%7D%2C%22regionSelection%22%3A%5B%7B%22regionId%22%3A37607%2C%22regionType%22%3A17%7D%5D%7D"
+      ]
+    },
+    "maxItems": {
+      "title": "Max rows",
+      "type": "integer",
+      "default": 200,
+      "minimum": 1,
+      "maximum": 5000,
+      "description": "Stop after this many dataset rows in total (a building with several bed types counts once per bed type)."
+    },
+    "maxPages": {
+      "title": "Max pages per search",
+      "type": "integer",
+      "default": 5,
+      "minimum": 1,
+      "maximum": 20,
+      "description": "Zillow shows about 41 results per page and stops at 20 pages."
+    },
+    "proxyCountry": {
+      "title": "Residential proxy country",
+      "type": "string",
+      "default": "US",
+      "editor": "textfield",
+      "description": "Two-letter country code for the residential proxy."
+    },
+    "blockScripts": {
+      "title": "Block all scripts",
+      "type": "boolean",
+      "default": true,
+      "description": "Load only the server-rendered HTML, no JavaScript (about 10x less proxy traffic; tested working incl. page 2+). Turn off if Zillow starts serving bot checks."
+    }
+  },
+  "required": [
+    "searches"
+  ]
+}

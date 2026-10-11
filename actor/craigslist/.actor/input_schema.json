@@ -1,0 +1,85 @@
+{
+  "title": "nest Craigslist input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "subareas": {
+      "title": "Subareas",
+      "type": "array",
+      "description": "Craigslist New York subareas: mnh (Manhattan), brk (Brooklyn), que (Queens), brx (Bronx), stn (Staten Island). Empty = all of newyork.craigslist.org.",
+      "editor": "stringList",
+      "prefill": [
+        "mnh",
+        "brk"
+      ],
+      "default": [
+        "mnh",
+        "brk"
+      ]
+    },
+    "maxPrice": {
+      "title": "Max price",
+      "type": "integer",
+      "description": "Maximum monthly rent in USD.",
+      "minimum": 0
+    },
+    "minPrice": {
+      "title": "Min price",
+      "type": "integer",
+      "description": "Minimum monthly rent in USD. Craigslist is full of $1 placeholder ads, so a floor helps.",
+      "minimum": 0,
+      "default": 500
+    },
+    "minBedrooms": {
+      "title": "Min bedrooms",
+      "type": "integer",
+      "description": "Minimum bedrooms (0 = studio).",
+      "minimum": 0
+    },
+    "maxBedrooms": {
+      "title": "Max bedrooms",
+      "type": "integer",
+      "description": "Maximum bedrooms.",
+      "minimum": 0
+    },
+    "query": {
+      "title": "Keyword query",
+      "type": "string",
+      "editor": "textfield",
+      "description": "Optional free-text search, e.g. 'no fee' or 'laundry'."
+    },
+    "maxItems": {
+      "title": "Max items",
+      "type": "integer",
+      "description": "Maximum rows to push in total, newest first.",
+      "default": 100,
+      "minimum": 1
+    },
+    "fetchDetails": {
+      "title": "Fetch detail pages for new listings",
+      "type": "boolean",
+      "description": "Open each new listing's page to fill beds/baths/lat/lon/photos/availability and scam flags. Results are cached in a named key-value store so a listing's page is only fetched once.",
+      "default": true
+    },
+    "proxyGroups": {
+      "title": "Proxy groups",
+      "type": "array",
+      "editor": "stringList",
+      "description": "Apify proxy groups. Empty = datacenter (cheap). Use RESIDENTIAL if Craigslist blocks datacenter IPs.",
+      "default": []
+    },
+    "useHtml": {
+      "title": "Use search HTML instead of the JSON API",
+      "type": "boolean",
+      "default": false,
+      "description": "Fallback/testing: read the server-rendered search page instead of sapi.craigslist.org. Used automatically if the API fails. HTML rows have no listedAt until the detail page is fetched."
+    },
+    "debugUrls": {
+      "title": "Debug URLs",
+      "type": "array",
+      "editor": "stringList",
+      "description": "Maintenance only: fetch these URLs through the proxy and save the raw responses to the key-value store, then stop.",
+      "default": []
+    }
+  }
+}

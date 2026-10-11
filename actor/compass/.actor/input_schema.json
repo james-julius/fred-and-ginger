@@ -1,0 +1,64 @@
+{
+  "title": "nest Compass input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "neighbourhoods": {
+      "title": "Neighbourhoods",
+      "type": "array",
+      "editor": "stringList",
+      "description": "StreetEasy-style neighbourhood slugs, e.g. williamsburg, east-village. Each is matched to Compass's location by trying <slug>-<borough>-ny (the borough input is tried first). A full Compass id like williamsburg-brooklyn-ny is used as is.",
+      "prefill": ["williamsburg", "east-village"]
+    },
+    "borough": {
+      "title": "Borough",
+      "type": "string",
+      "editor": "textfield",
+      "description": "Used when no neighbourhoods are given (Manhattan, Brooklyn, Queens, Bronx, Staten Island); also tried first when matching neighbourhood slugs. Empty = all of NYC."
+    },
+    "maxPrice": {
+      "title": "Max rent ($/month)",
+      "type": "integer",
+      "minimum": 0,
+      "description": "Only listings at or below this monthly rent (Compass's price.max filter)."
+    },
+    "minBeds": {
+      "title": "Min bedrooms",
+      "type": "integer",
+      "minimum": 0,
+      "description": "Only listings with at least this many bedrooms (0 = studios included)."
+    },
+    "maxItems": {
+      "title": "Max rows",
+      "type": "integer",
+      "default": 100,
+      "minimum": 1,
+      "maximum": 2000,
+      "description": "Stop after this many dataset rows in total, split evenly across neighbourhoods. Coming-soon and exclusive listings are taken first."
+    },
+    "maxPages": {
+      "title": "Max pages per neighbourhood",
+      "type": "integer",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 20,
+      "description": "Compass shows 41 listings per results page."
+    },
+    "details": {
+      "title": "Detail pages",
+      "type": "string",
+      "editor": "select",
+      "enum": ["exclusives", "all", "none"],
+      "enumTitles": ["Exclusive and coming-soon listings only", "Every listing", "None"],
+      "default": "exclusives",
+      "description": "Detail pages add the agent, available date, listed date, no-fee and full photos (about 100 KB of proxy traffic each). Search cards alone have price, beds, baths, address, coordinates and the exclusive/coming-soon flags."
+    },
+    "proxyCountry": {
+      "title": "Residential proxy country",
+      "type": "string",
+      "default": "US",
+      "editor": "textfield",
+      "description": "Two-letter country code for the residential proxy."
+    }
+  }
+}

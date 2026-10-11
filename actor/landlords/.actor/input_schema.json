@@ -1,0 +1,56 @@
+{
+  "title": "nest landlords input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "companies": {
+      "title": "Companies",
+      "type": "array",
+      "description": "Company slugs to run (see src/companies.js), e.g. related, glenwood. Empty = all enabled companies.",
+      "editor": "stringList",
+      "prefill": []
+    },
+    "maxPerCompany": {
+      "title": "Max rows per company",
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "description": "Cap on rows pushed per company. 0 = no cap."
+    },
+    "maxItems": {
+      "title": "Max rows overall",
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "description": "Cap on total rows pushed. 0 = no cap."
+    },
+    "concurrency": {
+      "title": "Companies in parallel",
+      "type": "integer",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 6,
+      "description": "How many companies are crawled at once. Requests within a company are always serial."
+    },
+    "delayMs": {
+      "title": "Delay between requests (ms)",
+      "type": "integer",
+      "default": 1500,
+      "minimum": 250,
+      "description": "Minimum gap between two requests to the same company's site."
+    },
+    "ignoreIntervals": {
+      "title": "Refresh every company now",
+      "type": "boolean",
+      "default": false,
+      "description": "Ignore per-company minIntervalHours (used to throttle expensive browser companies) and re-crawl everything."
+    },
+    "datacenterProxyGroup": {
+      "title": "Datacenter proxy group",
+      "type": "string",
+      "editor": "textfield",
+      "default": "BUYPROXIES94952",
+      "description": "Apify datacenter proxy group used only for hosts that refuse direct connections from Apify."
+    }
+  }
+}

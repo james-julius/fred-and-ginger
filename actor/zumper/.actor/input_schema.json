@@ -1,0 +1,85 @@
+{
+  "title": "nest Zumper input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "borough": {
+      "title": "Borough",
+      "type": "string",
+      "description": "Limit the search to one borough. Leave empty for all of NYC (or when using neighbourhoods).",
+      "editor": "select",
+      "enum": [
+        "",
+        "Manhattan",
+        "Brooklyn",
+        "Queens",
+        "Bronx",
+        "Staten Island"
+      ],
+      "enumTitles": [
+        "All NYC",
+        "Manhattan",
+        "Brooklyn",
+        "Queens",
+        "Bronx",
+        "Staten Island"
+      ],
+      "default": ""
+    },
+    "neighbourhoods": {
+      "title": "Neighbourhoods",
+      "type": "array",
+      "description": "Zumper neighbourhood names, e.g. Williamsburg, Greenpoint, East Village. Each becomes its own search. Overrides borough.",
+      "editor": "stringList",
+      "prefill": [
+        "Williamsburg"
+      ]
+    },
+    "maxPrice": {
+      "title": "Max price (USD/month)",
+      "type": "integer",
+      "description": "Maximum monthly rent. Leave empty for no limit.",
+      "minimum": 0
+    },
+    "minBeds": {
+      "title": "Min bedrooms",
+      "type": "integer",
+      "description": "Minimum bedrooms (0 = studio). Leave empty for any.",
+      "minimum": 0,
+      "maximum": 6
+    },
+    "noFeeOnly": {
+      "title": "No-fee only",
+      "type": "boolean",
+      "description": "Only return listings Zumper marks as no fee.",
+      "default": false
+    },
+    "maxItems": {
+      "title": "Max listings",
+      "type": "integer",
+      "description": "Stop after this many listings in total.",
+      "default": 100,
+      "minimum": 1,
+      "maximum": 2000
+    },
+    "searchUrls": {
+      "title": "Search URLs (advanced)",
+      "type": "array",
+      "description": "Full Zumper search URLs (https://www.zumper.com/apartments-for-rent/new-york-ny?...). When given, the fields above are ignored.",
+      "editor": "stringList"
+    },
+    "proxyCountry": {
+      "title": "Residential proxy country",
+      "type": "string",
+      "description": "Two-letter country code for the residential proxy.",
+      "editor": "textfield",
+      "default": "US"
+    },
+    "debug": {
+      "title": "Debug dump",
+      "type": "boolean",
+      "description": "Save page HTML and the page's network requests to the key-value store (for development).",
+      "default": false
+    }
+  }
+}

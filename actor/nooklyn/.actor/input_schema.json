@@ -1,0 +1,47 @@
+{
+  "title": "nest Nooklyn input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "neighbourhoods": {
+      "title": "Neighbourhoods",
+      "type": "array",
+      "editor": "stringList",
+      "description": "StreetEasy-style neighbourhood slugs, e.g. williamsburg, bushwick, bedford-stuyvesant, long-island-city. Mapped to Nooklyn's neighborhood ids. Borough slugs (brooklyn, queens, manhattan, bronx) select the whole borough. Empty = all of Nooklyn's rentals.",
+      "prefill": ["williamsburg", "bushwick"],
+      "default": []
+    },
+    "maxPrice": {
+      "title": "Max price",
+      "type": "integer",
+      "description": "Maximum monthly rent in USD. Nooklyn matches on gross or net-effective rent, so a listing whose gross rent is above this but net-effective is below can appear.",
+      "minimum": 0
+    },
+    "minBeds": {
+      "title": "Min bedrooms",
+      "type": "integer",
+      "description": "Minimum bedrooms (0 = studio).",
+      "minimum": 0
+    },
+    "maxItems": {
+      "title": "Max items",
+      "type": "integer",
+      "description": "Maximum rows to push in total, newest first.",
+      "default": 100,
+      "minimum": 1
+    },
+    "fetchDetails": {
+      "title": "Fetch photos and posted date",
+      "type": "boolean",
+      "description": "Per listing, call Nooklyn's images and price-history endpoints to fill up to 8 photos and listedAt (the date of the first price-history entry). Two small JSON requests per listing.",
+      "default": true
+    },
+    "proxyGroups": {
+      "title": "Proxy groups",
+      "type": "array",
+      "editor": "stringList",
+      "description": "Apify proxy groups. Empty = datacenter (cheap). Use RESIDENTIAL only if Nooklyn starts blocking datacenter IPs.",
+      "default": []
+    }
+  }
+}

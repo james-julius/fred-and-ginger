@@ -1,0 +1,9 @@
+{
+  "actorSpecification": 1,
+  "name": "nest-compass",
+  "title": "nest: Compass rentals",
+  "version": "0.1",
+  "buildTag": "latest",
+  "input": "./input_schema.json",
+  "dockerfile": "./Dockerfile"
+}

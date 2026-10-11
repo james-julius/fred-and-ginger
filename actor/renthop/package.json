@@ -1,0 +1,17 @@
+{
+  "name": "nest-renthop",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "RentHop NYC rental search results for nest (personal apartment search)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "apify": "^3.2.6",
+    "crawlee": "^3.13.0",
+    "playwright": "*",
+    "cheerio": "^1.0.0"
+  }
+}

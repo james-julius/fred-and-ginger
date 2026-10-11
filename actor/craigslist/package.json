@@ -1,0 +1,13 @@
+{
+  "name": "nest-craigslist",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Craigslist New York apartments for rent, for nest (personal apartment search)",
+  "main": "src/main.js",
+  "scripts": { "start": "node src/main.js" },
+  "dependencies": {
+    "apify": "^3.2.6",
+    "crawlee": "^3.13.0"
+  }
+}
