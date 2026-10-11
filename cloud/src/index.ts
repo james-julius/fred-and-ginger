@@ -205,10 +205,10 @@ const handler = {
     return env.ASSETS.fetch(req);
   },
   async scheduled(ev: ScheduledController, env: Env, ctx: ExecutionContext) {
-    // Cloudflare has delivered the */5 trigger labelled "*/2 * * * *" (seen 19:15 on Oct 11), so
-    // don't trust ev.cron alone: an odd multiple of 5 minutes is the 5-minute run too.
+    // The */5 trigger never fires on its own (Oct 11: no odd-minute runs at all, though Cloudflare
+    // lists the schedule), so a */2 run on a multiple of 10 minutes does the 5-minute work too.
     const minute = new Date(ev.scheduledTime).getUTCMinutes();
-    const fiveMinute = ev.cron === '*/5 * * * *' || (minute % 5 === 0 && minute % 2 === 1);
+    const fiveMinute = ev.cron === '*/5 * * * *' || minute % 5 === 0;
     await env.DB.prepare(`INSERT OR REPLACE INTO meta VALUES (?, ?)`).bind(fiveMinute ? 'cron:*/5 * * * *' : 'cron:*/2 * * * *', `${new Date().toISOString()} (label ${ev.cron}, minute ${minute})`).run();
     // strong-fit email alerts on every run: each place is claimed before sending, so overlap is safe (src/alerts.ts)
     ctx.waitUntil(sendDueAlerts(env).then((r) => { if (r.some((x) => x.sent || x.error)) console.log('alerts', JSON.stringify(r)); }));
