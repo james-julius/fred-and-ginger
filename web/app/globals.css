@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+/* Fred's tokens. The names follow shadcn/ui so shadcn and AI Elements components pick them up.
+   The yellow is --highlight, not --accent: shadcn uses --accent for hover backgrounds. */
+:root {
+  --background: #ffffff; /* inbox, cards, modal */
+  --foreground: #141413;
+  --card: #ffffff;
+  --card-foreground: #141413;
+  --popover: #ffffff;
+  --popover-foreground: #141413;
+  --primary: #141413; /* send, counts, unread dots, the mark */
+  --primary-foreground: #ffffff;
+  --secondary: #f0efeb;
+  --secondary-foreground: #141413;
+  --muted: #f0efeb;
+  --muted-foreground: #6b6a64;
+  --accent: #f0efeb;
+  --accent-foreground: #141413;
+  --highlight: #ffdd55; /* lit window panes, fee highlights */
+  --highlight-foreground: #141413;
+  --success: #2e9e5b; /* strong fit, still available */
+  --warning: #b86e14; /* over budget */
+  --destructive: #cf3b2e; /* likely scams, fine-print fees */
+  --border: #e7e6e1;
+  --input: #e7e6e1;
+  --ring: #141413;
+  --chat: #fbfbf9;
+  --sidebar: #f5f5f2;
+  --sidebar-foreground: #141413;
+  --sidebar-border: #e7e6e1;
+  --radius: 0.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #121211;
+    --foreground: #ededea;
+    --card: #121211;
+    --card-foreground: #ededea;
+    --popover: #1a1a18;
+    --popover-foreground: #ededea;
+    --primary: #ededea;
+    --primary-foreground: #121211;
+    --secondary: #232320;
+    --secondary-foreground: #ededea;
+    --muted: #232320;
+    --muted-foreground: #9c9b94;
+    --accent: #232320;
+    --accent-foreground: #ededea;
+    --highlight: #f2cf45;
+    --highlight-foreground: #141413;
+    --success: #4cc27e;
+    --warning: #f0a050;
+    --destructive: #f06a5c;
+    --border: #2b2a27;
+    --input: #2b2a27;
+    --ring: #ededea;
+    --chat: #151514;
+    --sidebar: #1a1a18;
+    --sidebar-foreground: #ededea;
+    --sidebar-border: #2b2a27;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chat: var(--chat);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+}
+
+/* The window mark: while Fred works, the panes light up clockwise. */
+.fred-pane {
+  fill: transparent;
+}
+.fred-mark-working .fred-pane {
+  animation: fred-pane 2.4s infinite;
+}
+.fred-mark-working .fred-pane-2 {
+  animation-delay: 0.6s;
+}
+.fred-mark-working .fred-pane-4 {
+  animation-delay: 1.2s;
+}
+.fred-mark-working .fred-pane-3 {
+  animation-delay: 1.8s;
+}
+@keyframes fred-pane {
+  0%,
+  30% {
+    fill: var(--highlight);
+  }
+  45%,
+  100% {
+    fill: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fred-mark-working .fred-pane {
+    animation: none;
+  }
+}
