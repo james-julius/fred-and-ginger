@@ -150,7 +150,7 @@ const cases: Case[] = [
     const up = called(t2, 'updateSearch')[0]?.input;
     const s = (await getJson('/api/search')).dealbreakers;
     return { turns: [t1, t2], checks: [
-      ...basics(t2),
+      ...basics(t2, [t1]),
       check('updates the search', !!up, 'no updateSearch call'),
       check('budget now 5500', s.maxTotalMonthly === 5500, String(s.maxTotalMonthly)),
       check('keeps Brooklyn and adds Queens', s.areas.some((a: string) => /brooklyn/i.test(a)) && s.areas.some((a: string) => /queens/i.test(a)), JSON.stringify(s.areas)),
@@ -171,7 +171,7 @@ const cases: Case[] = [
     if (!placeId) return { turns: [t1], checks: [check('setup: Fred added a place', false, 'turn 1 added nothing')] };
     const t2 = await say(thread, 'Is this one any good?', placeId);
     return { turns: [t1, t2], checks: [
-      ...basics(t2),
+      ...basics(t2, [t1]),
       check('looks the place up', called(t2, 'getPlace').some((c) => c.input.id === placeId), JSON.stringify(t2.tools.map((c) => c.name))),
       check("doesn't start a new search", called(t2, 'searchListings').length === 0, 'searched instead of answering'),
     ] };
@@ -183,7 +183,7 @@ const cases: Case[] = [
     const t2 = await say(thread, 'Save this one', placeId);
     const saved = (await getJson('/api/opportunities?view=saved')).items.map((o: any) => o.id);
     return { turns: [t1, t2], checks: [
-      ...basics(t2),
+      ...basics(t2, [t1]),
       check('calls updatePlace with saved', called(t2, 'updatePlace').some((c) => c.input.id === placeId && c.input.status === 'saved'), JSON.stringify(called(t2, 'updatePlace').map((c) => c.input))),
       check('it is in Saved', saved.includes(placeId), JSON.stringify(saved)),
     ] };
@@ -196,7 +196,7 @@ const cases: Case[] = [
     const t2 = await say(thread, 'Can you set up a tour this Saturday at 11am?', placeId);
     const after = (await getJson('/api/tours?when=all')).length;
     return { turns: [t1, t2], checks: [
-      ...basics(t2),
+      ...basics(t2, [t1]),
       check('drafts a tour', called(t2, 'requestTour').some((c) => c.input.placeId === placeId), JSON.stringify(t2.tools.map((c) => c.name))),
       check('tour appears in the app', after === before + 1, `${before} → ${after}`),
       check("doesn't claim it contacted anyone", !/\b(I('ve| have)|I) (contacted|emailed|messaged|called|reached out|booked)\b/i.test(t2.text), t2.text),
