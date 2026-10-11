@@ -1,4 +1,4 @@
-// Crawler rows (actor/SCHEMA.md) -> listings + sightings, and the Apify side:
+// Crawler rows (docs/crawlers.md) -> listings + sightings, and the Apify side:
 // starting runs with a webhook back to us, and reading their datasets.
 import { locate, report } from './building';
 

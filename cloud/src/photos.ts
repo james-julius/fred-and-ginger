@@ -1,6 +1,6 @@
 // Listing photos from sites that won't show them on our pages. RentHop puts a Cloudflare bot check in
 // front of photos.renthop.com: an <img> on our pages gets a 403 challenge page, and so does a deployed
-// Worker, whatever headers it sends. The RentHop crawler (actor/renthop) opens each new listing's photos
+// Worker, whatever headers it sends. The RentHop crawler (nest-renthop, in the private crawlers repo) opens each new listing's photos
 // in its own cleared browser and keeps them in the Apify store nest-renthop-photos. From there:
 // - photoUrl() rewrites those URLs to /api/photo?u=… wherever photos leave the API
 // - /api/photo serves the copy in R2, copying it from the Apify store the first time
@@ -24,7 +24,7 @@ export function photosOf(col: string | null | undefined): string[] {
   try { return (col ? (JSON.parse(col) as string[]) : []).map(photoUrl); } catch { return []; }
 }
 
-/** The photo's key in the Apify store and in R2. Must match photoKey() in actor/renthop/src/main.js. */
+/** The photo's key in the Apify store and in R2. Must match photoKey() in the nest-renthop crawler. */
 export const photoKey = (u: string) =>
   `renthop-${new URL(u).pathname.split('/').pop()!.replace(/\.[a-z]+$/i, '')}`.replace(/[^a-zA-Z0-9!_.'()-]/g, '-').slice(0, 250);
 

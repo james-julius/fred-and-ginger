@@ -243,7 +243,7 @@ const cases: Case[] = [
       check('brief (≤ 120 words)', words(t.finalText) <= 120, `${words(t.finalText)} words`),
     ] };
   } },
-  { name: "Erin's chat: light, subway, furnished", run: async () => {
+  { name: "A real chat: light, subway, furnished", run: async () => {
     // replays the conversation where Fred wrote "847 Riverside" and then said it didn't know
     const thread = await fresh();
     const t1 = await say(thread, 'I want an apartment in manhattan for under 5k one bedroom and 2 baths or 1.5 baths');
