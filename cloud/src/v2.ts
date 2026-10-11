@@ -11,9 +11,16 @@ import type { Env } from './ingest';
 import { applySearch, load, meFor, reset, reply, save, view, type Message } from './mock';
 import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context';
 import { toAISdkStream } from '@mastra/ai-sdk';
-import { fred, DEFAULT_MODEL } from './agent/fred';
+import { fred, DEFAULT_MODEL, type Harness } from './agent/fred';
 import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
+
+/** Keep only text written after the last tool call: a draft Fred wrote mid-turn and then corrected
+ *  shouldn't come back on reload or be reread as history. The app shows the same thing live. */
+const finalTextOnly = (parts: Message['parts']) => {
+  const lastTool = parts.map((p) => p.type.startsWith('tool-')).lastIndexOf(true);
+  return parts.filter((p, i) => p.type !== 'text' || i > lastTool);
+};
 
 const hasModelKey = (e: Env) => !!(e.ANTHROPIC_API_KEY || e.OPENAI_API_KEY || e.GOOGLE_GENERATIVE_AI_API_KEY);
 
@@ -144,6 +151,7 @@ v2.openapi(R.chat, async (c) => {
   if (hasModelKey(c.env)) {
     // an id already in the thread means the user edited that message: Fred sees only what came before it
     const keep = (msgs: Message[] = []) => { const i = user.id ? msgs.findIndex((m) => m.id === user.id) : -1; return i === -1 ? msgs : msgs.slice(0, i); };
+    const harnessV1 = c.env.FRED_DEV === '1' && c.req.header('x-fred-harness') === 'v1';
     const prior = view(st).threads[threadId], kept = keep(prior?.messages);
     const title = kept.length && prior?.title ? prior.title : (said.slice(0, 60) || 'New chat');
     // Save the user's message now, so an edit sticks even if the reply fails or they leave mid-reply.
@@ -152,7 +160,17 @@ v2.openapi(R.chat, async (c) => {
     // history as plain text for now; Mastra memory in Postgres replaces this
     type Turn = { role: 'user'; content: string } | { role: 'assistant'; content: string };
     const history: Turn[] = kept.flatMap((m): Turn[] => {
-      const content = m.parts.filter((p) => p.type === 'text').map((p) => String(p.text)).join('\n');
+      // v2 also drops drafts from chats saved before the fix
+      let content = (harnessV1 ? m.parts : finalTextOnly(m.parts)).filter((p) => p.type === 'text').map((p) => String(p.text)).join('\n');
+      // Tool results aren't replayed, so keep the ground truth Fred will be asked about: the places
+      // it added, with their exact addresses. Without this it misremembers addresses on follow-ups.
+      if (m.role === 'assistant' && !harnessV1) {
+        const found = new Map<number, { address: string; price: number }>();
+        for (const p of m.parts) if (p.type === 'tool-searchListings') for (const l of ((p.output as any)?.listings ?? [])) found.set(l.listingId, l);
+        const added = m.parts.filter((p) => p.type === 'tool-addToInbox').flatMap((p) => ((p.output as any)?.added ?? []) as { id: string; listingId?: number; area: string; price: number }[]);
+        const lines = added.map((a) => { const f = found.get(Number(a.id.replace('op_', ''))); return `${a.id}: ${f?.address ?? a.area}, $${a.price}`; });
+        if (lines.length) content += `\n[Places I added: ${lines.join('; ')}]`;
+      }
       return !content ? [] : [m.role === 'user' ? { role: 'user', content } : { role: 'assistant', content }];
     });
     // Per-turn facts go in the user message, after the cached prefix (tools + instructions + history).
@@ -161,7 +179,7 @@ v2.openapi(R.chat, async (c) => {
     const s = view(st).search;
     const note = [
       `(Now: ${now}, New York.)`,
-      `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.label) })})`,
+      `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.weight === 'important' ? `${p.label} (important)` : p.label) })})`,
       context?.opportunityId && `(The user has place ${context.opportunityId} open.)`,
     ].filter(Boolean).join('\n');
     const rc = new RequestContext();
@@ -170,15 +188,20 @@ v2.openapi(R.chat, async (c) => {
     // addToInbox takes ids from this turn's search, and the open place: Fred's verdict on it replaces the first take
     const open = Number(String(context?.opportunityId ?? '').replace(/^op_/, ''));
     rc.set('seenListings', new Set<number>(Number.isFinite(open) && open > 0 ? [open] : []));
-    const model = c.env.FRED_MODEL || DEFAULT_MODEL, t0 = Date.now();
+    // local dev only: the eval suite compares models, effort levels and harness versions per request
+    const dev = c.env.FRED_DEV === '1';   // set only in cloud/.dev.vars; wrangler dev reports the production hostname
+    const model = (dev && c.req.header('x-fred-model')) || c.env.FRED_MODEL || DEFAULT_MODEL, t0 = Date.now();
+    const effort = (dev && c.req.header('x-fred-effort')) || c.env.FRED_EFFORT || 'low';
+    // v1 = the harness deployed before the 847-Riverside fixes (old prompt, text-only history, every text part saved)
+    const harness: Harness = harnessV1 ? 'v1' : 'v2';
 
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
-        const out = await fred(model).stream([...history, { role: 'user' as const, content: `${note}\n\n${said}` }], {
+        const out = await fred(model, harness).stream([...history, { role: 'user' as const, content: `${note}\n\n${said}` }], {
           requestContext: rc, maxSteps: 12,
           // cacheControl: Anthropic caches the whole prefix, so each step of the tool loop reads
           // the previous step's tokens at a tenth of the price. effort: low keeps chat fast.
-          providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' }, effort: c.env.FRED_EFFORT || 'low' } },
+          providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' }, effort: effort as 'low' } },
         });
         let firstText: number | null = null;
         for await (const part of toAISdkStream(out, { from: 'agent', version: 'v7', sendFinish: false })) {
@@ -187,7 +210,7 @@ v2.openapi(R.chat, async (c) => {
         }
         // timing and token usage, for the eval suite and for watching cost
         const usage = await out.totalUsage;
-        writer.write({ type: 'message-metadata', messageMetadata: { model, ms: Date.now() - t0, msToFirstText: firstText, usage } } as never);
+        writer.write({ type: 'message-metadata', messageMetadata: { model, effort, harness, ms: Date.now() - t0, msToFirstText: firstText, usage } } as never);
         writer.write({ type: 'finish' });
       },
       onFinish: async ({ responseMessage }) => {
@@ -196,8 +219,9 @@ v2.openapi(R.chat, async (c) => {
         // Put Fred's reply right after this user message (already saved above).
         const fresh = await state(c), was = view(fresh).threads[threadId]?.messages ?? [];
         const at = was.findIndex((m) => m.id === userMsg.id), upTo = at === -1 ? [...was, userMsg] : was.slice(0, at + 1);
+        const parts = responseMessage.parts as Message['parts'];
         fresh.threads[threadId] = { title, updatedAt: new Date().toISOString(),
-          messages: [...upTo, { id: responseMessage.id, role: 'assistant', parts: responseMessage.parts as Message['parts'] }] };
+          messages: [...upTo, { id: responseMessage.id, role: 'assistant', parts: harnessV1 ? parts : finalTextOnly(parts) }] };
         await store(c, fresh);
       },
       onError: (e) => { console.error('fred', e); return 'Fred hit a problem answering that. Try again in a moment.'; },
@@ -264,6 +288,14 @@ v2.openapi(R.events, (c) => {
 });
 
 /* not in the contract: start the canned data over for whoever is signed in */
+/* local dev only: put a stored conversation into a thread, so evals can replay it from the same starting point */
+v2.post('/api/mock/thread', async (c) => {
+  if (c.env.FRED_DEV !== '1') return c.json(notFound, 404);
+  const b = await c.req.json<{ threadId: string; messages: Message[] }>(), st = await state(c);
+  st.threads[b.threadId] = { title: 'Replay', updatedAt: new Date().toISOString(), messages: b.messages };
+  await store(c, st);
+  return c.json({ ok: true, messages: b.messages.length });
+});
 v2.post('/api/mock/reset', async (c) => { await reset(c.env.DB, c.env.ME); return c.json({ ok: true }); });
 
 export const openapiDoc = {
