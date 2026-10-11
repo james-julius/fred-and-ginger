@@ -5,6 +5,7 @@
 //   cron              every 4h start the crawlers; every 10 min geocode + building checks
 import { Env, enrich, finishRun, ingestBatch, startRuns, SOURCES } from './ingest';
 import { report } from './building';
+import { v2 } from './v2';
 
 const USERS = ['james', 'erin'] as const;
 const NAMES: Record<string, string> = { james: 'James', erin: 'Erin' };
@@ -185,7 +186,11 @@ export default {
     if (url.pathname === '/logout') return new Response(null, { status: 303, headers: { Location: '/login', 'Set-Cookie': 'nest_s=; Path=/; Max-Age=0' } });
     const me = await sessionUser(req, env);
     if (!me) return url.pathname.startsWith('/api/') ? json({ error: 'signed out' }, 401) : Response.redirect(url.origin + '/login', 303);
-    if (url.pathname.startsWith('/api/')) return api(req, env, me, url);
+    if (url.pathname.startsWith('/api/')) {
+      // the new Fred API first; paths it doesn't know go to the old routes below
+      const res = await v2.fetch(req, { ...env, ME: me }, ctx);
+      return res.headers.get('X-Fred-Route') === 'none' ? api(req, env, me, url) : res;
+    }
     return env.ASSETS.fetch(req);
   },
   async scheduled(ev: ScheduledEvent, env: Env, ctx: ExecutionContext) {

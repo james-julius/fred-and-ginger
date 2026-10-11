@@ -9,3 +9,4 @@ storage/
 .dev.vars
 .env*
 *.log
+.gstack/

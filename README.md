@@ -69,6 +69,16 @@ A Next.js app with Tailwind 4 and Geist that will replace the grid the Worker se
   - It lives on workers.dev until we decide how it shares the domain with `nest`.
   - Next is pinned to 16.3.8 because the adapter doesn't support 16.4 yet: 16.4 adds a `preview-props.json` the adapter doesn't bundle, and every page returns 500.
 
+## The API contract (packages/api)
+
+The routes and data shapes the app and the Worker agree on, written once as Zod schemas. Types are generated from them, so the two sides can't drift apart.
+
+- **Source:** `packages/api/src/schemas.ts` (shapes) and `routes.ts` (every route). The Worker implements them in `cloud/src/v2.ts`, and TypeScript rejects a handler whose response doesn't match.
+- **Generated:** `npm run gen:api` at the repo root writes `packages/api/openapi.json` and `web/lib/api/schema.gen.ts`. Commit both; `npm run check:api` fails if they're out of date.
+- **In the app:** `import type { components } from '@/lib/api/schema.gen'`, then `components['schemas']['OpportunityCard']` and so on. The chat parts are there too: `DataSearchUpdated`, `DataScan`, `DataSuggestions`, `DataWatch`.
+- **Example data for now:** every route serves the mockup's examples (`packages/api/src/fixtures.ts`), marked with an `X-Fred-Data: example` header. `POST /api/chat` streams the mockup's chat turn in the AI SDK format, so `useChat` works against it. Routes switch to real data one at a time without changing shape.
+- **Local:** `npm install` at the repo root (it's an npm workspace with `cloud` and `packages/*`; `web` keeps its own install), then `cd cloud && npx wrangler dev`.
+
 ## Crawlers (actor/)
 
 Apify actors on the jamesjulius account (deploy with `apify push`). Every actor pushes rows in the shape described in `actor/SCHEMA.md`.
