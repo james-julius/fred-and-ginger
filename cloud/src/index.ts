@@ -210,18 +210,30 @@ const handler = {
     const minute = new Date(ev.scheduledTime).getUTCMinutes();
     const fiveMinute = ev.cron === '*/5 * * * *' || minute % 5 === 0;
     await env.DB.prepare(`INSERT OR REPLACE INTO meta VALUES (?, ?)`).bind(fiveMinute ? 'cron:*/5 * * * *' : 'cron:*/2 * * * *', `${new Date().toISOString()} (label ${ev.cron}, minute ${minute})`).run();
-    // strong-fit email alerts on every run: each place is claimed before sending, so overlap is safe (src/alerts.ts)
-    ctx.waitUntil(sendDueAlerts(env).then((r) => { if (r.some((x) => x.sent || x.error)) console.log('alerts', JSON.stringify(r)); }));
-    // area safety: two NYPD queries per ~100 m cell, on its own run so it has its own request budget
-    // and RentHop photos copied from the crawler's store to R2 (they 403 on our pages; src/photos.ts)
-    if (fiveMinute) ctx.waitUntil(Promise.all([checkAreas(env.DB, 20), savePhotos(env)]));
-    // ~50 outbound requests per invocation: one dataset page, then geocodes, then building checks
-    else ctx.waitUntil((async () => {
-      const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3);
-      // pets, laundry, outdoor space…: D1 reads only, so a big batch fits
-      const due = await env.DB.prepare('SELECT id FROM listings WHERE facts IS NULL LIMIT 200').all<{ id: number }>();
-      await refreshFacts(env.DB, due.results.map((r) => r.id));
-    })());
+    // Jobs run after the handler returns, so Sentry's wrapper can't see their errors: each job's error
+    // is reported here, once, and also marks its monitor run failed. The monitors flag missing or late runs.
+    const job = (name: string, run: () => Promise<unknown>) => run().catch((e) => { Sentry.captureException(e, { tags: { job: name } }); throw e; });
+    const monitored = (slug: string, cron: string, jobs: () => (Promise<unknown> | null)[]) => ctx.waitUntil(
+      Sentry.withMonitor(slug, async () => {
+        const failed = (await Promise.allSettled(jobs().filter(Boolean))).filter((r) => r.status === 'rejected');
+        if (failed.length) throw new Error(`${failed.length} job(s) failed in ${slug}`);
+      }, { schedule: { type: 'crontab', value: cron }, checkinMargin: 3, maxRuntime: 10, timezone: 'UTC' })
+        .catch(() => {})   // already reported per job
+        .finally(() => Sentry.flush(2000)));
+    monitored('nest-every-2-min', '*/2 * * * *', () => [
+      // strong-fit email alerts on every run: each place is claimed before sending, so overlap is safe (src/alerts.ts)
+      job('alerts', () => sendDueAlerts(env).then((r) => { if (r.some((x) => x.sent || x.error)) console.log('alerts', JSON.stringify(r)); })),
+      // ~50 outbound requests per invocation: one dataset page, then geocodes, then building checks.
+      // Skipped on 10-minute runs, which spend their request budget on the jobs below.
+      fiveMinute ? null : job('ingest', async () => {
+        const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3);
+        // pets, laundry, outdoor space…: D1 reads only, so a big batch fits
+        const due = await env.DB.prepare('SELECT id FROM listings WHERE facts IS NULL LIMIT 200').all<{ id: number }>();
+        await refreshFacts(env.DB, due.results.map((r) => r.id));
+      }),
+    ]);
+    // area safety (two NYPD queries per ~100 m cell) and RentHop photos copied to R2 (they 403 on our pages; src/photos.ts)
+    if (fiveMinute) monitored('nest-every-10-min', '*/10 * * * *', () => [job('area-safety', () => checkAreas(env.DB, 20)), job('photos', () => savePhotos(env))]);
   },
 } satisfies ExportedHandler<Env>;
 
@@ -235,4 +247,5 @@ export default Sentry.withSentry((env: Env) => ({
   tracesSampler: ({ name }) => (/^\S+ \* \* \* \*$|scheduled|cron/i.test(name ?? '') ? 0.05 : 1.0),
   // the session cookie, chat messages and verification codes travel in cookies, headers and bodies: keep them out
   dataCollection: { cookies: false, httpHeaders: false, httpBodies: [] },
+  debug: env.SENTRY_DEBUG === '1',   // logs what the SDK sends; set in .dev.vars to check delivery
 }), handler);
