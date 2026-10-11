@@ -1,106 +1,123 @@
 "use client";
 
-import { ArrowUp, ChevronRight, Mic, Plus, X } from "lucide-react";
-import type { RefObject } from "react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import { ArrowUp, ChevronRight, Mic, Pencil, Plus, X } from "lucide-react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { FredMark } from "@/components/fred-mark";
-import type { Place } from "@/lib/places";
+import { refreshPlaces, useThread, useThreads, type S } from "@/lib/api/client";
+import { dealbreakerChips } from "@/lib/format";
 
-// Example conversation. When /api/chat exists this becomes AI SDK's useChat, with
-// AI Elements' Conversation and Message doing the scrolling and markdown.
-const dealbreakers = ["Manhattan", "Up to $5,000", "2 bed", "2 bath", "Dogs OK"];
-// What the backend really does on each run (cloud/ and actor/).
-const steps = [
-  "Ran the crawlers on StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and 23 landlords’ sites",
-  "Found 186 new listings",
-  "Merged 31 that were the same apartment on more than one site",
-  "Kept 14 that match your search",
-  "Matched each address to its building in the city’s records",
-  "Checked each building’s violations, complaints, 311 calls, bedbugs and evictions",
-  "Flagged 1 likely scam on Craigslist",
-  "Marked 2 places gone after 3 days unseen",
-  "Added 3 places to your inbox",
-];
-const replies = ["Allow 1.5 baths", "Add Long Island City", "Keep it as is"];
+// Fred's custom chat parts, as the API streams them (data-<key> in the AI SDK).
+type FredData = {
+  "search-updated": S["DataSearchUpdated"];
+  scan: S["DataScan"];
+  suggestions: S["DataSuggestions"];
+  watch: S["DataWatch"];
+};
+type FredMessage = UIMessage<unknown, FredData>;
+type Context = { id: string; label: string } | null;
 
-export function ChatPanel({ context, onClearContext, draft, onDraft, composerRef }: {
-  context: Place | null;
-  onClearContext: () => void;
-  draft: string;
-  onDraft: (text: string) => void;
-  composerRef: RefObject<HTMLTextAreaElement | null>;
-}) {
-  const pick = (text: string) => {
-    onDraft(text);
-    composerRef.current?.focus();
-  };
+export function ChatPanel(props: { context: Context; onClearContext: () => void; composerRef: RefObject<HTMLTextAreaElement | null> }) {
+  const { data: threads, error } = useThreads();
+  // Keep talking in the latest thread; start one if there isn't any yet.
+  const [newThreadId] = useState(() => `thread_${crypto.randomUUID().slice(0, 8)}`);
+  const threadId = threads ? (threads[0]?.id ?? newThreadId) : null;
+  const { data: thread } = useThread(threads?.length ? threadId : null);
+  const ready = threadId !== null && (threads?.length === 0 || thread !== undefined);
 
   return (
     <section aria-label="Conversation with Fred" className="flex flex-col border-b bg-chat lg:min-h-0 lg:border-r lg:border-b-0">
-      <div className="grid content-start gap-3.5 px-5 pt-5 pb-2 lg:flex-1 lg:overflow-y-auto">
-        <p className="max-w-[88%] justify-self-end rounded-[14px] border bg-background px-3.5 py-2.5 shadow-xs">
-          I want an apartment under 5k in manhattan with 2 beds 2 baths and it has to be dog friendly
-        </p>
+      {ready ? (
+        <Thread key={threadId} threadId={threadId} initial={(thread?.messages ?? []) as FredMessage[]} {...props} />
+      ) : (
+        <p className="p-5 text-sm text-muted-foreground">{error ? "Couldn’t load your conversation." : "Loading…"}</p>
+      )}
+    </section>
+  );
+}
 
-        {/* What Fred understood, as hard filters you can edit */}
-        <div className="-mt-1.5 flex max-w-[92%] flex-wrap items-center justify-end gap-1.5 justify-self-end">
-          <span className="mr-0.5 text-xs text-muted-foreground">Dealbreakers</span>
-          {dealbreakers.map((d) => (
-            <span key={d} className="rounded-full border bg-background px-2.5 py-0.5 text-[12.5px]">
-              {d}
-            </span>
-          ))}
-          <button type="button" className="rounded-full border border-dashed bg-background px-2.5 py-0.5 text-[12.5px] text-muted-foreground hover:text-foreground">
-            Edit
-          </button>
-        </div>
+function Thread({ threadId, initial, context, onClearContext, composerRef }: {
+  threadId: string;
+  initial: FredMessage[];
+  context: Context;
+  onClearContext: () => void;
+  composerRef: RefObject<HTMLTextAreaElement | null>;
+}) {
+  const [draft, setDraft] = useState("");
+  const [transport] = useState(
+    () =>
+      new DefaultChatTransport<FredMessage>({
+        api: "/api/chat",
+        // The server keeps the history, so send only the newest message, plus the listing you're asking about.
+        prepareSendMessagesRequest: ({ id, messages, body }) => ({
+          body: { threadId: id, message: messages.at(-1), context: body?.context ?? null },
+        }),
+      }),
+  );
+  const { messages, sendMessage, status } = useChat<FredMessage>({
+    id: threadId,
+    messages: initial,
+    transport,
+    // A reply can change the search, so the inbox may have changed too.
+    onFinish: () => refreshPlaces(),
+  });
+  const busy = status === "submitted" || status === "streaming";
 
-        {/* Fred's thinking stays one line until you open it */}
-        <details className="group justify-self-start">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-[13.5px] text-muted-foreground [&::-webkit-details-marker]:hidden">
-            <FredMark className="h-[17px] w-[13px]" />
-            <span>
-              <b className="font-medium text-foreground">Checked 186 new listings</b> · {steps.length} steps
-            </span>
-            <ChevronRight size={13} strokeWidth={1.5} className="transition-transform group-open:rotate-90" aria-hidden />
-          </summary>
-          <ol className="mt-2 ml-1.5 grid list-decimal gap-1 border-l pl-6 text-[13px] text-muted-foreground marker:text-muted-foreground/70">
-            {steps.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ol>
-        </details>
+  const body = { context: context ? { opportunityId: context.id } : null };
+  const send = (text: string) => {
+    if (!text.trim() || busy) return;
+    sendMessage({ text: text.trim() }, { body });
+    setDraft("");
+  };
+  // Editing replaces that message and everything after it, then Fred answers again.
+  const edit = (messageId: string, text: string) => {
+    if (!busy) sendMessage({ text, messageId }, { body });
+  };
 
-        <p className="max-w-[60ch] text-[15px] leading-relaxed">
-          Two baths under $5,000 is rare in Manhattan. I found 3 that allow dogs, all above 110th St. They’re in your inbox, and
-          I flagged 1 that looked like a scam.
-        </p>
-        <p className="text-[15px]">Want me to widen the search?</p>
-        <div className="-mt-1 flex flex-wrap gap-2">
-          {replies.map((r, i) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => pick(r)}
-              className={`rounded-full border bg-background px-3.5 py-1.5 text-[13.5px] font-medium hover:border-foreground ${
-                i === replies.length - 1 ? "text-muted-foreground" : ""
-              }`}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
+  // Keep the newest message in view.
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
+  }, [messages]);
 
-        <p className="mt-1.5 inline-flex items-center gap-2 text-[13px]">
-          <FredMark working className="h-[17px] w-[13px] text-muted-foreground" />
-          <span className="fred-shimmer">Watching for new places…</span>
-        </p>
+  const lastAssistant = messages.findLast((m) => m.role === "assistant");
+
+  return (
+    <>
+      <div ref={scroller} className="grid content-start gap-3.5 px-5 pt-5 pb-2 lg:flex-1 lg:overflow-y-auto">
+        {messages.length === 0 && (
+          <p className="max-w-[60ch] text-[15px] leading-relaxed text-muted-foreground">
+            Tell Fred what you’re looking for, like “2 bed under $4,000 in Brooklyn, near the L, and I have a dog.”
+          </p>
+        )}
+        {messages.map((m) =>
+          m.role === "user" ? (
+            <UserMessage key={m.id} message={m} disabled={busy} onEdit={(text) => edit(m.id, text)} />
+          ) : (
+            <Reply key={m.id} message={m} latest={m === lastAssistant} busy={busy} onPick={send} />
+          ),
+        )}
+        {status === "submitted" && (
+          <p className="inline-flex items-center gap-2 text-[13px]">
+            <FredMark working className="h-[17px] w-[13px] text-muted-foreground" />
+            <span className="fred-shimmer">Fred is on it…</span>
+          </p>
+        )}
+        {status === "error" && <p className="text-sm text-destructive">Fred couldn’t reply. Try sending that again.</p>}
       </div>
 
-      <form className="px-4 pt-2 pb-4" onSubmit={(e) => e.preventDefault()}>
+      <form
+        className="px-4 pt-2 pb-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          send(draft);
+        }}
+      >
         <div className="grid gap-3.5 rounded-[14px] border bg-background px-3.5 pt-3 pb-2.5 shadow-xs focus-within:border-foreground/30">
           {context && (
             <span className="inline-flex items-center gap-1.5 justify-self-start rounded-full bg-muted py-0.5 pr-1 pl-2.5 text-[12.5px] text-muted-foreground">
-              About <b className="font-medium text-foreground">{context.street}</b>
+              About <b className="font-medium text-foreground">{context.label}</b>
               <button type="button" onClick={onClearContext} aria-label="Stop asking about this place" className="rounded-full p-0.5 hover:text-foreground">
                 <X size={13} strokeWidth={1.5} aria-hidden />
               </button>
@@ -114,7 +131,13 @@ export function ChatPanel({ context, onClearContext, draft, onDraft, composerRef
             ref={composerRef}
             rows={1}
             value={draft}
-            onChange={(e) => onDraft(e.target.value)}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send(draft);
+              }
+            }}
             placeholder={context ? "Ask Fred about this place…" : "Tell Fred what you want…"}
             className="max-h-40 resize-none bg-transparent outline-none field-sizing-content placeholder:text-muted-foreground"
           />
@@ -128,7 +151,7 @@ export function ChatPanel({ context, onClearContext, draft, onDraft, composerRef
             <button
               type="submit"
               aria-label="Send"
-              disabled={!draft.trim()}
+              disabled={!draft.trim() || busy}
               className="grid size-8 place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
             >
               <ArrowUp size={15} strokeWidth={1.75} aria-hidden />
@@ -136,6 +159,149 @@ export function ChatPanel({ context, onClearContext, draft, onDraft, composerRef
           </div>
         </div>
       </form>
-    </section>
+    </>
+  );
+}
+
+function UserMessage({ message, disabled, onEdit }: { message: FredMessage; disabled: boolean; onEdit: (text: string) => void }) {
+  const text = message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(text);
+  const cancel = () => {
+    setValue(text);
+    setEditing(false);
+  };
+  const save = () => {
+    if (value.trim() && value.trim() !== text) onEdit(value.trim());
+    setEditing(false);
+  };
+
+  if (editing)
+    return (
+      <form
+        className="grid w-full max-w-[88%] gap-2 justify-self-end"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+      >
+        <label htmlFor={`edit-${message.id}`} className="sr-only">
+          Edit your message
+        </label>
+        <textarea
+          id={`edit-${message.id}`}
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              save();
+            }
+            if (e.key === "Escape") cancel();
+          }}
+          className="resize-none rounded-[14px] border border-foreground/30 bg-background px-3.5 py-2.5 outline-none field-sizing-content"
+        />
+        <div className="flex items-center justify-end gap-2">
+          <span className="mr-auto text-xs text-muted-foreground">Fred will answer again from here.</span>
+          <button type="button" onClick={cancel} className="rounded-full border bg-background px-3 py-1 text-[13px] font-semibold">
+            Cancel
+          </button>
+          <button type="submit" disabled={!value.trim()} className="rounded-full bg-primary px-3 py-1 text-[13px] font-semibold text-primary-foreground disabled:opacity-40">
+            Send
+          </button>
+        </div>
+      </form>
+    );
+
+  return (
+    <div className="group flex max-w-[88%] items-start gap-1 justify-self-end">
+      {!disabled && (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          aria-label="Edit message"
+          className="mt-1.5 rounded-md p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 pointer-coarse:opacity-100"
+        >
+          <Pencil size={14} strokeWidth={1.25} aria-hidden />
+        </button>
+      )}
+      <p className="rounded-[14px] border bg-background px-3.5 py-2.5 whitespace-pre-line shadow-xs">{text}</p>
+    </div>
+  );
+}
+
+// One of Fred's replies. Each custom part becomes a piece of the design.
+function Reply({ message, latest, busy, onPick }: { message: FredMessage; latest: boolean; busy: boolean; onPick: (text: string) => void }) {
+  return (
+    <div className="grid gap-3.5">
+      {message.parts.map((part, i) => {
+        switch (part.type) {
+          case "data-search-updated":
+            return (
+              <div key={i} className="-mt-1.5 flex max-w-[92%] flex-wrap items-center justify-end gap-1.5 justify-self-end">
+                <span className="mr-0.5 text-xs text-muted-foreground">Dealbreakers</span>
+                {dealbreakerChips(part.data.dealbreakers).map((d) => (
+                  <span key={d} className="rounded-full border bg-background px-2.5 py-0.5 text-[12.5px]">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            );
+          case "data-scan":
+            return (
+              <details key={i} className="group justify-self-start">
+                <summary className="flex cursor-pointer list-none items-center gap-2 text-[13.5px] text-muted-foreground [&::-webkit-details-marker]:hidden">
+                  <FredMark className="h-[17px] w-[13px]" />
+                  <span>
+                    <b className="font-medium text-foreground">Checked {part.data.checked} new listings</b> · {part.data.steps.length} steps
+                  </span>
+                  <ChevronRight size={13} strokeWidth={1.5} className="transition-transform group-open:rotate-90" aria-hidden />
+                </summary>
+                <ol className="mt-2 ml-1.5 grid list-decimal gap-1 border-l pl-6 text-[13px] text-muted-foreground marker:text-muted-foreground/70">
+                  {part.data.steps.map((s, j) => (
+                    <li key={j}>{s.label}</li>
+                  ))}
+                </ol>
+              </details>
+            );
+          case "text":
+            return part.text.split(/\n{2,}/).map((para, j) => (
+              <p key={`${i}-${j}`} className="max-w-[60ch] text-[15px] leading-relaxed">
+                {para}
+              </p>
+            ));
+          case "data-suggestions":
+            return latest ? (
+              <div key={i} className="-mt-1 flex flex-wrap gap-2">
+                {part.data.options.map((o, j) => (
+                  <button
+                    key={o.label}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onPick(o.label)}
+                    className={`rounded-full border bg-background px-3.5 py-1.5 text-[13.5px] font-medium hover:border-foreground disabled:opacity-50 ${
+                      j === part.data.options.length - 1 && !o.patch ? "text-muted-foreground" : ""
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            ) : null;
+          case "data-watch":
+            return latest ? (
+              <p key={i} className="mt-1.5 inline-flex items-center gap-2 text-[13px]">
+                <FredMark working={part.data.state !== "paused"} className="h-[17px] w-[13px] text-muted-foreground" />
+                <span className={part.data.state === "paused" ? "text-muted-foreground" : "fred-shimmer"}>
+                  {part.data.state === "paused" ? "Paused. Fred isn’t checking for new places." : part.data.state === "checking" ? "Checking for new places now…" : "Watching for new places…"}
+                </span>
+              </p>
+            ) : null;
+          default:
+            return null;
+        }
+      })}
+    </div>
   );
 }

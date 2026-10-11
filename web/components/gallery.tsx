@@ -4,7 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
-import { photoAt } from "@/lib/places";
+import { photoAt } from "@/lib/format";
 
 const overlayButton =
   "grid size-9 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/75 focus-visible:outline-2 focus-visible:outline-white";
