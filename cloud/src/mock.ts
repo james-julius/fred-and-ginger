@@ -1,11 +1,12 @@
 // Canned API behaviour while the real backend is built. Each person's changes are kept in D1
-// (meta table, key mock:<user>) on top of the example data in packages/api, so the app behaves
+// (their own rows, src/store.ts) on top of the example data in packages/api, so the app behaves
 // like the real thing: saving moves a place to Saved, opening one clears its dot, search edits
 // stick, and the chat answers what you send. POST /api/mock/reset starts over.
 import { fixtures } from '@fng/api';
 import type * as S from '@fng/api';
 import type { z } from '@hono/zod-openapi';
 import { canonicalArea } from './areas';
+import { loadState, resetState, saveState } from './store';
 
 type I<T extends z.ZodType> = z.infer<T>;
 export type Card = I<typeof S.OpportunityCard>;
@@ -30,18 +31,10 @@ export type MockState = {
   memory?: import('./memory').Memory[];
 };
 
-const empty = (): MockState => ({ cards: {}, threads: {} });
-
-export async function load(db: D1Database, user: string): Promise<MockState> {
-  const r = await db.prepare('SELECT v FROM meta WHERE k=?').bind(`mock:${user}`).first<{ v: string }>();
-  return r ? { ...empty(), ...JSON.parse(r.v) } : empty();
-}
-export async function save(db: D1Database, user: string, st: MockState) {
-  await db.prepare('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)').bind(`mock:${user}`, JSON.stringify(st)).run();
-}
-export async function reset(db: D1Database, user: string) {
-  await db.prepare('DELETE FROM meta WHERE k=?').bind(`mock:${user}`).run();
-}
+// Kept in rows now (store.ts): save writes only what changed since this state was loaded.
+export const load = (db: D1Database, user: string): Promise<MockState> => loadState(db, user);
+export const save = (db: D1Database, user: string, st: MockState) => saveState(db, user, st);
+export const reset = (db: D1Database, user: string) => resetState(db, user);
 
 const title = (s: string) => s.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 export function summarize(s: Search) {
