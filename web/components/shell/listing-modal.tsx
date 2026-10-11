@@ -32,7 +32,30 @@ export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onA
   onAsk: (place: S["OpportunityDetail"]) => void;
 }) {
   const { data: place, error } = useOpportunity(id);
-  const [asking, setAsking] = useState<string | null>(null); // the place just passed: ask what put them off
+  // The place you just passed on. The bar under the header keeps its Undo, and asks what put you off.
+  const [passed, setPassed] = useState<{ id: string; label: string; note: string | null; said: boolean } | null>(null);
+  // Closing starts the next open fresh.
+  const [wasOpen, setWasOpen] = useState(id !== null);
+  if ((id !== null) !== wasOpen) {
+    setWasOpen(id !== null);
+    if (id === null) setPassed(null);
+  }
+
+  // Save and pass map to the API's status, and tapping the active one puts the place back in New.
+  // Passing moves on to the next place in the list, before the refresh drops this one from it.
+  const vote = (current: S["OpportunityDetail"], status: S["OpportunityStatus"]) => {
+    const next = current.status === status ? "new" : status;
+    if (next === "passed") {
+      setPassed({ id: current.id, label: `${current.address}${current.unit ? ` #${current.unit}` : ""}`, note: current.note, said: false });
+      if (onStep && position > 0 && total > 1) onStep(1);
+    } else if (passed?.id === current.id) setPassed(null);
+    return updateOpportunity(current.id, { status: next });
+  };
+  const undo = async () => {
+    if (!passed) return;
+    await updateOpportunity(passed.id, { status: "new" });
+    setPassed(null);
+  };
 
   return (
     <Dialog.Root open={id !== null} onOpenChange={(open) => !open && onClose()}>
@@ -68,19 +91,26 @@ export function ListingModal({ id, position = 0, total = 0, onStep, onClose, onA
                 {position} of {total}
               </span>
             )}
-            {place && <Votes place={place} onPass={(passed) => setAsking(passed ? place.id : null)} />}
+            {place && <Votes place={place} onVote={(status) => vote(place, status)} />}
             <Dialog.Close className={`${place ? "ml-1" : "ml-auto"} border-transparent ${bigButton}`} aria-label="Close">
               <X size={20} strokeWidth={1.5} aria-hidden />
             </Dialog.Close>
           </div>
-          {place && asking === place.id && (
-            <div className="flex items-start gap-3 border-b bg-muted/40 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <PassReasons place={place} onDone={() => setAsking(null)} />
+          {passed && (
+            <div className="grid gap-2.5 border-b bg-muted/40 px-4 py-3">
+              <div className="flex items-center gap-2 text-[13.5px]">
+                <X size={14} strokeWidth={1.75} className="shrink-0 text-muted-foreground" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">
+                  <b className="font-semibold">Passed</b> · {passed.label}
+                </span>
+                <button type="button" onClick={undo} className="font-semibold underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground">
+                  Undo
+                </button>
+                <button type="button" onClick={() => setPassed(null)} aria-label="Dismiss" className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <X size={14} strokeWidth={1.5} aria-hidden />
+                </button>
               </div>
-              <button type="button" onClick={() => setAsking(null)} className="text-[13px] text-muted-foreground hover:text-foreground">
-                Skip
-              </button>
+              {!passed.said && <PassReasons place={{ id: passed.id, note: passed.note }} onDone={() => setPassed((p) => p && { ...p, said: true })} />}
             </div>
           )}
 
@@ -136,20 +166,13 @@ function ShareButton({ place }: { place: S["OpportunityDetail"] }) {
   );
 }
 
-// Save and pass map to the API's status. Tapping the active one puts the place back in New.
-// Passing also asks what put them off (onPass(true)); un-passing or saving drops the question.
-function Votes({ place, onPass }: { place: S["OpportunityDetail"]; onPass: (passed: boolean) => void }) {
-  const set = (status: S["OpportunityStatus"]) => {
-    const next = place.status === status ? "new" : status;
-    onPass(next === "passed");
-    return updateOpportunity(place.id, { status: next });
-  };
+function Votes({ place, onVote }: { place: S["OpportunityDetail"]; onVote: (status: S["OpportunityStatus"]) => void }) {
   return (
     <div className="ml-auto flex items-center gap-1.5">
-      <VoteButton active={place.status === "passed"} onClick={() => set("passed")} icon={<X size={14} strokeWidth={1.5} aria-hidden />}>
+      <VoteButton active={place.status === "passed"} onClick={() => onVote("passed")} icon={<X size={14} strokeWidth={1.5} aria-hidden />}>
         Pass
       </VoteButton>
-      <VoteButton active={place.status === "saved"} onClick={() => set("saved")} icon={<Check size={14} strokeWidth={1.5} aria-hidden />}>
+      <VoteButton active={place.status === "saved"} onClick={() => onVote("saved")} icon={<Check size={14} strokeWidth={1.5} aria-hidden />}>
         Save
       </VoteButton>
     </div>
