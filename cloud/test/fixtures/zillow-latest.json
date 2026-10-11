@@ -1,0 +1,345 @@
+[
+ {
+  "source": "zillow",
+  "neighbourhood": null,
+  "borough": "Manhattan",
+  "zip": "10024",
+  "lat": 40.785053,
+  "lon": -73.97225,
+  "photos": [
+   "https://photos.zillowstatic.com/fp/0342a65488384a5c4ca1f9a1734fda1a-p_e.jpg"
+  ],
+  "scrapedAt": "2026-10-11T16:08:16.141Z",
+  "sourceId": "2126372450",
+  "url": "https://www.zillow.com/homedetails/47-W-84th-St-APT-3S-New-York-NY-10024/2126372450_zpid/",
+  "street": "47 W 84th St",
+  "unit": "3S",
+  "price": 3600,
+  "netEffective": null,
+  "beds": 1,
+  "baths": 1,
+  "sqft": null,
+  "noFee": null,
+  "available": "2026-10-19",
+  "agency": "Corcoran",
+  "listedAt": "2026-10-10T15:08:49.141Z",
+  "raw": {
+   "zpid": "2126372450",
+   "palsId": "100066001_f4b65658248ecc7353be7540c593dbcb39078436c549ca1116785ca8d60e52e4",
+   "id": "2126372450",
+   "rawHomeStatusCd": "ForRent",
+   "marketingStatusSimplifiedCd": "For Rent",
+   "providerListingId": "2z8hvrj3kgc3c",
+   "imgSrc": "https://photos.zillowstatic.com/fp/0342a65488384a5c4ca1f9a1734fda1a-p_e.jpg",
+   "hasImage": true,
+   "detailUrl": "https://www.zillow.com/homedetails/47-W-84th-St-APT-3S-New-York-NY-10024/2126372450_zpid/",
+   "statusType": "FOR_RENT",
+   "statusText": "Apartment for rent",
+   "countryCurrency": "$",
+   "price": "$3,600/mo",
+   "unformattedPrice": 3600,
+   "address": "47 W 84th St APT 3S, New York, NY 10024",
+   "addressStreet": "47 W 84th St APT 3S",
+   "addressCity": "New York",
+   "addressState": "NY",
+   "addressZipcode": "10024",
+   "isUndisclosedAddress": false,
+   "shouldShowRequestOnPrice": false,
+   "beds": 1,
+   "baths": 1,
+   "latLong": {
+    "latitude": 40.785053,
+    "longitude": -73.97225
+   },
+   "isZillowOwned": false,
+   "listCardRecommendation": {
+    "flexFieldRecommendations": [
+     {
+      "displayString": "1 day ago",
+      "contentType": "timeOnInfo"
+     }
+    ],
+    "ctaRecommendations": [
+     {
+      "displayString": "Request a tour",
+      "contentType": "REQUEST_A_TOUR"
+     }
+    ]
+   },
+   "hdpData": {
+    "homeInfo": {
+     "zpid": 2126372450,
+     "streetAddress": "47 W 84th St APT 3S",
+     "zipcode": "10024",
+     "city": "New York",
+     "state": "NY",
+     "latitude": 40.785053,
+     "longitude": -73.97225,
+     "price": 3600,
+     "bathrooms": 1,
+     "bedrooms": 1,
+     "homeType": "APARTMENT",
+     "homeStatus": "FOR_RENT",
+     "daysOnZillow": 1,
+     "isFeatured": true,
+     "shouldHighlight": false,
+     "isRentalWithBasePrice": false,
+     "rentZestimate": 4010,
+     "listing_sub_type": {},
+     "isUnmappable": false,
+     "isPreforeclosureAuction": false,
+     "homeStatusForHDP": "FOR_RENT",
+     "priceForHDP": 3600,
+     "timeOnZillow": 89967000,
+     "isNonOwnerOccupied": true,
+     "isPremierBuilder": false,
+     "isZillowOwned": false,
+     "currency": "USD",
+     "country": "USA",
+     "unit": "Apt 3S",
+     "isShowcaseListing": false
+    }
+   },
+   "isUserClaimingOwner": false,
+   "isUserConfirmedClaim": false,
+   "pgapt": "ForRent",
+   "sgapt": "For Rent",
+   "shouldShowZestimateAsPrice": false,
+   "has3DModel": false,
+   "hasVideo": false,
+   "isHomeRec": false,
+   "hasAdditionalAttributions": true,
+   "isFeaturedListing": true,
+   "isShowcaseListing": false,
+   "availabilityDate": "2026-10-19 00:00:00",
+   "list": true,
+   "relaxed": false,
+   "brokerName": "Listing by: Corcoran",
+   "marketingTreatments": [
+    "paid"
+   ],
+   "rooms": [],
+   "listPriceIncludesRequiredMonthlyFees": false,
+   "isPaidBuilderNewConstruction": false,
+   "factsAndFeatures": {
+    "halfBathroomCount": 0,
+    "fullBathroomCount": 1,
+    "hasFireplace": false,
+    "hasAirConditioning": false,
+    "hasSpa": false,
+    "hasPool": false
+   },
+   "search": "https://www.zillow.com/manhattan-new-york-ny/rentals/?searchQueryState=%7B%22filterState%22%3A%7B%22fr%22%3A%7B%22value%22%3Atrue%7D%2C%22fsba%22%3A%7B%22value%22%3Afalse%7D%2C%22fsbo%22%3A%7B%22value%22%3Afalse%7D%2C%22nc%22%3A%7B%22value%22%3Afalse%7D%2C%22cmsn%22%3A%7B%22value%22%3Afalse%7D%2C%22auc%22%3A%7B%22value%22%3Afalse%7D%2C%22fore%22%3A%7B%22value%22%3Afalse%7D%2C%22mp%22%3A%7B%22max%22%3A4500%7D%2C%22beds%22%3A%7B%22min%22%3A1%7D%7D%2C%22isListVisible%22%3Atrue%7D",
+   "page": 1,
+   "totalCount": 1066,
+   "highlights": [
+    "1 day ago"
+   ],
+   "isBuilding": false
+  }
+ },
+ {
+  "source": "zillow",
+  "neighbourhood": null,
+  "borough": "Manhattan",
+  "zip": "10032",
+  "lat": 40.834812,
+  "lon": -73.94221,
+  "photos": [
+   "https://photos.zillowstatic.com/fp/747783e19226f801125145483c37a1a7-p_e.jpg"
+  ],
+  "scrapedAt": "2026-10-11T16:08:16.660Z",
+  "sourceId": "b2088895620-1br",
+  "url": "https://www.zillow.com/b/531-w-159th-st-new-york-ny-9PMKfs/",
+  "street": "531 W 159th St",
+  "unit": null,
+  "price": 2750,
+  "netEffective": null,
+  "beds": 1,
+  "baths": null,
+  "sqft": null,
+  "noFee": null,
+  "available": null,
+  "agency": null,
+  "listedAt": null,
+  "raw": {
+   "zpid": "40.834812--73.94221",
+   "id": "40.834812--73.94221",
+   "providerListingId": "1wenduz1498rv",
+   "imgSrc": "https://photos.zillowstatic.com/fp/747783e19226f801125145483c37a1a7-p_e.jpg",
+   "hasImage": true,
+   "detailUrl": "/b/531-w-159th-st-new-york-ny-9PMKfs/",
+   "statusType": "FOR_RENT",
+   "statusText": "For Rent",
+   "address": "531 W 159th St, New York, NY",
+   "addressStreet": "531 W  159th St # 6D",
+   "addressCity": "New York",
+   "addressState": "NY",
+   "addressZipcode": "10032",
+   "units": [
+    {
+     "price": "$2,750+",
+     "beds": "1",
+     "roomForRent": false
+    },
+    {
+     "price": "$3,750+",
+     "beds": "2",
+     "roomForRent": false
+    }
+   ],
+   "shouldShowRequestOnPrice": false,
+   "lotId": 2088895620,
+   "latLong": {
+    "latitude": 40.834812,
+    "longitude": -73.94221
+   },
+   "listCardRecommendation": {
+    "flexFieldRecommendations": [
+     {
+      "displayString": "3D Tour",
+      "contentType": "threeDHome"
+     }
+    ]
+   },
+   "isBuilding": true,
+   "canSaveBuilding": false,
+   "has3DModel": true,
+   "isFeaturedListing": true,
+   "isShowcaseListing": false,
+   "list": true,
+   "relaxed": false,
+   "availabilityCount": 3,
+   "marketingTreatments": [
+    "paid"
+   ],
+   "listPriceIncludesRequiredMonthlyFees": false,
+   "isInstantTourEnabled": false,
+   "isContactable": false,
+   "isPaidBuilderNewConstruction": false,
+   "search": "https://www.zillow.com/manhattan-new-york-ny/rentals/?searchQueryState=%7B%22filterState%22%3A%7B%22fr%22%3A%7B%22value%22%3Atrue%7D%2C%22fsba%22%3A%7B%22value%22%3Afalse%7D%2C%22fsbo%22%3A%7B%22value%22%3Afalse%7D%2C%22nc%22%3A%7B%22value%22%3Afalse%7D%2C%22cmsn%22%3A%7B%22value%22%3Afalse%7D%2C%22auc%22%3A%7B%22value%22%3Afalse%7D%2C%22fore%22%3A%7B%22value%22%3Afalse%7D%2C%22mp%22%3A%7B%22max%22%3A4500%7D%2C%22beds%22%3A%7B%22min%22%3A1%7D%7D%2C%22isListVisible%22%3Atrue%7D",
+   "page": 2,
+   "totalCount": 1066,
+   "highlights": [
+    "3D Tour"
+   ],
+   "buildingId": "2088895620",
+   "priceIsFrom": true,
+   "unitPriceText": "$2,750+",
+   "unitsInGroup": [
+    {
+     "price": "$2,750+",
+     "beds": "1",
+     "roomForRent": false
+    },
+    {
+     "price": "$3,750+",
+     "beds": "2",
+     "roomForRent": false
+    }
+   ]
+  }
+ },
+ {
+  "source": "zillow",
+  "neighbourhood": null,
+  "borough": "Manhattan",
+  "zip": "10032",
+  "lat": 40.834812,
+  "lon": -73.94221,
+  "photos": [
+   "https://photos.zillowstatic.com/fp/747783e19226f801125145483c37a1a7-p_e.jpg"
+  ],
+  "scrapedAt": "2026-10-11T16:08:16.660Z",
+  "sourceId": "b2088895620-2br",
+  "url": "https://www.zillow.com/b/531-w-159th-st-new-york-ny-9PMKfs/",
+  "street": "531 W 159th St",
+  "unit": null,
+  "price": 3750,
+  "netEffective": null,
+  "beds": 2,
+  "baths": null,
+  "sqft": null,
+  "noFee": null,
+  "available": null,
+  "agency": null,
+  "listedAt": null,
+  "raw": {
+   "zpid": "40.834812--73.94221",
+   "id": "40.834812--73.94221",
+   "providerListingId": "1wenduz1498rv",
+   "imgSrc": "https://photos.zillowstatic.com/fp/747783e19226f801125145483c37a1a7-p_e.jpg",
+   "hasImage": true,
+   "detailUrl": "/b/531-w-159th-st-new-york-ny-9PMKfs/",
+   "statusType": "FOR_RENT",
+   "statusText": "For Rent",
+   "address": "531 W 159th St, New York, NY",
+   "addressStreet": "531 W  159th St # 6D",
+   "addressCity": "New York",
+   "addressState": "NY",
+   "addressZipcode": "10032",
+   "units": [
+    {
+     "price": "$2,750+",
+     "beds": "1",
+     "roomForRent": false
+    },
+    {
+     "price": "$3,750+",
+     "beds": "2",
+     "roomForRent": false
+    }
+   ],
+   "shouldShowRequestOnPrice": false,
+   "lotId": 2088895620,
+   "latLong": {
+    "latitude": 40.834812,
+    "longitude": -73.94221
+   },
+   "listCardRecommendation": {
+    "flexFieldRecommendations": [
+     {
+      "displayString": "3D Tour",
+      "contentType": "threeDHome"
+     }
+    ]
+   },
+   "isBuilding": true,
+   "canSaveBuilding": false,
+   "has3DModel": true,
+   "isFeaturedListing": true,
+   "isShowcaseListing": false,
+   "list": true,
+   "relaxed": false,
+   "availabilityCount": 3,
+   "marketingTreatments": [
+    "paid"
+   ],
+   "listPriceIncludesRequiredMonthlyFees": false,
+   "isInstantTourEnabled": false,
+   "isContactable": false,
+   "isPaidBuilderNewConstruction": false,
+   "search": "https://www.zillow.com/manhattan-new-york-ny/rentals/?searchQueryState=%7B%22filterState%22%3A%7B%22fr%22%3A%7B%22value%22%3Atrue%7D%2C%22fsba%22%3A%7B%22value%22%3Afalse%7D%2C%22fsbo%22%3A%7B%22value%22%3Afalse%7D%2C%22nc%22%3A%7B%22value%22%3Afalse%7D%2C%22cmsn%22%3A%7B%22value%22%3Afalse%7D%2C%22auc%22%3A%7B%22value%22%3Afalse%7D%2C%22fore%22%3A%7B%22value%22%3Afalse%7D%2C%22mp%22%3A%7B%22max%22%3A4500%7D%2C%22beds%22%3A%7B%22min%22%3A1%7D%7D%2C%22isListVisible%22%3Atrue%7D",
+   "page": 2,
+   "totalCount": 1066,
+   "highlights": [
+    "3D Tour"
+   ],
+   "buildingId": "2088895620",
+   "priceIsFrom": true,
+   "unitPriceText": "$3,750+",
+   "unitsInGroup": [
+    {
+     "price": "$2,750+",
+     "beds": "1",
+     "roomForRent": false
+    },
+    {
+     "price": "$3,750+",
+     "beds": "2",
+     "roomForRent": false
+    }
+   ]
+  }
+ }
+]
