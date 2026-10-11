@@ -179,7 +179,7 @@ v2.openapi(R.chat, async (c) => {
     const s = view(st).search;
     const note = [
       `(Now: ${now}, New York.)`,
-      `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.label) })})`,
+      `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.weight === 'important' ? `${p.label} (important)` : p.label) })})`,
       context?.opportunityId && `(The user has place ${context.opportunityId} open.)`,
     ].filter(Boolean).join('\n');
     const rc = new RequestContext();

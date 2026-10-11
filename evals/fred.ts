@@ -20,8 +20,11 @@ const ONLY = flag('case');
 const MODEL = flag('model'), EFFORT = flag('effort');   // e.g. --model anthropic/claude-sonnet-5-5 --effort medium
 if (!/^http:\/\/(localhost|127\.0\.0\.1)/.test(BASE)) throw new Error('The eval resets canned data, so it only runs against localhost');
 
-// Haiku 5.5, per million tokens (prompts under 100K): input, output, cache read (0.1x), 5-minute cache write (1.25x)
-const PRICE = { input: 0.10, output: 0.50, cacheRead: 0.01, cacheWrite: 0.125 };
+// $ per million tokens (prompts under 100K): input, output, cache read (0.1x), 5-minute cache write (1.25x)
+const PRICES: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
+  'claude-haiku-5-5': { input: 0.10, output: 0.50, cacheRead: 0.01, cacheWrite: 0.125 },
+  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+};
 
 /* ── talking to the Worker ───────────────────────────────────────────── */
 
@@ -36,7 +39,7 @@ const api = async (path: string, init: RequestInit = {}) => {
 const getJson = async <T = any>(path: string) => (await api(path)).json() as Promise<T>;
 
 type ToolCall = { name: string; input: any; output?: any };
-type Turn = { said: string; seq: ('text' | 'tool')[]; text: string; tools: ToolCall[]; parts: string[]; meta: any; ms: number; error?: string };
+type Turn = { said: string; seq: ('text' | 'tool')[]; text: string; finalText: string; tools: ToolCall[]; parts: string[]; meta: any; ms: number; error?: string };
 
 async function say(threadId: string, text: string, opportunityId?: string): Promise<Turn> {
   const t0 = Date.now();
@@ -44,14 +47,15 @@ async function say(threadId: string, text: string, opportunityId?: string): Prom
     threadId, context: opportunityId ? { opportunityId } : null,
     message: { id: randomUUID(), role: 'user', parts: [{ type: 'text', text }] },
   }) });
-  const turn: Turn = { said: text, seq: [], text: '', tools: [], parts: [], meta: null, ms: 0 };
+  const turn: Turn = { said: text, seq: [], text: '', finalText: '', tools: [], parts: [], meta: null, ms: 0 };
   const byId = new Map<string, ToolCall>();
   const body = await r.text();
   for (const line of body.split('\n')) {
     if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
     const p = JSON.parse(line.slice(6));
-    if (p.type === 'text-delta') { turn.text += p.delta; if (turn.seq.at(-1) !== 'text') turn.seq.push('text'); }
-    else if (p.type === 'tool-input-available') { turn.seq.push('tool'); const call = { name: p.toolName, input: p.input }; byId.set(p.toolCallId, call); turn.tools.push(call); }
+    if (p.type === 'text-delta') { turn.text += p.delta; turn.finalText += p.delta; if (turn.seq.at(-1) !== 'text') turn.seq.push('text'); }
+    else if (p.type === 'tool-input-available') { turn.seq.push('tool'); turn.finalText = '';  // the app shows only text after the last tool call
+      const call = { name: p.toolName, input: p.input }; byId.set(p.toolCallId, call); turn.tools.push(call); }
     else if (p.type === 'tool-output-available') { const call = byId.get(p.toolCallId); if (call) call.output = p.output; }
     else if (p.type === 'message-metadata') turn.meta = p.messageMetadata;
     else if (p.type === 'error') turn.error = p.errorText;
@@ -81,7 +85,11 @@ function basics(t: Turn, earlier: Turn[] = []): Check[] {
   // numbers from tool results, plus ones the user said ("$5k" counts as 5000)
   const fromUser = (t.said.match(/\d[\d,.]*k?/gi) ?? []).map((n) => /k$/i.test(n) ? String(Number(n.slice(0, -1).replace(/,/g, '')) * 1000) : n.replace(/,/g, ''));
   const nums = new Set([...(seen.match(/\d[\d,]*(\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, '')), ...fromUser]);
-  const dollars = (t.text.match(/\$\s?\d[\d,]*(\.\d+)?k?/gi) ?? []).map((d) => d.replace(/[$\s,]/g, ''));
+  // amounts Fred works out ("about $1,000 over the area's usual", "$600 under") are differences, not listing prices
+  const relative = /^\s*(under|over|below|above|less|more|cheaper|off|a month (under|over|less|more))\b/i;
+  const dollars = [...t.text.matchAll(/(about |around |roughly |~)?\$\s?\d[\d,]*(\.\d+)?k?/gi)]
+    .filter((m) => !m[1] && !relative.test(t.text.slice(m.index! + m[0].length)))
+    .map((m) => m[0].replace(/[$\s,]/g, ''));
   // "$5k" or "$5,000" when the user said it is fine; only flag amounts that look like listing prices
   const invented = dollars.filter((d) => !/k$/i.test(d) && Number(d) >= 1000 && !nums.has(d) && !nums.has(String(Number(d))));
   const searchedIds = new Set(called(t, 'searchListings').flatMap((c) => (c.output?.listings ?? []).map((l: any) => l.listingId)));
@@ -91,7 +99,7 @@ function basics(t: Turn, earlier: Turn[] = []): Check[] {
     check('answered without error', !t.error && t.text.trim().length > 0, t.error ?? 'empty reply'),
     check('no invented prices', invented.length === 0, `not in any tool result: ${invented.join(', ')}`),
     check('only adds listings it searched', strays.length === 0, `added ids not from this turn's search: ${strays.join(', ')}`),
-    check('brief (≤ 120 words)', words(t.text) <= 120, `${words(t.text)} words`),
+    check('brief (≤ 120 words)', words(t.finalText) <= 120, `${words(t.finalText)} words`),
     check('says it once', !/(.{40,})[\s\S]*\1/.test(t.text), 'reply repeats itself'),
     check('no invented addresses', badAddresses.length === 0, `not in any tool result: ${badAddresses.join(', ')}`),
     check('writes only after its tools', !textThenTool, `order: ${t.seq.join(' → ')}`),
@@ -126,7 +134,8 @@ const cases: Case[] = [
       check('saves the search', !!up, 'no updateSearch call'),
       check('budget is 5000', up?.dealbreakers?.maxTotalMonthly === 5000, JSON.stringify(up?.dealbreakers)),
       check('2 beds', up?.dealbreakers?.minBeds === 2, JSON.stringify(up?.dealbreakers)),
-      check('dogs', ['dogs', 'dogs_and_cats'].includes(up?.dealbreakers?.pets), JSON.stringify(up?.dealbreakers)),
+      // the example search already has dogs, so Fred may rightly leave pets out of updateSearch
+      check('dogs', ['dogs', 'dogs_and_cats'].includes(search.dealbreakers.pets), JSON.stringify(search.dealbreakers)),
       check('Brooklyn', areasInclude(up, 'brooklyn'), JSON.stringify(up?.dealbreakers?.areas)),
       check('searches with the filters', !!sl && sl.maxRent <= 5000 && sl.minBeds === 2 && areasInclude(sl, 'brooklyn'), JSON.stringify(sl)),
       check('adds places to the inbox', inbox.items.some((o: any) => /^op_\d+$/.test(o.id)), 'no Fred-created cards'),
@@ -214,7 +223,7 @@ const cases: Case[] = [
     return { turns: [t], checks: [
       check('answered without error', !t.error && t.text.trim().length > 0, t.error ?? 'empty'),
       check('changes nothing', changes.length === 0, JSON.stringify(changes.map((c) => c.name))),
-      check('brief (≤ 120 words)', words(t.text) <= 120, `${words(t.text)} words`),
+      check('brief (≤ 120 words)', words(t.finalText) <= 120, `${words(t.finalText)} words`),
     ] };
   } },
   { name: "Erin's chat: light, subway, furnished", run: async () => {
@@ -239,8 +248,9 @@ const cases: Case[] = [
 
 /* ── run and report ──────────────────────────────────────────────────── */
 
-const cost = (u: any) => {
-  if (!u) return 0;
+const cost = (u: any, model?: string) => {
+  const PRICE = PRICES[String(model).split('/')[1]];
+  if (!u || !PRICE) return 0;
   const read = u.cachedInputTokens ?? u.inputTokenDetails?.cacheReadTokens ?? 0;
   const write = u.inputTokenDetails?.cacheWriteTokens ?? 0;
   const fresh = Math.max(0, (u.inputTokens ?? 0) - read - write);
@@ -252,13 +262,20 @@ for (const c of cases.filter((x) => !ONLY || x.name.includes(ONLY))) {
   for (let i = 0; i < RUNS; i++) {
     let r: { turns: Turn[]; checks: Check[] };
     try { r = await c.run(); } catch (e) { r = { turns: [], checks: [check('ran', false, String(e))] }; }
+    // every [address](place:op_id) link Fred wrote must point at a place in the inbox
+    try {
+      const inbox = new Set((await getJson('/api/opportunities?view=all&limit=100')).items.map((o: any) => o.id));
+      const linked = r.turns.flatMap((t) => [...t.text.matchAll(/\]\(place:(op_[\w-]+)\)/g)].map((m) => m[1]));
+      const stray = linked.filter((id) => !inbox.has(id));
+      r.checks.push(check('place links point at real places', stray.length === 0, `not in the inbox: ${stray.join(', ')}`));
+    } catch (e) { r.checks.push(check('place links point at real places', false, String(e))); }
     const last = r.turns.at(-1);
     const passed = r.checks.filter((x) => x.ok).length;
     const row = {
       case: c.name, run: i + 1, passed, total: r.checks.length,
       ms: last?.ms, msToFirstText: last?.meta?.msToFirstText, model: last?.meta?.model,
-      usage: last?.meta?.usage, cost: r.turns.reduce((s, t) => s + cost(t.meta?.usage), 0),
-      tools: last?.tools.map((t) => t.name), failed: r.checks.filter((x) => !x.ok), reply: last?.text,
+      usage: last?.meta?.usage, cost: r.turns.reduce((s, t) => s + cost(t.meta?.usage, t.meta?.model), 0),
+      tools: last?.tools.map((t) => t.name), failed: r.checks.filter((x) => !x.ok), reply: last?.text, replies: r.turns.map((t) => t.text),
     };
     results.push(row);
     const u = row.usage ?? {};
