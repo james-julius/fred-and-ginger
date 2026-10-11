@@ -1325,6 +1325,26 @@ export interface components {
                 label: string;
                 toolCallId: string | null;
             }[];
+            /**
+             * @description A few short labels for listings being looked at
+             * @example [
+             *       "2 bd · $3,400 · Harlem"
+             *     ]
+             */
+            samples?: string[];
+        };
+        /** @description Chat part data-places: emitted by addToInbox */
+        DataPlaces: {
+            /**
+             * @description Places Fred actually added to the inbox this step, best first
+             * @example [
+             *       "op_1101",
+             *       "op_1109"
+             *     ]
+             */
+            ids: string[];
+            /** @description Of those, the ones he hid as likely scams */
+            hidden: string[];
         };
         /** @description Chat part data-suggestions: quick replies. Tapping one sends its label as a message. */
         DataSuggestions: {
@@ -1367,8 +1387,11 @@ export interface components {
             id: string;
             /** @example Washer/dryer in unit */
             label: string;
-            /** @enum {string} */
-            weight: "nice" | "important";
+            /**
+             * @description must = a dealbreaker Fred can't filter on yet: he won't add places that clearly lack it, and says when it's unconfirmed. The app calls it Dealbreaker.
+             * @enum {string}
+             */
+            weight: "nice" | "important" | "must";
         };
         Commute: {
             id: string;

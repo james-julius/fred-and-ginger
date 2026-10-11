@@ -140,6 +140,16 @@
                 "toolCallId"
               ]
             }
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "2 bd · $3,400 · Harlem"
+            ],
+            "description": "A few short labels for listings being looked at"
           }
         },
         "required": [
@@ -149,6 +159,34 @@
           "steps"
         ],
         "description": "Chat part data-scan: \"Checked 186 new listings · 9 steps\""
+      },
+      "DataPlaces": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "op_1101",
+              "op_1109"
+            ],
+            "description": "Places Fred actually added to the inbox this step, best first"
+          },
+          "hidden": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Of those, the ones he hid as likely scams"
+          }
+        },
+        "required": [
+          "ids",
+          "hidden"
+        ],
+        "description": "Chat part data-places: emitted by addToInbox"
       },
       "DataSuggestions": {
         "type": "object",
@@ -280,8 +318,10 @@
             "type": "string",
             "enum": [
               "nice",
-              "important"
-            ]
+              "important",
+              "must"
+            ],
+            "description": "must = a dealbreaker Fred can't filter on yet: he won't add places that clearly lack it, and says when it's unconfirmed. The app calls it Dealbreaker."
           }
         },
         "required": [

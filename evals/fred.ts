@@ -272,6 +272,20 @@ const cases: Case[] = [
       check('email alerts end up verified and on', after.email.verified && after.email.enabled, JSON.stringify(after.email)),
     ] };
   } },
+  { name: 'must-haves: set, honest about unknowns, step back', run: async () => {
+    const thread = await fresh();
+    const laundry = (x: any) => /washer|laundry|w\/d/i.test(x.label);
+    const t1 = await say(thread, 'It has to have a washer/dryer in the unit, that one is a dealbreaker');
+    const s1 = (await getJson('/api/search')).preferences.filter(laundry);
+    const t2 = await say(thread, "Actually it doesn't have to have in-unit laundry, it's just nice");
+    const s2 = (await getJson('/api/search')).preferences.filter(laundry);
+    return { turns: [t1, t2], checks: [
+      ...basics(t1), ...basics(t2, [t1]),
+      check('saves it as a must', s1.some((x: any) => x.weight === 'must'), JSON.stringify(s1)),
+      check('says when a must-have is unconfirmed', called(t1, 'addToInbox').length === 0 || /\b(unconfirmed|not confirmed|doesn't say|don't say|not listed|confirm|ask (the|each) (landlord|agent))\b/i.test(t1.finalText), t1.finalText),
+      check('steps it back to nice', s2.length > 0 && s2.every((x: any) => x.weight === 'nice'), JSON.stringify(s2)),
+    ] };
+  } },
 ];
 
 /* ── run and report ──────────────────────────────────────────────────── */
