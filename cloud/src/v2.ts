@@ -115,10 +115,13 @@ v2.openapi(R.chat, async (c) => {
   const messageId = crypto.randomUUID(), now = new Date().toISOString();
 
   const prior = view(st).threads[threadId];
+  // An id that's already in the thread means the user edited that message: keep only what came before it.
+  const edited = user.id ? (prior?.messages ?? []).findIndex((m) => m.id === user.id) : -1;
+  const kept = edited === -1 ? (prior?.messages ?? []) : prior!.messages.slice(0, edited);
   st.threads[threadId] = {
-    title: prior?.title ?? (said.slice(0, 60) || 'New chat'),
+    title: kept.length && prior?.title ? prior.title : (said.slice(0, 60) || 'New chat'),
     updatedAt: now,
-    messages: [...(prior?.messages ?? []), { id: user.id ?? crypto.randomUUID(), role: 'user', parts: user.parts ?? [] }, { id: messageId, role: 'assistant', parts }],
+    messages: [...kept, { id: user.id ?? crypto.randomUUID(), role: 'user', parts: user.parts ?? [] }, { id: messageId, role: 'assistant', parts }],
   };
   st.search = search;
   await store(c, st);
