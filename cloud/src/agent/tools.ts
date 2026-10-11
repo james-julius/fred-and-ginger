@@ -14,6 +14,7 @@ import { knownArea } from '../areas';
 import { checkSites, crawlStatus } from './crawl';
 import { AlertError, examplePlaces, patchAlerts, sendTest, verifyCode } from '../alerts';
 import { write as writeMemory } from '../memory';
+import { search as searchChats } from '../recall';
 
 type Ctx = { requestContext?: { get(k: string): unknown; set?(k: string, v: unknown): void }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
@@ -330,6 +331,22 @@ from: "said" when they told you, "inferred" when you read it from their saves an
   },
 });
 
+export const recallChats = createTool({
+  id: 'recallChats',
+  description: 'Search this person\'s earlier chats with you by meaning, when they refer back to something ("that place with the big kitchen", "what did you say about Bushwick?", "the one near Sam\'s office"). Returns the closest exchanges with the places in them; open one with getPlace. Describe what you\'re looking for in plain words.',
+  inputSchema: z.object({ query: z.string().describe('What to look for, e.g. "apartment with a big kitchen and a dishwasher"') }),
+  execute: async ({ query }, c) => {
+    const env = (c as Ctx).requestContext?.get('env') as (Env & { ME: string }) | undefined;
+    if (!env) throw new Error('No request context: tools must run inside a signed-in request');
+    try {
+      const hits = await searchChats(env, env.ME, query, { exceptThread: (c as Ctx).requestContext?.get('threadId') as string | undefined });
+      return hits.length
+        ? { matches: hits, note: 'Old chats can be out of date: your notes and the saved search are current and win over them. Mention when something was said (the when field).' }
+        : { matches: [], note: 'Nothing close in earlier chats. Say so; don\'t guess.' };
+    } catch (e) { return { error: String(e).slice(0, 200) }; }
+  },
+});
+
 export const updateProfile = createTool({
   id: 'updateProfile',
   description: 'Change the name the app shows for this person, when they ask ("call me Jim").',
@@ -369,4 +386,4 @@ export const updateTour = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, updateProfile, listTours, updateTour };
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, recallChats, updateProfile, listTours, updateTour };
