@@ -1,0 +1,2259 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Fred API",
+    "version": "0.1.0",
+    "description": "Generated from packages/api. Run `npm run gen:api` at the repo root after changing it."
+  },
+  "components": {
+    "schemas": {
+      "DataSearchUpdated": {
+        "type": "object",
+        "properties": {
+          "changed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "areas",
+              "maxTotalMonthly",
+              "minBeds",
+              "minBaths",
+              "pets"
+            ]
+          },
+          "dealbreakers": {
+            "$ref": "#/components/schemas/Dealbreakers"
+          }
+        },
+        "required": [
+          "changed",
+          "dealbreakers"
+        ],
+        "description": "Chat part data-search-updated: the Dealbreakers chips"
+      },
+      "Dealbreakers": {
+        "type": "object",
+        "properties": {
+          "areas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "manhattan"
+            ],
+            "description": "Borough or neighbourhood slugs"
+          },
+          "maxTotalMonthly": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Budget including required monthly fees"
+          },
+          "minBeds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "minBaths": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pets": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "dogs",
+              "cats",
+              "dogs_and_cats",
+              null
+            ]
+          },
+          "noBrokerFee": {
+            "type": "boolean"
+          },
+          "moveBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          }
+        },
+        "required": [
+          "areas",
+          "maxTotalMonthly",
+          "minBeds",
+          "minBaths",
+          "pets",
+          "noBrokerFee",
+          "moveBy"
+        ]
+      },
+      "DataScan": {
+        "type": "object",
+        "properties": {
+          "checked": {
+            "type": "integer"
+          },
+          "matched": {
+            "type": "integer"
+          },
+          "hidden": {
+            "type": "integer"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "toolCallId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "label",
+                "toolCallId"
+              ]
+            }
+          }
+        },
+        "required": [
+          "checked",
+          "matched",
+          "hidden",
+          "steps"
+        ],
+        "description": "Chat part data-scan: \"Checked 186 new listings · 9 steps\""
+      },
+      "DataSuggestions": {
+        "type": "object",
+        "properties": {
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "patch": {
+                  "$ref": "#/components/schemas/SearchPatch"
+                }
+              },
+              "required": [
+                "label",
+                "patch"
+              ]
+            }
+          }
+        },
+        "required": [
+          "options"
+        ],
+        "description": "Chat part data-suggestions: quick replies. Tapping one sends its label as a message."
+      },
+      "SearchPatch": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "dealbreakers": {
+            "type": "object",
+            "properties": {
+              "areas": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": [
+                  "manhattan"
+                ],
+                "description": "Borough or neighbourhood slugs"
+              },
+              "maxTotalMonthly": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "Budget including required monthly fees"
+              },
+              "minBeds": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "minBaths": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "pets": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "dogs",
+                  "cats",
+                  "dogs_and_cats",
+                  null
+                ]
+              },
+              "noBrokerFee": {
+                "type": "boolean"
+              },
+              "moveBy": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              }
+            }
+          },
+          "preferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Preference"
+            }
+          },
+          "commutes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Commute"
+            }
+          },
+          "watching": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Preference": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "example": "Washer/dryer in unit"
+          },
+          "weight": {
+            "type": "string",
+            "enum": [
+              "nice",
+              "important"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "weight"
+        ]
+      },
+      "Commute": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "example": "Work"
+          },
+          "address": {
+            "type": "string"
+          },
+          "maxMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "address",
+          "maxMinutes"
+        ]
+      },
+      "DataWatch": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "watching",
+              "paused",
+              "checking"
+            ]
+          },
+          "lastCheckedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-11T14:30:00Z"
+          },
+          "nextCheckAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-11T14:30:00Z"
+          }
+        },
+        "required": [
+          "state",
+          "lastCheckedAt",
+          "nextCheckAt"
+        ],
+        "description": "Chat part data-watch: \"Watching for new places…\". Also sent as an event."
+      },
+      "Event": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "opportunity.created"
+                ]
+              },
+              "opportunity": {
+                "$ref": "#/components/schemas/OpportunityCard"
+              }
+            },
+            "required": [
+              "type",
+              "opportunity"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "opportunity.updated"
+                ]
+              },
+              "opportunity": {
+                "$ref": "#/components/schemas/OpportunityCard"
+              }
+            },
+            "required": [
+              "type",
+              "opportunity"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "tour.updated"
+                ]
+              },
+              "tour": {
+                "$ref": "#/components/schemas/Tour"
+              }
+            },
+            "required": [
+              "type",
+              "tour"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "search.updated"
+                ]
+              },
+              "search": {
+                "$ref": "#/components/schemas/Search"
+              }
+            },
+            "required": [
+              "type",
+              "search"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "watch"
+                ]
+              },
+              "watch": {
+                "$ref": "#/components/schemas/DataWatch"
+              }
+            },
+            "required": [
+              "type",
+              "watch"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "counts"
+                ]
+              },
+              "counts": {
+                "type": "object",
+                "properties": {
+                  "new": {
+                    "type": "integer",
+                    "description": "Unseen places in the inbox"
+                  },
+                  "saved": {
+                    "type": "integer"
+                  },
+                  "tours": {
+                    "type": "integer",
+                    "description": "Upcoming tours"
+                  }
+                },
+                "required": [
+                  "new",
+                  "saved",
+                  "tours"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "counts"
+            ]
+          }
+        ]
+      },
+      "OpportunityCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "listingId": {
+            "type": "integer"
+          },
+          "foundAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-11T14:30:00Z"
+          },
+          "seen": {
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OpportunityStatus"
+          },
+          "price": {
+            "type": "integer",
+            "description": "Rent on the lease"
+          },
+          "totalMonthly": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Rent plus required monthly fees"
+          },
+          "area": {
+            "type": "string",
+            "example": "Hudson Heights"
+          },
+          "beds": {
+            "type": "number"
+          },
+          "baths": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "transit": {
+            "$ref": "#/components/schemas/Transit"
+          },
+          "highlight": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Washer/dryer in unit"
+          },
+          "thumbnail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "Null: show the building illustration"
+          },
+          "fit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/Verdict"
+          },
+          "feeCallout": {
+            "$ref": "#/components/schemas/FeeCallout"
+          }
+        },
+        "required": [
+          "id",
+          "listingId",
+          "foundAt",
+          "seen",
+          "status",
+          "price",
+          "totalMonthly",
+          "area",
+          "beds",
+          "baths",
+          "transit",
+          "highlight",
+          "thumbnail",
+          "fit",
+          "verdict",
+          "feeCallout"
+        ]
+      },
+      "OpportunityStatus": {
+        "type": "string",
+        "enum": [
+          "new",
+          "saved",
+          "passed",
+          "hidden"
+        ]
+      },
+      "Transit": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "A"
+            ]
+          },
+          "station": {
+            "type": "string"
+          },
+          "walkMinutes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lines",
+          "station",
+          "walkMinutes"
+        ]
+      },
+      "Verdict": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "strong_fit",
+              "good_fit",
+              "over_budget_with_fees",
+              "price_dropped",
+              "broker_fee",
+              "building_issues",
+              "likely_scam",
+              "gone"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "example": "Strong fit"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "good",
+              "warn",
+              "bad",
+              "neutral"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Asked for a deposit before a viewing"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "tone",
+          "reason"
+        ]
+      },
+      "FeeCallout": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "+$85/mo amenity fee"
+          },
+          "amount": {
+            "type": "integer",
+            "description": "US dollars, whole"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "once"
+            ]
+          }
+        },
+        "required": [
+          "label",
+          "amount",
+          "period"
+        ]
+      },
+      "Tour": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "opportunityId": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-11T14:30:00Z",
+            "description": "Null until a time is confirmed"
+          },
+          "address": {
+            "type": "string",
+            "example": "Cabrini Blvd, Hudson Heights"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "requested",
+              "confirmed",
+              "done",
+              "cancelled"
+            ]
+          },
+          "contact": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "opportunityId",
+          "startsAt",
+          "address",
+          "status",
+          "contact",
+          "notes"
+        ]
+      },
+      "Search": {
+        "type": "object",
+        "properties": {
+          "dealbreakers": {
+            "$ref": "#/components/schemas/Dealbreakers"
+          },
+          "preferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Preference"
+            }
+          },
+          "commutes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Commute"
+            }
+          },
+          "watching": {
+            "type": "boolean",
+            "description": "False pauses new-place checks"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-11T14:30:00Z"
+          }
+        },
+        "required": [
+          "dealbreakers",
+          "preferences",
+          "commutes",
+          "watching",
+          "updatedAt"
+        ]
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "initials": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "initials"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "example": "Manhattan · 2 bed, 2 bath"
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "new": {
+                "type": "integer",
+                "description": "Unseen places in the inbox"
+              },
+              "saved": {
+                "type": "integer"
+              },
+              "tours": {
+                "type": "integer",
+                "description": "Upcoming tours"
+              }
+            },
+            "required": [
+              "new",
+              "saved",
+              "tours"
+            ]
+          },
+          "alerts": {
+            "$ref": "#/components/schemas/Alerts"
+          }
+        },
+        "required": [
+          "user",
+          "summary",
+          "counts",
+          "alerts"
+        ]
+      },
+      "Alerts": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/AlertMode"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "sms",
+              "push"
+            ]
+          },
+          "quietHours": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "start": {
+                "type": "string"
+              },
+              "end": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ],
+            "example": {
+              "start": "22:00",
+              "end": "08:00"
+            }
+          }
+        },
+        "required": [
+          "mode",
+          "channel",
+          "quietHours"
+        ]
+      },
+      "AlertMode": {
+        "type": "string",
+        "enum": [
+          "instant_strong",
+          "daily",
+          "off"
+        ],
+        "description": "instant_strong = message me about strong fits right away; daily = one digest; off = only in the app"
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "OpportunityPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OpportunityCard"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "OpportunityDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/OpportunityCard"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sqft": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "available": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "photos": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              },
+              "costs": {
+                "$ref": "#/components/schemas/Costs"
+              },
+              "amenities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "pets": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "building": {
+                "$ref": "#/components/schemas/BuildingReport"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SourceLink"
+                }
+              },
+              "priceHistory": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2026-10-11T14:30:00Z"
+                    },
+                    "price": {
+                      "type": "integer",
+                      "description": "US dollars, whole"
+                    }
+                  },
+                  "required": [
+                    "at",
+                    "price"
+                  ]
+                }
+              },
+              "take": {
+                "type": "object",
+                "properties": {
+                  "why": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Fred's reasons this fits you"
+                  },
+                  "concerns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "why",
+                  "concerns"
+                ]
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "location": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "lat": {
+                    "type": "number"
+                  },
+                  "lon": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "lat",
+                  "lon"
+                ]
+              }
+            },
+            "required": [
+              "address",
+              "unit",
+              "sqft",
+              "available",
+              "description",
+              "photos",
+              "costs",
+              "amenities",
+              "pets",
+              "building",
+              "sources",
+              "priceHistory",
+              "take",
+              "note",
+              "location"
+            ]
+          }
+        ]
+      },
+      "Costs": {
+        "type": "object",
+        "properties": {
+          "rent": {
+            "type": "integer",
+            "description": "US dollars, whole"
+          },
+          "netEffective": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "US dollars, whole"
+          },
+          "monthsFree": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "leaseMonths": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "monthlyFees": {
+            "type": "integer",
+            "description": "US dollars, whole"
+          },
+          "totalMonthly": {
+            "type": "integer",
+            "description": "US dollars, whole"
+          },
+          "brokerFee": {
+            "type": "string",
+            "enum": [
+              "none",
+              "tenant",
+              "unknown"
+            ]
+          },
+          "moveInEstimate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "US dollars, whole"
+          },
+          "fees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeeItem"
+            }
+          }
+        },
+        "required": [
+          "rent",
+          "netEffective",
+          "monthsFree",
+          "leaseMonths",
+          "monthlyFees",
+          "totalMonthly",
+          "brokerFee",
+          "moveInEstimate",
+          "fees"
+        ]
+      },
+      "FeeItem": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "amenity",
+              "pet",
+              "utilities",
+              "parking",
+              "broker",
+              "application",
+              "security_deposit",
+              "move_in",
+              "board",
+              "other"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "amount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "US dollars, whole"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "once"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "listing",
+              "read_from_text"
+            ],
+            "description": "read_from_text = pulled from the description, less certain"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "amount",
+          "period",
+          "required",
+          "source"
+        ]
+      },
+      "BuildingReport": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "3 open heat complaints this year"
+            ]
+          },
+          "good": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "score",
+          "flags",
+          "good"
+        ]
+      },
+      "SourceLink": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "type": "string",
+            "example": "streeteasy"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "price": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "US dollars, whole"
+          }
+        },
+        "required": [
+          "site",
+          "url",
+          "price"
+        ]
+      },
+      "OpportunityPatch": {
+        "type": "object",
+        "properties": {
+          "seen": {
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OpportunityStatus"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TourRequest": {
+        "type": "object",
+        "properties": {
+          "opportunityId": {
+            "type": "string"
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-10-11T14:30:00Z"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-10-11T14:30:00Z"
+                }
+              },
+              "required": [
+                "start",
+                "end"
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "opportunityId",
+          "slots"
+        ]
+      },
+      "TourPatch": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "requested",
+              "confirmed",
+              "done",
+              "cancelled"
+            ]
+          },
+          "startsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-11T14:30:00Z"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Packet": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PacketItem"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "PacketItem": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo_id",
+              "pay_stubs",
+              "tax_return",
+              "bank_statements",
+              "employment_letter",
+              "reference_letter",
+              "guarantor",
+              "other"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "uploaded",
+              "expired"
+            ]
+          },
+          "documentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-10-11T14:30:00Z"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "status",
+          "documentId",
+          "updatedAt"
+        ]
+      },
+      "Thread": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-11T14:30:00Z"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "updatedAt"
+        ]
+      },
+      "ChatRequest": {
+        "type": "object",
+        "properties": {
+          "threadId": {
+            "type": "string"
+          },
+          "message": {
+            "description": "The newest AI SDK UIMessage only; the server keeps the history"
+          },
+          "context": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "opportunityId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "opportunityId"
+            ]
+          }
+        },
+        "required": [
+          "threadId"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/api/me": {
+      "get": {
+        "tags": [
+          "you"
+        ],
+        "responses": {
+          "200": {
+            "description": "You, your search in one line, sidebar counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alerts": {
+      "get": {
+        "tags": [
+          "you"
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Alerts"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "you"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "$ref": "#/components/schemas/AlertMode"
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "email",
+                      "sms",
+                      "push"
+                    ]
+                  },
+                  "quietHours": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "start": {
+                        "type": "string"
+                      },
+                      "end": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "start",
+                      "end"
+                    ],
+                    "example": {
+                      "start": "22:00",
+                      "end": "08:00"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Alerts"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "responses": {
+          "200": {
+            "description": "Your search",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Search"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "search"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated search",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Search"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/opportunities": {
+      "get": {
+        "tags": [
+          "places"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "new",
+                "saved",
+                "hidden",
+                "all"
+              ],
+              "default": "new"
+            },
+            "required": false,
+            "name": "view",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest first. Group by foundAt in the user's time zone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/opportunities/{id}": {
+      "get": {
+        "tags": [
+          "places"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The open listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "places"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpportunityPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated card",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityCard"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tours": {
+      "get": {
+        "tags": [
+          "tours"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "upcoming",
+                "past",
+                "all"
+              ],
+              "default": "upcoming"
+            },
+            "required": false,
+            "name": "when",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Soonest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Tour"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tours"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TourRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Draft tour. Fred drafts the message; nothing is sent until you say so.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tour"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tours/{id}": {
+      "patch": {
+        "tags": [
+          "tours"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TourPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated tour",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tour"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/packet": {
+      "get": {
+        "tags": [
+          "packet"
+        ],
+        "responses": {
+          "200": {
+            "description": "Checklist and what is uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Packet"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/threads": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Thread"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/threads/{id}": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Messages as AI SDK UIMessage[]",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "thread": {
+                      "$ref": "#/components/schemas/Thread"
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {}
+                    }
+                  },
+                  "required": [
+                    "thread",
+                    "messages"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AI SDK UI message stream. Custom parts: data-search-updated, data-scan, data-suggestions, data-watch",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "tags": [
+          "live"
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent events; each data line is one Event",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

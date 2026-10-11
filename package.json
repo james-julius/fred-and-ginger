@@ -1,0 +1,15 @@
+{
+  "name": "fred-and-ginger",
+  "private": true,
+  "type": "module",
+  "workspaces": ["cloud", "packages/*"],
+  "scripts": {
+    "gen:api": "tsx scripts/gen-api.ts && openapi-typescript packages/api/openapi.json -o web/lib/api/schema.gen.ts",
+    "check:api": "npm run gen:api && git diff --exit-code packages/api/openapi.json web/lib/api/schema.gen.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
