@@ -158,11 +158,12 @@ const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
  * What a realtor cousin would point out first, best first: a good deal, then the things that
  * make a place nice to live in. `typical` is the area's median rent for the same bedroom count.
  */
-export function highlights(f: Facts | null, l: { price: number; noFee?: number | null; typical?: number | null; train?: string | null }, w: Wants = {}): string[] {
+export function highlights(f: Facts | null, l: { price: number; noFee?: number | null; typical?: number | null; train?: string | null; safer?: boolean }, w: Wants = {}): string[] {
   const out: string[] = [], x = f ?? empty();
   if (x.rentStabilized) out.push('Rent stabilized');
   if (l.typical && l.price <= l.typical * 0.9) out.push(`${money(l.typical - l.price)} under the area's usual`);
   if (l.train) out.push(l.train);
+  if (l.safer) out.push('Less crime than most rentals');
   if (x.monthsFree) out.push(`${x.monthsFree} month${x.monthsFree === 1 ? '' : 's'} free`);
   const want = (re: RegExp) => (w.preferences ?? []).some((p) => re.test(p));
   const nice: [boolean, string, boolean][] = [

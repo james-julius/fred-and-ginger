@@ -76,6 +76,9 @@ export function fixtures(now = new Date()) {
       priceHistory: [{ at: at(2), price: 4750 }],
       take: { why: ['2 baths under $5,000, rare in Manhattan', 'Washer/dryer in unit', '5 minutes to the A'], concerns: ['Above 110th St'] },
       note: null, location: { lat: 40.8551, lon: -73.9375 },
+      safety: { level: 'lower', label: 'Less crime than most places for rent', percentile: 31, violent: 9, property: 41, total: 118,
+                top: [{ offense: 'Petty thefts', count: 27 }, { offense: 'Harassment', count: 22 }, { offense: 'Thefts over $1,000', count: 9 }, { offense: 'Serious assaults', count: 6 }],
+                radiusMeters: 300, from: '2025-07-01', to: '2026-06-30' },
     },
   };
 

@@ -1191,6 +1191,7 @@ export interface components {
                 lat: number;
                 lon: number;
             } | null;
+            safety: components["schemas"]["Safety"];
         };
         Costs: {
             /** @description US dollars, whole */
@@ -1242,6 +1243,35 @@ export interface components {
             /** @description US dollars, whole */
             price: number | null;
         };
+        /** @description Null until the area has been checked */
+        Safety: {
+            /** @enum {string} */
+            level: "much_lower" | "lower" | "typical" | "higher" | "much_higher";
+            /** @example Less crime than most places for rent */
+            label: string;
+            /** @description Share of rental spots we checked with fewer violent crimes nearby */
+            percentile: number;
+            /** @description Murder, robbery, felony assault and kidnapping reported nearby */
+            violent: number;
+            /** @description Burglary, larceny and car theft reported nearby */
+            property: number;
+            /** @description Every crime reported nearby */
+            total: number;
+            /** @description Most reported, in plain words */
+            top: {
+                offense: string;
+                count: number;
+            }[];
+            /** @example 300 */
+            radiusMeters: number;
+            /** Format: date */
+            from: string;
+            /**
+             * Format: date
+             * @description NYPD data is published quarterly, so this lags by a few months
+             */
+            to: string;
+        } | null;
         OpportunityPatch: {
             seen?: boolean;
             status?: components["schemas"]["OpportunityStatus"];

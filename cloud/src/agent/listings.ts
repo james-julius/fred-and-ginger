@@ -3,6 +3,7 @@
 import type * as S from '@fng/api';
 import type { z } from '@hono/zod-openapi';
 import { nearby, transitLabel } from '../transit';
+import { ranking, safetyFor } from '../safety';
 import { highlights, notShareSql, petsLabel, petsSql, scamSigns, typicalKey, typicalRents, type Facts } from '../facts';
 
 type Card = z.infer<typeof S.OpportunityCard>;
@@ -27,6 +28,8 @@ export type Found = {
   subway: string[];
   /** scam signs: if any, hide it with likely_scam */
   scamSigns: string[];
+  /** crime reported nearby vs other rental spots, e.g. "Less crime than most places for rent" */
+  areaSafety: string | null;
   /** only when the city record is genuinely bad (score under 60): what to warn about */
   buildingWarning: string[] | null;
 };
@@ -55,8 +58,9 @@ export async function search(db: D1Database, f: Filters) {
             (SELECT group_concat(DISTINCT CASE WHEN instr(s.source, ':') > 0 THEN substr(s.source, 1, instr(s.source, ':') - 1) ELSE s.source END) FROM sightings s WHERE s.listing_id = l.id) AS sites
      FROM listings l LEFT JOIN buildings b ON b.bbl = l.bbl
      WHERE ${where.join(' AND ')} ORDER BY COALESCE(b.score, 60) DESC, l.first_seen DESC LIMIT ?`).bind(...args, Math.min(f.limit ?? 15, 40)).all<any>();
-  const typical = await typicalRents(db, rows.results.map((r) => r.neighbourhood));
-  const found: Found[] = rows.results.map((r) => {
+  const typical = await typicalRents(db, rows.results.map((r) => r.neighbourhood)), ranks = await ranking(db);
+  const safety = await Promise.all(rows.results.map((r) => safetyFor(db, r.lat, r.lon, ranks)));
+  const found: Found[] = rows.results.map((r, i) => {
     const fx = json<Facts | null>(r.facts, null), t = typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null, trains = nearby(r.lat, r.lon);
     return {
       listingId: r.id, address: [r.street, r.unit && `#${r.unit}`].filter(Boolean).join(' '), area: r.neighbourhood, borough: r.borough,
@@ -66,6 +70,7 @@ export async function search(db: D1Database, f: Filters) {
       subway: trains.slice(0, 3).map(transitLabel),
       areaTypical: t, pets: petsLabel(fx?.pets ?? null), monthsFree: fx?.monthsFree ?? null, rentStabilized: !!fx?.rentStabilized,
       scamSigns: scamSigns(fx, r.price, t),
+      areaSafety: safety[i] ? `${safety[i]!.label} (${safety[i]!.violent} violent crimes reported within ${safety[i]!.radiusMeters} m in a year)` : null,
       buildingWarning: r.bscore != null && r.bscore < 60 ? (json<{ flags?: string[] }>(r.breport, {}).flags ?? []).slice(0, 2) : null,
     };
   });
@@ -125,5 +130,6 @@ export async function detail(db: D1Database, card: Card): Promise<Detail | null>
     take: { why: [...new Set([...(card.highlight ? [card.highlight] : []), ...why])].slice(0, 5), concerns: [...new Set(concerns)] },
     note: null,
     location: r.lat != null && r.lon != null ? { lat: r.lat, lon: r.lon } : null,
+    safety: await safetyFor(db, r.lat, r.lon),
   };
 }
