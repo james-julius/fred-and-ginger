@@ -60,11 +60,12 @@ export const updateSearch = createTool({
 
 export const searchListings = createTool({
   id: 'searchListings',
-  description: 'Search the real NYC rental listings Fred has collected from StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and landlord sites. Returns the best matches with building scores from city records. Areas are neighbourhood or borough names.',
+  description: "Search the real NYC rental listings Fred has collected from StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and landlord sites. Each match comes with highlights (deal vs the area's usual rent, laundry, outdoor space, pets, light), and a buildingWarning only when the city record is bad. Areas are neighbourhood or borough names.",
   inputSchema: z.object({
     areas: z.array(z.string()).optional().describe('e.g. ["williamsburg", "greenpoint"] or ["brooklyn"]'),
     maxRent: z.number().optional(), minBeds: z.number().optional(), minBaths: z.number().optional(),
     noFeeOnly: z.boolean().optional(), minBuildingScore: z.number().optional().describe('0-100; 60+ avoids buildings with many city complaints'),
+    pets: z.enum(['dogs', 'cats', 'dogs_and_cats']).optional().describe("The user's pets. Drops places that say no; places that don't say stay in"),
     limit: z.number().optional().describe('Default 15, max 40'),
   }),
   execute: async (input, c) => {

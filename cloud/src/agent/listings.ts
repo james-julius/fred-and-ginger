@@ -2,6 +2,7 @@
 // full listing. When Postgres arrives this file is what changes; the tools stay the same.
 import type * as S from '@fng/api';
 import type { z } from '@hono/zod-openapi';
+import { highlights, notShareSql, petsLabel, petsSql, scamSigns, typicalKey, typicalRents, type Facts } from '../facts';
 
 type Card = z.infer<typeof S.OpportunityCard>;
 type Detail = z.infer<typeof S.OpportunityDetail>;
@@ -9,13 +10,22 @@ type VerdictKind = z.infer<typeof S.Verdict>['kind'];
 
 export type Filters = {
   areas?: string[]; maxRent?: number; minBeds?: number; minBaths?: number;
-  noFeeOnly?: boolean; minBuildingScore?: number; limit?: number;
+  noFeeOnly?: boolean; minBuildingScore?: number; limit?: number; pets?: 'dogs' | 'cats' | 'dogs_and_cats' | null;
 };
 
 export type Found = {
   listingId: number; address: string; area: string | null; borough: string | null;
   price: number; beds: number | null; baths: number | null; sqft: number | null; noFee: boolean | null;
-  available: string | null; buildingScore: number | null; buildingFlags: string[]; sites: string[]; photo: string | null;
+  available: string | null; sites: string[]; photo: string | null;
+  /** what's good about it, best first: a deal vs the area, then laundry, outdoor space, pets… */
+  highlights: string[];
+  /** the area's median rent for this many bedrooms, when there are enough listings to say */
+  areaTypical: number | null;
+  pets: string | null; monthsFree: number | null; rentStabilized: boolean;
+  /** scam signs: if any, hide it with likely_scam */
+  scamSigns: string[];
+  /** only when the city record is genuinely bad (score under 60): what to warn about */
+  buildingWarning: string[] | null;
 };
 
 const json = <T>(s: string | null | undefined, d: T): T => { try { return s ? JSON.parse(s) : d; } catch { return d; } };
@@ -25,7 +35,10 @@ export async function search(db: D1Database, f: Filters) {
   if (f.maxRent) { where.push('l.price <= ?'); args.push(f.maxRent); }
   if (f.minBeds != null) { where.push('l.beds >= ?'); args.push(f.minBeds); }
   if (f.minBaths != null) { where.push('l.baths >= ?'); args.push(f.minBaths); }
-  if (f.noFeeOnly) where.push('l.no_fee = 1');
+  if (f.noFeeOnly) where.push('(l.no_fee IS NULL OR l.no_fee = 1)');
+  const pets = petsSql(f.pets);
+  if (pets) where.push(pets);
+  where.push(notShareSql);
   if (f.minBuildingScore != null) { where.push('COALESCE(b.score, 100) >= ?'); args.push(f.minBuildingScore); }
   if (f.areas?.length) {
     // "east-village" matches "East Village"; a borough name matches its whole borough
@@ -34,17 +47,24 @@ export async function search(db: D1Database, f: Filters) {
   }
   const total = await db.prepare(`SELECT count(*) AS n FROM listings l LEFT JOIN buildings b ON b.bbl=l.bbl WHERE ${where.join(' AND ')}`).bind(...args).first<{ n: number }>();
   const rows = await db.prepare(
-    `SELECT l.id, l.street, l.unit, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.sqft, l.no_fee, l.available, l.photos,
+    `SELECT l.id, l.street, l.unit, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.sqft, l.no_fee, l.available, l.photos, l.facts,
             b.score AS bscore, b.report AS breport,
             (SELECT group_concat(DISTINCT CASE WHEN instr(s.source, ':') > 0 THEN substr(s.source, 1, instr(s.source, ':') - 1) ELSE s.source END) FROM sightings s WHERE s.listing_id = l.id) AS sites
      FROM listings l LEFT JOIN buildings b ON b.bbl = l.bbl
      WHERE ${where.join(' AND ')} ORDER BY COALESCE(b.score, 60) DESC, l.first_seen DESC LIMIT ?`).bind(...args, Math.min(f.limit ?? 15, 40)).all<any>();
-  const found: Found[] = rows.results.map((r) => ({
-    listingId: r.id, address: [r.street, r.unit && `#${r.unit}`].filter(Boolean).join(' '), area: r.neighbourhood, borough: r.borough,
-    price: r.price, beds: r.beds, baths: r.baths, sqft: r.sqft, noFee: r.no_fee == null ? null : !!r.no_fee, available: r.available,
-    buildingScore: r.bscore, buildingFlags: (json<{ flags?: string[] }>(r.breport, {}).flags ?? []).slice(0, 3),
-    sites: (r.sites ?? '').split(',').filter(Boolean), photo: json<string[]>(r.photos, [])[0] ?? null,
-  }));
+  const typical = await typicalRents(db, rows.results.map((r) => r.neighbourhood));
+  const found: Found[] = rows.results.map((r) => {
+    const fx = json<Facts | null>(r.facts, null), t = typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null;
+    return {
+      listingId: r.id, address: [r.street, r.unit && `#${r.unit}`].filter(Boolean).join(' '), area: r.neighbourhood, borough: r.borough,
+      price: r.price, beds: r.beds, baths: r.baths, sqft: r.sqft, noFee: r.no_fee == null ? null : !!r.no_fee, available: r.available,
+      sites: (r.sites ?? '').split(',').filter(Boolean), photo: json<string[]>(r.photos, [])[0] ?? null,
+      highlights: highlights(fx, { price: r.price, noFee: r.no_fee, typical: t }, { pets: f.pets }).slice(0, 5),
+      areaTypical: t, pets: petsLabel(fx?.pets ?? null), monthsFree: fx?.monthsFree ?? null, rentStabilized: !!fx?.rentStabilized,
+      scamSigns: scamSigns(fx, r.price, t),
+      buildingWarning: r.bscore != null && r.bscore < 60 ? (json<{ flags?: string[] }>(r.breport, {}).flags ?? []).slice(0, 2) : null,
+    };
+  });
   return { total: total?.n ?? 0, found };
 }
 
@@ -73,6 +93,15 @@ export async function detail(db: D1Database, card: Card): Promise<Detail | null>
   if (!r) return null;
   const sights = await db.prepare('SELECT source, url, price FROM sightings WHERE listing_id=?').bind(card.listingId).all<any>();
   const rep = json<{ score?: number; flags?: string[]; good?: string[] } | null>(r.breport, null);
+  const fx = json<Facts | null>(r.facts, null);
+  const typical = (await typicalRents(db, [r.neighbourhood])).get(typicalKey(r.neighbourhood, r.beds)) ?? null;
+  const why = highlights(fx, { price: r.price, noFee: r.no_fee, typical });
+  const concerns = [
+    ...(card.verdict.reason ? [card.verdict.reason] : []),
+    ...(rep?.score != null && rep.score < 60 ? (rep.flags ?? []).slice(0, 2) : []),
+    ...(!fx?.pets ? ['Pet policy not listed: ask before you tour'] : []),
+    ...(r.no_fee == null && !fx?.noFee ? ['Not clear who pays the broker: ask'] : []),
+  ];
   const history = json<unknown[]>(r.price_history, []).flatMap((h: any) => {
     // stored as [unix seconds, price]; arrays have a built-in .at, so check the shape first
     const [at, price] = Array.isArray(h) ? [h[0], Number(h[1])] : [h?.at, Number(h?.price)];
@@ -80,15 +109,15 @@ export async function detail(db: D1Database, card: Card): Promise<Detail | null>
   });
   return {
     ...card,
-    address: r.street ?? '', unit: r.unit, sqft: r.sqft, available: r.available, description: null,
+    address: r.street ?? '', unit: r.unit, sqft: r.sqft, available: r.available, description: fx?.description ?? null,
     photos: json<string[]>(r.photos, []),
-    costs: { rent: r.price, netEffective: r.net_effective, monthsFree: null, leaseMonths: null, monthlyFees: 0, totalMonthly: r.price,
-             brokerFee: r.no_fee == null ? 'unknown' : r.no_fee ? 'none' : 'tenant', moveInEstimate: null, fees: [] },
-    amenities: [], pets: null,
+    costs: { rent: r.price, netEffective: r.net_effective, monthsFree: fx?.monthsFree ?? null, leaseMonths: null, monthlyFees: 0, totalMonthly: r.price,
+             brokerFee: r.no_fee == null ? (fx?.noFee ? 'none' : 'unknown') : r.no_fee ? 'none' : 'tenant', moveInEstimate: null, fees: [] },
+    amenities: fx?.amenities ?? [], pets: petsLabel(fx?.pets ?? null),
     building: rep?.score != null ? { score: rep.score, flags: rep.flags ?? [], good: rep.good ?? [] } : null,
     sources: sights.results.map((s) => ({ site: String(s.source).split(':')[0], url: s.url, price: s.price })),
     priceHistory: history,
-    take: { why: card.highlight ? [card.highlight] : [], concerns: card.verdict.reason ? [card.verdict.reason] : [] },
+    take: { why: [...new Set([...(card.highlight ? [card.highlight] : []), ...why])].slice(0, 5), concerns: [...new Set(concerns)] },
     note: null,
     location: r.lat != null && r.lon != null ? { lat: r.lat, lon: r.lon } : null,
   };
