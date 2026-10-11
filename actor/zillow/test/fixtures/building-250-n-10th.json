@@ -1,0 +1,620 @@
+{
+ "props": {
+  "pageProps": {
+   "componentProps": {
+    "initialReduxState": {
+     "gdp": {
+      "building": {
+       "buildingName": "250 N 10",
+       "streetAddress": "250 N 10th St",
+       "lotId": "1001818357",
+       "bdpUrl": "/apartments/brooklyn-ny/250-n-10/5XnKSb/",
+       "fullAddress": "250 N 10th St, Brooklyn, NY 11211",
+       "description": null,
+       "buildingAttributes": {
+        "customAmenities": "24 Hour attend lobby?Availability 24 Hours?Building Link?Complimentary coffee served seven days a week?Concierge?Courtyard?Free Weights?Green Building?Individual Climate Control?Large Closets?Pets Allowed?Transportation?Window Coverings?Garage?Off Street Parking?Sundeck",
+        "customPropertyAmenities": null,
+        "customUnitAmenities": null,
+        "appliances": [
+         "Refrigerator",
+         "MicrowaveOven",
+         "Dishwasher",
+         "GarbageDisposal",
+         "Washer",
+         "Dryer"
+        ],
+        "floorCoverings": [
+         "Hardwood"
+        ],
+        "communicationTypes": [
+         "HighSpeedInternet"
+        ],
+        "hasCeilingFan": null,
+        "hasFireplace": null,
+        "hasPatioBalcony": true,
+        "isFurnished": null,
+        "communityRooms": [
+         "FitnessCenter",
+         "Lounge"
+        ],
+        "sportsCourts": [
+         "Unknown"
+        ],
+        "hasBicycleStorage": null,
+        "hasGuestSuite": null,
+        "hasStorage": true,
+        "hasPetPark": null,
+        "hasTwentyFourHourMaintenance": null,
+        "hasDryCleaningDropOff": null,
+        "hasOnlineRentPayment": true,
+        "hasOnlineMaintenancePortal": null,
+        "hasOnsiteManagement": true,
+        "hasPackageService": true,
+        "hasValetTrash": null,
+        "hasSpanishSpeakingStaff": null,
+        "securityTypes": [
+         "Doorman",
+         "GatedEntry"
+        ],
+        "viewType": [
+         "Unknown"
+        ],
+        "hasHotTub": null,
+        "hasSauna": null,
+        "hasSwimmingPool": null,
+        "hasAssistedLiving": false,
+        "hasDisabledAccess": true,
+        "hasSharedLaundry": true,
+        "outdoorCommonAreas": [
+         "Deck"
+        ],
+        "hasBarbecue": null,
+        "heatingSource": "Other",
+        "petPolicies": [
+         "Cats",
+         "SmallDogs"
+        ],
+        "hasElevator": true,
+        "parkingDescription": null,
+        "petPolicyDescription": null,
+        "parkingRentDescription": null,
+        "isSmokeFree": null,
+        "applicationFee": null,
+        "administrativeFee": null,
+        "depositFeeMin": null,
+        "depositFeeMax": null,
+        "airConditioning": "Yes",
+        "leaseTerms": [
+         "Unknown"
+        ],
+        "parkingTypes": [
+         "DetachedGarage",
+         "CoveredParking"
+        ],
+        "utilitiesIncluded": [
+         "Garbage",
+         "Gas",
+         "Sewer",
+         "Water"
+        ],
+        "detailedParkingPolicies": null,
+        "detailedPetPolicy": null,
+        "leaseLengths": null,
+        "rentalProductType": null,
+        "unitCount": null,
+        "incomeRestrictions": null,
+        "communityType": "RENTAL",
+        "carouselDisabled": false,
+        "rentalCostAndFeesDisclaimer": null
+       },
+       "amenityDetails": {
+        "hours": [
+         "Mon: 9:00AM - 6:00PM",
+         "Tue: 9:00AM - 8:00PM",
+         "Wed: 9:00AM - 6:00PM",
+         "Thu: 9:00AM - 6:00PM",
+         "Fri: 9:00AM - 6:00PM",
+         "Sat: 10:00AM - 6:00PM",
+         "Sun: 11:00AM - 5:00PM"
+        ],
+        "pets": [
+         "Cats",
+         "Small dogs"
+        ],
+        "petDetails": [],
+        "customAmenities": {
+         "rawAmenities": [
+          "24 Hour attend lobby",
+          "Availability 24 Hours",
+          "Building Link",
+          "Complimentary coffee served seven days a week",
+          "Concierge",
+          "Courtyard",
+          "Free Weights",
+          "Green Building",
+          "Individual Climate Control",
+          "Large Closets",
+          "Pets Allowed",
+          "Transportation",
+          "Window Coverings",
+          "Garage",
+          "Off Street Parking",
+          "Sundeck"
+         ]
+        },
+        "unitFeatures": [
+         "Dishwasher",
+         "Garbage disposal",
+         "Hardwood flooring",
+         "High-speed internet ready",
+         "Microwave oven",
+         "Refrigerator",
+         "Washer/dryer",
+         "Air conditioning",
+         "Patio/balcony",
+         "Heating: Yes"
+        ]
+       },
+       "amenitySummary": {
+        "buildingDetails": [
+         "7 stories"
+        ],
+        "laundry": [
+         "Shared laundry",
+         "washer/dryer"
+        ]
+       },
+       "rentalCostsAndFees": {
+        "leaseDuration": null,
+        "selectors": {
+         "beds": [
+          {
+           "numBeds": 0,
+           "selector": {
+            "displayName": "Studio",
+            "costs": {
+             "baseRent": {
+              "amount": {
+               "displayText": null,
+               "max": 4525,
+               "min": 4040
+              }
+             }
+            }
+           }
+          }
+         ]
+        }
+       },
+       "rentalUnitsSummary": {
+        "availableUnitCount": 2,
+        "unitCount": 2,
+        "listPriceIncludesRequiredMonthlyFees": false
+       },
+       "ungroupedUnits": [
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 228",
+         "zpid": "2101199193",
+         "price": 4040,
+         "baths": 1,
+         "beds": 0,
+         "hdpUrl": "/homedetails/250-N-10th-St-APT-228-Brooklyn-NY-11211/2101199193_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1792047600000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4040,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        },
+        {
+         "listingType": "FOR_RENT",
+         "unitNumber": "Unit 108",
+         "zpid": "2102815921",
+         "price": 4525,
+         "baths": 1,
+         "beds": 0,
+         "hdpUrl": "/homedetails/250-N-10th-St-APT-108-Brooklyn-NY-11211/2102815921_zpid/",
+         "lastSoldAt": null,
+         "listing_sub_type": {
+          "is_FSBA": false,
+          "is_FSBO": false,
+          "is_pending": false,
+          "is_newHome": false,
+          "is_foreclosure": false,
+          "is_bankOwned": false,
+          "is_forAuction": false,
+          "is_openHouse": false,
+          "is_comingSoon": false
+         },
+         "sqft": null,
+         "unitVRModel": null,
+         "vrModel": null,
+         "hasApprovedThirdPartyVirtualTour": false,
+         "thirdPartyVirtualTour": null,
+         "availableFrom": "1793516400000",
+         "housingConnector": false,
+         "isRoomForRent": false,
+         "isShowcaseListing": null,
+         "roomForRentDetails": null,
+         "listPriceIncludesRequiredMonthlyFees": false,
+         "baseRent": 4525,
+         "totalRequiredMonthlyMinFee": null,
+         "totalRequiredMonthlyMaxFee": null
+        }
+       ],
+       "floorPlans": null,
+       "detailedPetPolicy": null,
+       "zovInsight": {
+        "tags": [
+         "Deck"
+        ],
+        "tagline": "Grab your shades",
+        "description": [
+         {
+          "text": "This building features access to a deck. Less than ",
+          "bold": false
+         },
+         {
+          "text": "13%",
+          "bold": true
+         },
+         {
+          "text": " of buildings in New York have this amenity.",
+          "bold": false
+         }
+        ]
+       },
+       "photos": [
+        {
+         "caption": null,
+         "photoKey": "1a9ec52d822b671e891ce3653ecf4d9f",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/1a9ec52d822b671e891ce3653ecf4d9f-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/1a9ec52d822b671e891ce3653ecf4d9f-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/1a9ec52d822b671e891ce3653ecf4d9f-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/1a9ec52d822b671e891ce3653ecf4d9f-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/1a9ec52d822b671e891ce3653ecf4d9f-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/1a9ec52d822b671e891ce3653ecf4d9f-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/1a9ec52d822b671e891ce3653ecf4d9f-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "504ec3d5edb6690215828ff60447676f",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/504ec3d5edb6690215828ff60447676f-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/504ec3d5edb6690215828ff60447676f-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/504ec3d5edb6690215828ff60447676f-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/504ec3d5edb6690215828ff60447676f-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/504ec3d5edb6690215828ff60447676f-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/504ec3d5edb6690215828ff60447676f-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/504ec3d5edb6690215828ff60447676f-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "efe9cf339d58fd6f0806aa9507669471",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/efe9cf339d58fd6f0806aa9507669471-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/efe9cf339d58fd6f0806aa9507669471-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/efe9cf339d58fd6f0806aa9507669471-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/efe9cf339d58fd6f0806aa9507669471-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/efe9cf339d58fd6f0806aa9507669471-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/efe9cf339d58fd6f0806aa9507669471-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/efe9cf339d58fd6f0806aa9507669471-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "db41f87d74b7a45b94cb8ed0ea27fab6",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/db41f87d74b7a45b94cb8ed0ea27fab6-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/db41f87d74b7a45b94cb8ed0ea27fab6-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/db41f87d74b7a45b94cb8ed0ea27fab6-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/db41f87d74b7a45b94cb8ed0ea27fab6-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/db41f87d74b7a45b94cb8ed0ea27fab6-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/db41f87d74b7a45b94cb8ed0ea27fab6-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/db41f87d74b7a45b94cb8ed0ea27fab6-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "ec22b9cf2b434b582fcf6d417f821f4d",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/ec22b9cf2b434b582fcf6d417f821f4d-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/ec22b9cf2b434b582fcf6d417f821f4d-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/ec22b9cf2b434b582fcf6d417f821f4d-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/ec22b9cf2b434b582fcf6d417f821f4d-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/ec22b9cf2b434b582fcf6d417f821f4d-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/ec22b9cf2b434b582fcf6d417f821f4d-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/ec22b9cf2b434b582fcf6d417f821f4d-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "94e66355518da848ddafe5229549c573",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/94e66355518da848ddafe5229549c573-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/94e66355518da848ddafe5229549c573-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/94e66355518da848ddafe5229549c573-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/94e66355518da848ddafe5229549c573-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/94e66355518da848ddafe5229549c573-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/94e66355518da848ddafe5229549c573-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/94e66355518da848ddafe5229549c573-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "a1d9b6b9f46d961ed2c334f017359fee",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/a1d9b6b9f46d961ed2c334f017359fee-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/a1d9b6b9f46d961ed2c334f017359fee-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/a1d9b6b9f46d961ed2c334f017359fee-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/a1d9b6b9f46d961ed2c334f017359fee-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/a1d9b6b9f46d961ed2c334f017359fee-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/a1d9b6b9f46d961ed2c334f017359fee-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/a1d9b6b9f46d961ed2c334f017359fee-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "29dd29aeec7a1e3a1b095a0a569551e4",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/29dd29aeec7a1e3a1b095a0a569551e4-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/29dd29aeec7a1e3a1b095a0a569551e4-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/29dd29aeec7a1e3a1b095a0a569551e4-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/29dd29aeec7a1e3a1b095a0a569551e4-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/29dd29aeec7a1e3a1b095a0a569551e4-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/29dd29aeec7a1e3a1b095a0a569551e4-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/29dd29aeec7a1e3a1b095a0a569551e4-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        },
+        {
+         "caption": null,
+         "photoKey": "54921e8761c283c2c855b213585d0201",
+         "mixedSources": {
+          "webp": [
+           {
+            "url": "https://photos.zillowstatic.com/fp/54921e8761c283c2c855b213585d0201-cc_ft_384.webp",
+            "width": 384
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/54921e8761c283c2c855b213585d0201-cc_ft_576.webp",
+            "width": 576
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/54921e8761c283c2c855b213585d0201-cc_ft_768.webp",
+            "width": 768
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/54921e8761c283c2c855b213585d0201-cc_ft_960.webp",
+            "width": 960
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/54921e8761c283c2c855b213585d0201-cc_ft_1152.webp",
+            "width": 1152
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/54921e8761c283c2c855b213585d0201-cc_ft_1344.webp",
+            "width": 1344
+           },
+           {
+            "url": "https://photos.zillowstatic.com/fp/54921e8761c283c2c855b213585d0201-cc_ft_1536.webp",
+            "width": 1536
+           }
+          ]
+         }
+        }
+       ]
+      }
+     }
+    }
+   }
+  }
+ }
+}

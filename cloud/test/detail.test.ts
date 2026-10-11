@@ -1,4 +1,4 @@
-// What a listing's own page (raw.detail, actor/SCHEMA.md) adds: fees classified into real costs,
+// What a listing's own page (raw.detail, docs/crawlers.md) adds: fees classified into real costs,
 // utilities, lease length, floor, page amenities and description, and highlights from sqft.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,6 +37,12 @@ test("the page's own data fills facts", () => {
   assert.equal(f.floor, 4);
   assert.equal(f.noFee, true);
   assert.equal(factsFrom({ detail: { leaseTerms: '1 year' } }).leaseMonths, 12);
+  // Zillow's own wording, on 19 of 30 Williamsburg listings
+  assert.equal(factsFrom({ detail: { pets: 'Cats, Dogs, Small Dogs allowed' } }).pets, 'dogs_and_cats');
+  assert.equal(factsFrom({ detail: { pets: 'Cats allowed' } }).pets, 'cats');
+  assert.equal(factsFrom({ detail: { pets: 'Small dogs allowed' } }).pets, 'dogs');
+  assert.equal(factsFrom({ detail: { pets: 'No Pets' } }).pets, 'none');
+  assert.equal(factsFrom({ body: 'Dogs and cats are welcome here, with a pet rent of $50.' }).pets, 'dogs_and_cats');
   assert.equal(factsFrom({ detail: { brokerFee: '15% of annual rent' } }).noFee, false);
 });
 

@@ -8,12 +8,19 @@
 // (PUT /async-create-search-page-state), fetched from inside the page so it carries the
 // page's cookies; if that fails we navigate to the /N_p/ page URL instead.
 //
+// Listing pages: after a row is found on a search page, its own page (unit /homedetails/ or
+// building /b/ page) is read once and cached in the named key-value store `nest-zillow-details`
+// (one record per zpid / building lotId, reused for 14 days). At most `maxDetails` new pages per
+// run; rows are held in memory and pushed once at the end, each merged with whatever detail is
+// known (fresh, or stale when it couldn't be re-read). Parsing lives in detail.js.
+//
 // Scripts (by default), images, fonts, media, stylesheets and third-party hosts are blocked to keep proxy
 // traffic small. A block (403, or the PerimeterX "press & hold" page) retires the
 // session (new IP + fingerprint) and the request is retried.
 import { Actor, log } from 'apify';
 import { PlaywrightCrawler } from 'crawlee';
 import { mapCard } from './map.js';
+import { parseDetailPage, applyDetail, DETAIL_VERSION } from './detail.js';
 
 await Actor.init();
 const input = (await Actor.getInput()) ?? {};
@@ -21,6 +28,9 @@ const searches = (input.searches ?? []).map((s) => (typeof s === 'string' ? s : 
 const maxItems = input.maxItems ?? 200;
 const maxPages = input.maxPages ?? 5;
 const blockScripts = input.blockScripts ?? true;
+const maxDetails = input.maxDetails ?? 150;
+const detailTtlMs = (input.detailMaxAgeDays ?? 14) * 864e5;
+const saveRawDetails = input.saveRawDetails ?? 0; // debug: save N raw __NEXT_DATA__ payloads to the run's KV store
 if (!searches.length) throw new Error('no searches given');
 
 const proxyConfiguration = await Actor.createProxyConfiguration({
@@ -53,25 +63,98 @@ function withPage(u, n) {
     return url.toString();
 }
 
-let pushed = 0;
+let pushed = 0; // rows accepted (pushed at the end, after details)
+const rows = [];
 const seen = new Set();
 let bytes = 0;
-const stats = { pages: 0, apiPages: 0, blocked: 0 };
+const stats = { pages: 0, apiPages: 0, blocked: 0, detailBlocked: 0, detailsFetched: 0, detailsCached: 0, detailsStale: 0, detailsSkipped: 0, detailsFailed: 0, detailsUnparsed: 0, rawSaved: 0 };
+
+const detailStore = await Actor.openKeyValueStore(input.detailStoreName || 'nest-zillow-details');
+const details = new Map(); // key -> record | null (null = planned, not known yet)
+let detailsQueued = 0;
+
+// one cache record per unit (zpid) or building (lotId); KV keys allow [a-zA-Z0-9!-_.'()]
+function detailKey(r) {
+    const id = r.raw?.isBuilding ? `b${r.raw.buildingId}` : `z${r.sourceId}`;
+    return id.replace(/[^a-zA-Z0-9!\-_.'()]/g, '_').slice(0, 250);
+}
+
+async function planDetail(r) {
+    const key = detailKey(r);
+    if (details.has(key)) return;
+    details.set(key, null);
+    let rec = null;
+    try { rec = await detailStore.getValue(key); } catch { /* treat as missing */ }
+    const age = rec?.fetchedAt ? Date.now() - Date.parse(rec.fetchedAt) : Infinity;
+    if (rec && age < detailTtlMs && (rec.v ?? 0) >= DETAIL_VERSION) {
+        details.set(key, rec);
+        stats.detailsCached++;
+        return;
+    }
+    if (rec) details.set(key, rec); // stale: used if we can't re-read it
+    if (!r.url || detailsQueued >= maxDetails) {
+        if (rec) stats.detailsStale++; else stats.detailsSkipped++;
+        return;
+    }
+    detailsQueued++;
+    await crawler.addRequests([{ url: r.url, uniqueKey: `detail:${key}`, label: 'DETAIL', userData: { key } }]);
+}
 
 async function emit(cards, ctx) {
-    const rows = [];
+    const out = [];
     for (const c of cards ?? []) {
         for (const r of mapCard(c, ctx)) {
             if (seen.has(r.sourceId)) continue;
+            if (pushed + out.length >= maxItems) break;
             seen.add(r.sourceId);
-            rows.push(r);
+            out.push(r);
         }
     }
-    const room = Math.max(0, maxItems - pushed);
-    const out = rows.slice(0, room);
-    if (out.length) await Actor.pushData(out);
+    rows.push(...out);
     pushed += out.length;
+    for (const r of out) await planDetail(r);
     return out.length;
+}
+
+async function readNextData(page, response, session, request) {
+    const status = response?.status() ?? 0;
+    let text = null;
+    try {
+        await page.waitForSelector('#__NEXT_DATA__', { state: 'attached', timeout: 20000 });
+        text = await page.$eval('#__NEXT_DATA__', (e) => e.textContent);
+    } catch { /* handled below */ }
+    if (!text) {
+        const html = await page.content();
+        const blocked = status === 403 || status === 429 || /px-captcha|Access to this page has been denied|press & hold/i.test(html);
+        if (blocked) {
+            if (request.label === 'DETAIL') stats.detailBlocked++; else stats.blocked++;
+        }
+        session?.retire();
+        throw new Error(`${blocked ? 'blocked' : 'no __NEXT_DATA__'} (status ${status}, ${html.length} bytes) on ${request.url}`);
+    }
+    return { text, status };
+}
+
+async function handleDetail({ request, page, response, session }) {
+    const { key } = request.userData;
+    const { text } = await readNextData(page, response, session, request);
+    const data = JSON.parse(text);
+    if (stats.rawSaved < saveRawDetails) {
+        stats.rawSaved++;
+        await Actor.setValue(`RAW-${key}`, data);
+    }
+    const parsed = parseDetailPage(data);
+    if (!parsed) {
+        stats.detailsUnparsed++;
+        log.warning(`detail ${key}: page has neither gdpClientCache property nor gdp.building (${request.url})`);
+        return;
+    }
+    const rec = { v: DETAIL_VERSION, fetchedAt: new Date().toISOString(), url: request.url, kind: parsed.kind, top: parsed.top, detail: parsed.detail };
+    await detailStore.setValue(key, rec);
+    details.set(key, rec);
+    stats.detailsFetched++;
+    log.info(`detail ${key} (${parsed.kind}): ${Object.keys(parsed.detail).join(',')} | top ${Object.keys(parsed.top).join(',')}`);
+    await page.waitForTimeout(500 + Math.random() * 1500);
 }
 
 const crawler = new PlaywrightCrawler({
@@ -115,21 +198,11 @@ const crawler = new PlaywrightCrawler({
             });
         },
     ],
-    async requestHandler({ request, page, response, session }) {
+    async requestHandler(ctx) {
+        if (ctx.request.label === 'DETAIL') return handleDetail(ctx);
+        const { request, page, response, session } = ctx;
         if (pushed >= maxItems) return;
-        const status = response?.status() ?? 0;
-        let text = null;
-        try {
-            await page.waitForSelector('#__NEXT_DATA__', { state: 'attached', timeout: 20000 });
-            text = await page.$eval('#__NEXT_DATA__', (e) => e.textContent);
-        } catch { /* handled below */ }
-        if (!text) {
-            const html = await page.content();
-            const blocked = status === 403 || status === 429 || /px-captcha|Access to this page has been denied|press & hold/i.test(html);
-            if (blocked) stats.blocked++;
-            session?.retire();
-            throw new Error(`${blocked ? 'blocked' : 'no __NEXT_DATA__'} (status ${status}, ${html.length} bytes) on ${request.url}`);
-        }
+        const { text, status } = await readNextData(page, response, session, request);
         const sps = JSON.parse(text)?.props?.pageProps?.searchPageState;
         const cat = sps?.cat1;
         if (!cat?.searchResults) {
@@ -178,11 +251,17 @@ const crawler = new PlaywrightCrawler({
         }
     },
     failedRequestHandler({ request }, err) {
+        if (request.label === 'DETAIL') stats.detailsFailed++;
         log.warning(`gave up on ${request.url}: ${err.message}`);
     },
 });
 
 await crawler.run(searches.map((s) => ({ url: withPage(s, 1), uniqueKey: `${s}#1`, userData: { search: s, page: 1 } })));
-log.info(`done: ${pushed} rows, ${stats.pages} pages loaded, ${stats.apiPages} api pages, ${stats.blocked} blocks, ~${(bytes / 1e6).toFixed(2)} MB transferred`);
-await Actor.setValue('STATS', { pushed, ...stats, bytes });
+
+// merge details (fresh, cached, or stale fallback) and push every row once
+const out = rows.map((r) => applyDetail(r, details.get(detailKey(r))));
+for (let i = 0; i < out.length; i += 500) await Actor.pushData(out.slice(i, i + 500));
+const withDetail = out.filter((r) => r.raw?.detail).length;
+log.info(`done: ${pushed} rows (${withDetail} with detail), ${stats.pages} pages loaded, ${stats.apiPages} api pages, ${stats.blocked} search blocks; details: ${stats.detailsFetched} fetched, ${stats.detailsCached} cached, ${stats.detailsStale} stale reused, ${stats.detailsSkipped} over cap, ${stats.detailsFailed} failed, ${stats.detailsUnparsed} unparsed, ${stats.detailBlocked} blocks; ~${(bytes / 1e6).toFixed(2)} MB transferred`);
+await Actor.setValue('STATS', { pushed, withDetail, ...stats, bytes });
 await Actor.exit();

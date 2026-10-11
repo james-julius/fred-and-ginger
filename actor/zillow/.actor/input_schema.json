@@ -28,6 +28,14 @@
       "maximum": 20,
       "description": "Zillow shows about 41 results per page and stops at 20 pages."
     },
+    "maxDetails": {
+      "title": "Max listing pages per run",
+      "type": "integer",
+      "default": 150,
+      "minimum": 0,
+      "maximum": 1000,
+      "description": "Each row's own listing page (unit or building page) is read once for description, amenities, pets, laundry, fees, sqft, etc. and cached for 14 days in the key-value store 'nest-zillow-details'. This caps NEW page reads per run; rows beyond the cap go out with cached detail if any, and get read on a later run. 0 = cache only."
+    },
     "proxyCountry": {
       "title": "Residential proxy country",
       "type": "string",
@@ -40,6 +48,22 @@
       "type": "boolean",
       "default": true,
       "description": "Load only the server-rendered HTML, no JavaScript (about 10x less proxy traffic; tested working incl. page 2+). Turn off if Zillow starts serving bot checks."
+    },
+    "detailStoreName": {
+      "title": "Detail cache store",
+      "type": "string",
+      "editor": "textfield",
+      "default": "nest-zillow-details",
+      "description": "Named key-value store holding one cached listing-page record per unit (z<zpid>) or building (b<lotId>).",
+      "sectionCaption": "Advanced"
+    },
+    "saveRawDetails": {
+      "title": "Save raw listing pages (debug)",
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 50,
+      "description": "Save the first N listing pages' raw __NEXT_DATA__ JSON to the run's default key-value store as RAW-<key>, for building test fixtures."
     }
   },
   "required": [
