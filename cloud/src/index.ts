@@ -9,6 +9,7 @@ import { v2 } from './v2';
 import { sendDueAlerts } from './alerts';
 import { refreshFacts } from './facts';
 import { checkAreas } from './safety';
+import { photosOf, savePhotos, servePhoto } from './photos';
 
 const USERS = ['james', 'erin'] as const;
 const NAMES: Record<string, string> = { james: 'James', erin: 'Erin' };
@@ -117,7 +118,7 @@ async function listings(env: Env, me: string, q: URLSearchParams) {
     listings: rows.results.map((r) => {
       const rep = r.breport ? JSON.parse(r.breport) : null;
       delete r.breport;
-      return { ...r, photos: JSON.parse(r.photos || '[]'), price_history: JSON.parse(r.price_history || '[]'), open_house: JSON.parse(r.open_house || 'null'),
+      return { ...r, photos: photosOf(r.photos), price_history: JSON.parse(r.price_history || '[]'), open_house: JSON.parse(r.open_house || 'null'),
                building: rep ? { score: rep.score, flags: rep.flags.slice(0, 4), good: rep.good, owner: rep.facts?.owner, agent: rep.facts?.managing_agent, units: rep.facts?.units } : null,
                sources: by[r.id] || [] };
     }),
@@ -183,6 +184,8 @@ export default {
       if (id) ctx.waitUntil(finishRun(env, id).then(async () => { for (let i = 0; i < 2 && (await ingestBatch(env))?.done === false; i++); }));
       return json({ ok: true });
     }
+    // listing photos from sites that block other pages from showing them (src/photos.ts); public for alert emails
+    if (url.pathname === '/api/photo' && req.method === 'GET') return servePhoto(req, env.PHOTOS);
     if (url.pathname === '/login') {
       if (req.method === 'POST') return login(req, env);
       return new Response(LOGIN(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
@@ -203,7 +206,7 @@ export default {
     await env.DB.prepare(`INSERT OR REPLACE INTO meta VALUES ('cron:' || ?, ?)`).bind(ev.cron, new Date().toISOString()).run();
     // area safety: two NYPD queries per ~100 m cell, on its own trigger so it has its own request budget;
     // and strong-fit email alerts (src/alerts.ts)
-    if (ev.cron === '*/5 * * * *') ctx.waitUntil(Promise.all([checkAreas(env.DB, 20), sendDueAlerts(env).then((r) => r.some((x) => x.sent || x.error) && console.log('alerts', JSON.stringify(r)))]));
+    if (ev.cron === '*/5 * * * *') ctx.waitUntil(Promise.all([checkAreas(env.DB, 20), savePhotos(env.DB, env.PHOTOS), sendDueAlerts(env).then((r) => r.some((x) => x.sent || x.error) && console.log('alerts', JSON.stringify(r)))]));
     // ~50 outbound requests per invocation: one dataset page, then geocodes, then building checks
     else ctx.waitUntil((async () => {
       const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3);

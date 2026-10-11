@@ -9,6 +9,7 @@ import { nearby, transitLabel } from './transit';
 import { cellOf, toSafety } from './safety';
 import { costsOf, feeCallout, highlights, scamSigns, typicalKey, typicalRents, type Facts } from './facts';
 import { dealbreakerWhere } from './filter';
+import { photosOf } from './photos';
 
 type Search = z.infer<typeof S.Search>;
 type VerdictKind = z.infer<typeof S.Verdict>['kind'];
@@ -60,7 +61,7 @@ function card(r: any, s: Search, now: number, typical: number | null, safer = fa
     id: `op_${r.id}`, listingId: r.id, foundAt: new Date(found || now).toISOString(), seen: now - found > FRESH_MS,
     status: v.kind === 'likely_scam' ? 'hidden' : 'new', price: r.price, totalMonthly: costsOf(r.price, null, r.no_fee, json<Facts | null>(r.facts, null)).totalMonthly,
     area: r.neighbourhood ?? r.borough ?? 'New York', beds: r.beds ?? 0, baths: r.baths, sqft: r.sqft ?? null,
-    transit: nearby(r.lat, r.lon)[0] ?? null, highlight: v.highlight, thumbnail: json<string[]>(r.photos, [])[0] ?? null,
+    transit: nearby(r.lat, r.lon)[0] ?? null, highlight: v.highlight, thumbnail: photosOf(r.photos)[0] ?? null,
     fit: Math.max(0, Math.min(100, Math.round(v.fit))), verdict: { kind: v.kind, label, tone, reason: v.reason }, feeCallout: feeCallout(r.no_fee, json<Facts | null>(r.facts, null)),
   };
 }
