@@ -13,10 +13,17 @@ export type Pin = { id: string; lat: number; lon: number; label: string; unread:
 const STYLE = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
 const MANHATTAN: [number, number] = [-73.9712, 40.7831];
 
-// A map that follows light and dark mode. Returns it with its cleanup.
+// A map that follows light and dark mode. Returns it with its cleanup, or null if the browser can't draw one:
+// MapLibre needs WebGL2, which some browsers and locked-down machines don't have.
 function mount(container: HTMLElement, options: Omit<MapOptions, "container" | "style">) {
   const dark = window.matchMedia("(prefers-color-scheme: dark)");
-  const m = new MapLibreMap({ container, style: dark.matches ? STYLE.dark : STYLE.light, attributionControl: { compact: true }, ...options });
+  let m: MapLibreMap;
+  try {
+    m = new MapLibreMap({ container, style: dark.matches ? STYLE.dark : STYLE.light, attributionControl: { compact: true }, ...options });
+  } catch (e) {
+    console.warn("Couldn't draw the map:", e);
+    return null;
+  }
   const restyle = () => m.setStyle(dark.matches ? STYLE.dark : STYLE.light);
   dark.addEventListener("change", restyle);
   const remove = () => {
@@ -24,6 +31,15 @@ function mount(container: HTMLElement, options: Omit<MapOptions, "container" | "
     m.remove();
   };
   return { map: m, remove };
+}
+
+// A note in the map's place when there's no map, so the rest of the page carries on. Returns its cleanup.
+function unavailable(container: HTMLElement, text: string) {
+  const note = document.createElement("p");
+  note.className = "grid size-full place-items-center bg-muted p-4 text-center text-sm text-muted-foreground";
+  note.textContent = text;
+  container.replaceChildren(note);
+  return () => note.remove();
 }
 
 const pinClass = (p: Pin) =>
@@ -37,6 +53,7 @@ const pinClass = (p: Pin) =>
 export default function PlacesMap({ pins, onOpen }: { pins: Pin[]; onOpen: (id: string) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
+  const framed = useRef(false);
   const open = useRef(onOpen);
   useEffect(() => {
     open.current = onOpen;
@@ -44,15 +61,17 @@ export default function PlacesMap({ pins, onOpen }: { pins: Pin[]; onOpen: (id: 
 
   // One map for the life of the view.
   useEffect(() => {
-    const { map: m, remove } = mount(box.current!, { center: MANHATTAN, zoom: 11 });
-    map.current = m;
+    const mounted = mount(box.current!, { center: MANHATTAN, zoom: 11 });
+    if (!mounted) return unavailable(box.current!, "This browser can’t show maps. Switch to List to see these places.");
+    map.current = mounted.map;
+    framed.current = false;
     return () => {
-      remove();
+      mounted.remove();
       map.current = null;
     };
   }, []);
 
-  // A pill per place, and frame them all.
+  // A pill per place. Frame them all the first time only, so opening, saving or passing one leaves the map where you put it.
   useEffect(() => {
     const m = map.current;
     if (!m) return;
@@ -72,10 +91,11 @@ export default function PlacesMap({ pins, onOpen }: { pins: Pin[]; onOpen: (id: 
       el.append(pill);
       return new Marker({ element: el, anchor: "bottom" }).setLngLat([p.lon, p.lat]).addTo(m);
     });
-    if (pins.length) {
+    if (pins.length && !framed.current) {
       const bounds = new LngLatBounds();
       for (const p of pins) bounds.extend([p.lon, p.lat]);
       m.fitBounds(bounds, { padding: 72, maxZoom: 15, duration: 0 });
+      framed.current = true;
     }
     return () => markers.forEach((mk) => mk.remove());
   }, [pins]);
@@ -90,7 +110,7 @@ export default function PlacesMap({ pins, onOpen }: { pins: Pin[]; onOpen: (id: 
 export function MiniMap({ lat, lon }: { lat: number; lon: number }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const { map: m, remove } = mount(box.current!, {
+    const mounted = mount(box.current!, {
       center: [lon, lat],
       zoom: 14,
       scrollZoom: false,
@@ -99,6 +119,8 @@ export function MiniMap({ lat, lon }: { lat: number; lon: number }) {
       pitchWithRotate: false,
       touchPitch: false,
     });
+    if (!mounted) return unavailable(box.current!, "This browser can’t show maps. Try the Google Maps link.");
+    const { map: m, remove } = mounted;
     m.touchZoomRotate.disableRotation();
     m.addControl(new NavigationControl({ showCompass: false }), "top-right");
     // The credits start open until you move the map. Fold them to the ⓘ so they don't cover it.

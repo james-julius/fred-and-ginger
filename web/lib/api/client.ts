@@ -1,6 +1,6 @@
 "use client";
 
-import useSWR, { mutate } from "swr";
+import useSWR, { mutate, useSWRConfig } from "swr";
 import type { components } from "./schema.gen";
 
 // Types come from James's contract (packages/api). Regenerate with `npm run gen:api` at the repo root.
@@ -25,31 +25,56 @@ const get = <T,>(path: string) => api<T>(path);
 // Don't keep retrying when you're signed out; the app shows the sign-in screen instead.
 const opts = { revalidateOnFocus: false, shouldRetryOnError: (err: unknown) => !(err instanceof SignedOutError) };
 
+// The API pages long lists (nextCursor). The inbox sorts, groups and steps through the whole list, so follow the pages to the end.
+async function everyPage(path: string): Promise<S["OpportunityCard"][]> {
+  const items: S["OpportunityCard"][] = [];
+  let cursor: string | null = null;
+  do {
+    const page: S["OpportunityPage"] = await api(cursor ? `${path}&cursor=${encodeURIComponent(cursor)}` : path);
+    items.push(...page.items);
+    cursor = page.items.length ? page.nextCursor : null;
+  } while (cursor);
+  return items;
+}
+
 export const useMe = () => useSWR<S["Me"]>("/api/me", get, opts);
 export const useSearch = () => useSWR<S["Search"]>("/api/search", get, opts);
+/** Every place in a view, newest first. */
 export const useOpportunities = (view: "new" | "saved" | "hidden" | "all" = "new") =>
-  useSWR<S["OpportunityPage"]>(`/api/opportunities?view=${view}`, get, opts);
+  useSWR(`/api/opportunities?view=${view}&limit=100`, everyPage, opts);
 export const useOpportunity = (id: string | null) => useSWR<S["OpportunityDetail"]>(id ? `/api/opportunities/${id}` : null, get, opts);
-export const useTours = () => useSWR<S["Tour"][]>("/api/tours?when=upcoming", get, opts);
+export const useTours = (when: "upcoming" | "past" | "all" = "upcoming") => useSWR<S["Tour"][]>(`/api/tours?when=${when}`, get, opts);
+export const usePacket = () => useSWR<S["Packet"]>("/api/packet", get, opts);
 export const useMemory = () => useSWR<S["MemoryList"]>("/api/memory", get, opts);
 export const useThreads = () => useSWR<S["Thread"][]>("/api/threads", get, opts);
 export const useThread = (id: string | null) =>
   useSWR<{ thread: S["Thread"]; messages: unknown[] }>(id ? `/api/threads/${id}` : null, get, opts);
 
 /**
- * Where each place is, for the map. Cards don't carry coordinates yet, so this reads each place's
- * detail, which does, and keeps those details for the listing modal so opening one is instant.
+ * Where each place is, for the map, or null if it has no location. Cards don't carry coordinates yet, so this reads each
+ * place's detail, which does, and keeps those details for the listing modal so opening one is instant. A place never
+ * moves, so a detail already fetched is reused, and saving or passing one doesn't look the rest up again.
  */
-export const usePlaceLocations = (ids: string[]) =>
-  useSWR(
+export function usePlaceLocations(ids: string[]) {
+  const { cache } = useSWRConfig();
+  return useSWR(
     ids.length ? ["locations", ...ids] : null,
     async () => {
-      const details = await Promise.all(ids.map((id) => api<S["OpportunityDetail"]>(`/api/opportunities/${id}`).catch(() => null)));
-      for (const d of details) if (d) void mutate(`/api/opportunities/${d.id}`, d, { revalidate: false });
-      return Object.fromEntries(details.flatMap((d) => (d?.location ? [[d.id, d.location] as const] : [])));
+      const detail = async (id: string) => {
+        const key = `/api/opportunities/${id}`;
+        const known = cache.get(key)?.data as S["OpportunityDetail"] | undefined;
+        if (known) return known;
+        const d = await api<S["OpportunityDetail"]>(key).catch(() => null);
+        if (d) void mutate(key, d, { revalidate: false });
+        return d;
+      };
+      const details = await Promise.all(ids.map(detail));
+      return Object.fromEntries(ids.map((id, i) => [id, details[i]?.location ?? null]));
     },
-    opts,
+    // Keep the pins up while a changed list is looked up, instead of starting the map over.
+    { ...opts, keepPreviousData: true },
   );
+}
 
 /** Save, pass, hide or mark seen, then refresh the inbox and the sidebar counts. */
 export async function updateOpportunity(id: string, patch: S["OpportunityPatch"]) {
@@ -63,6 +88,20 @@ export async function updateMe(patch: S["MePatch"]) {
   const me = await api<S["Me"]>("/api/me", { method: "PATCH", body: JSON.stringify(patch) });
   await mutate("/api/me", me, { revalidate: false });
   return me;
+}
+
+/** How Fred tells you about new places. The mode shows on /api/me, so refresh that. */
+export async function updateAlerts(patch: S["AlertsPatch"]) {
+  const alerts = await api<S["Alerts"]>("/api/alerts", { method: "PATCH", body: JSON.stringify(patch) });
+  await mutate("/api/me");
+  return alerts;
+}
+
+/** A tour's status, time or notes. The sidebar counts upcoming tours, so refresh /api/me too. */
+export async function updateTour(id: string, patch: S["TourPatch"]) {
+  const tour = await api<S["Tour"]>(`/api/tours/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  await mutate((key) => typeof key === "string" && (key.startsWith("/api/tours") || key === "/api/me"));
+  return tour;
 }
 
 /** What you're looking for. Changing it changes the inbox, so refresh that too. */
@@ -85,6 +124,10 @@ export async function forgetMemory(id: string) {
   await mutate("/api/memory");
 }
 
-/** After anything that can change the inbox or your profile: a vote, a chat reply that edits the search or Fred's notes. */
+/** After anything that can change the inbox or your profile: a vote, a chat reply that edits the search, a tour or Fred's notes. */
 export const refreshPlaces = () =>
-  mutate((key) => typeof key === "string" && (key.startsWith("/api/opportunities") || ["/api/me", "/api/search", "/api/memory"].includes(key)));
+  mutate(
+    (key) =>
+      typeof key === "string" &&
+      (key.startsWith("/api/opportunities") || key.startsWith("/api/tours") || ["/api/me", "/api/search", "/api/memory"].includes(key)),
+  );

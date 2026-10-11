@@ -1,15 +1,34 @@
 "use client";
 
-import { Bell, CalendarDays, ChevronRight, List, Map as MapIcon } from "lucide-react";
+import { Bell, Check, List, Map as MapIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BuildingTile } from "@/components/building-tile";
-import { useMe, useOpportunities, usePlaceLocations, useTours, type S } from "@/lib/api/client";
-import { alertsLabel, buildingType, dayLabel, money, photoAt, toneClass, tourTime, transitText } from "@/lib/format";
+import { updateAlerts, useMe, useOpportunities, usePlaceLocations, type S } from "@/lib/api/client";
+import { alertsLabel, buildingType, money, photoAt, toneClass, transitText } from "@/lib/format";
+import { arrange, isHidden, type Sort } from "./arrange";
 import type { Pin } from "./places-map";
 
 export type View = "list" | "map";
+export type PlaceList = "new" | "saved" | "passed";
+
+const LISTS: Record<PlaceList, { title: string; loading: string; empty: string }> = {
+  new: { title: "New places", loading: "Loading new places…", empty: "Nothing new yet. Fred is watching and will add places here as they come up." },
+  saved: { title: "Saved", loading: "Loading saved places…", empty: "Nothing saved yet. Save a place you like and it stays here." },
+  passed: {
+    title: "Passed",
+    loading: "Loading places you passed on…",
+    empty: "You haven’t passed on anything. Places you pass on wait here in case you change your mind.",
+  },
+};
+
+/** The places in one list. The API has no passed view yet (board #37), so Passed is every place, filtered. */
+export function usePlaces(list: PlaceList) {
+  const { data, error } = useOpportunities(list === "passed" ? "all" : list);
+  const items = useMemo(() => (list === "passed" ? data?.filter((c) => c.status === "passed") : data), [data, list]);
+  return { items, error };
+}
 
 // The map library is big, so it only loads when you switch to Map.
 const PlacesMap = dynamic(() => import("./places-map"), {
@@ -17,83 +36,58 @@ const PlacesMap = dynamic(() => import("./places-map"), {
   loading: () => <p className="p-4 text-sm text-muted-foreground">Loading the map…</p>,
 });
 
-const isHidden = (c: S["OpportunityCard"]) => c.status === "hidden" || c.verdict.kind === "likely_scam";
-
-export function Inbox({ onOpen, openId, view, onView }: {
+export function Inbox({ list = "new", onOpen, openId, view, onView, sort, onSort }: {
+  list?: PlaceList;
   onOpen: (id: string) => void;
   openId: string | null;
   view: View;
   onView: (view: View) => void;
+  sort: Sort;
+  onSort: (sort: Sort) => void;
 }) {
-  const { data: page, error } = useOpportunities("new");
+  const { items, error } = usePlaces(list);
   const { data: me } = useMe();
-  const { data: tours } = useTours();
-  const nextTour = tours?.find((t) => t.startsAt && t.status !== "cancelled");
-
-  // Group by the day Fred found each place, newest first (the API sends them in that order).
-  const groups: { day: string; items: S["OpportunityCard"][] }[] = [];
-  for (const card of page?.items ?? []) {
-    const day = dayLabel(card.foundAt);
-    if (groups.at(-1)?.day === day) groups.at(-1)!.items.push(card);
-    else groups.push({ day, items: [card] });
-  }
+  const groups = arrange(items ?? [], sort);
+  const copy = LISTS[list];
 
   return (
     <section
-      aria-label="New places"
+      aria-label={copy.title}
       className={`bg-background px-4 py-5 lg:min-h-0 lg:px-7 ${view === "map" ? "flex flex-col lg:overflow-hidden" : "lg:overflow-y-auto"}`}
     >
       <div className="mx-auto grid w-full max-w-3xl gap-[18px]">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-xl font-semibold tracking-tight">New places</h1>
-          <div role="group" aria-label="Show places as" className="ml-auto inline-flex rounded-lg border p-0.5">
-            {(["list", "map"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={view === v}
-                onClick={() => onView(v)}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] font-medium ${
-                  view === v ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {v === "list" ? <List size={14} strokeWidth={1.25} aria-hidden /> : <MapIcon size={14} strokeWidth={1.25} aria-hidden />}
-                {v === "list" ? "List" : "Map"}
-              </button>
-            ))}
+        <div className="grid gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-semibold tracking-tight">{copy.title}</h1>
+            <div role="group" aria-label="Show places as" className="ml-auto inline-flex rounded-lg border p-0.5">
+              {(["list", "map"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={view === v}
+                  onClick={() => onView(v)}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] font-medium ${
+                    view === v ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {v === "list" ? <List size={14} strokeWidth={1.25} aria-hidden /> : <MapIcon size={14} strokeWidth={1.25} aria-hidden />}
+                  {v === "list" ? "List" : "Map"}
+                </button>
+              ))}
+            </div>
+            {me && list === "new" && <AlertsMenu mode={me.alerts.mode} />}
           </div>
-          {me && (
-            <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[13px] font-medium text-muted-foreground hover:text-foreground">
-              <Bell size={14} strokeWidth={1.25} aria-hidden />
-              {alertsLabel[me.alerts.mode]}
-            </button>
-          )}
+          {view === "list" && items && items.length > 1 && <SortPills sort={sort} onSort={onSort} />}
         </div>
 
-        {nextTour?.startsAt && (
-          <button
-            type="button"
-            onClick={() => onOpen(nextTour.opportunityId)}
-            className="flex items-center gap-2.5 rounded-[10px] border px-3.5 py-2.5 text-left text-[13.5px] hover:bg-muted/60"
-          >
-            <CalendarDays size={16} strokeWidth={1.25} aria-hidden />
-            <span>
-              <b className="font-semibold">Tour {tourTime(nextTour.startsAt).replace(/^(Today|Tomorrow)/, (d) => d.toLowerCase())}</b> · {nextTour.address}
-            </span>
-            <ChevronRight size={14} strokeWidth={1.25} className="ml-auto text-muted-foreground" aria-hidden />
-          </button>
-        )}
-
-        {error && <p className="text-sm text-destructive">Couldn’t load new places. Try refreshing.</p>}
-        {!page && !error && <p className="text-sm text-muted-foreground">Loading new places…</p>}
-        {page && page.items.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nothing new yet. Fred is watching and will add places here as they come up.</p>
-        )}
+        {error && <p className="text-sm text-destructive">Couldn’t load these places. Try refreshing.</p>}
+        {!items && !error && <p className="text-sm text-muted-foreground">{copy.loading}</p>}
+        {items?.length === 0 && <p className="text-sm text-muted-foreground">{copy.empty}</p>}
 
         {view === "list" &&
-          groups.map(({ day, items }) => (
-            <div key={day} className="grid gap-2">
-              <h2 className="mt-1 text-sm font-semibold text-muted-foreground">{day}</h2>
+          groups.map(({ label, items }) => (
+            <div key={label} className="grid gap-2">
+              {label && <h2 className="mt-1 text-sm font-semibold text-muted-foreground">{label}</h2>}
               <ul className="overflow-hidden rounded-xl border">
                 {items.map((card) => (
                   <li key={card.id} className="border-t first:border-t-0">
@@ -105,13 +99,130 @@ export function Inbox({ onOpen, openId, view, onView }: {
           ))}
       </div>
 
-      {view === "map" && page && page.items.length > 0 && <MapView cards={page.items} openId={openId} onOpen={onOpen} />}
+      {view === "map" && !!items?.length && <MapView cards={items} openId={openId} onOpen={onOpen} />}
     </section>
   );
 }
 
+const ALERT_MODES: { mode: S["AlertMode"]; label: string; hint: string }[] = [
+  { mode: "instant_strong", label: "Strong fits right away", hint: "An email as soon as Fred finds a strong fit" },
+  { mode: "daily", label: "One daily digest", hint: "Everything new in one email a day. Coming soon." },
+  { mode: "off", label: "Off", hint: "Only here in the app" },
+];
+
+/**
+ * How Fred tells you about new places. Only the mode here for now; Fred sets up the email address and
+ * its code in the chat (board #33). An email step in this menu needs the v5 contract merged from main.
+ */
+function AlertsMenu({ mode }: { mode: S["AlertMode"] }) {
+  const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  // Close on a click outside or Escape.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const escape = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  const pick = async (next: S["AlertMode"]) => {
+    setOpen(false);
+    if (next === mode) return;
+    setFailed(false);
+    try {
+      await updateAlerts({ mode: next });
+    } catch {
+      setFailed(true);
+    }
+  };
+
+  return (
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[13px] font-medium text-muted-foreground hover:text-foreground"
+      >
+        <Bell size={14} strokeWidth={1.25} aria-hidden />
+        {alertsLabel[mode]}
+      </button>
+      {open && (
+        <div role="group" aria-label="Alerts" className="absolute right-0 z-30 mt-1.5 grid w-72 gap-0.5 rounded-xl border bg-background p-1.5 shadow-lg">
+          {ALERT_MODES.map((m) => (
+            <button
+              key={m.mode}
+              type="button"
+              aria-pressed={m.mode === mode}
+              onClick={() => pick(m.mode)}
+              className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-muted"
+            >
+              <Check size={14} strokeWidth={1.75} className={`mt-[3px] shrink-0 ${m.mode === mode ? "" : "invisible"}`} aria-hidden />
+              <span>
+                <span className="block text-[13.5px] font-medium">{m.label}</span>
+                <span className="block text-[12.5px] text-muted-foreground">{m.hint}</span>
+              </span>
+            </button>
+          ))}
+          <p className="mt-1 border-t px-2.5 pt-2 pb-1 text-[12px] text-muted-foreground">
+            Alerts come by email. To set yours up, tell Fred your email address in the chat.
+          </p>
+        </div>
+      )}
+      {failed && (
+        <p role="status" className="absolute right-0 mt-1 text-xs whitespace-nowrap text-destructive">
+          Couldn’t change your alerts. Try again.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Newest keeps Fred's day groups. Tapping Price again flips it between low to high and high to low. */
+function SortPills({ sort, onSort }: { sort: Sort; onSort: (sort: Sort) => void }) {
+  const pills: { key: string; label: string; active: boolean; next: Sort }[] = [
+    { key: "newest", label: "Newest", active: sort === "newest", next: "newest" },
+    {
+      key: "price",
+      label: sort === "price-up" ? "Price: low to high" : sort === "price-down" ? "Price: high to low" : "Price",
+      active: sort === "price-up" || sort === "price-down",
+      next: sort === "price-up" ? "price-down" : "price-up",
+    },
+    { key: "fit", label: "Best fit", active: sort === "fit", next: "fit" },
+    { key: "area", label: "Neighborhood", active: sort === "area", next: "area" },
+  ];
+  return (
+    <div role="group" aria-label="Sort places" className="flex flex-wrap gap-1.5">
+      {pills.map((p) => (
+        <button
+          key={p.key}
+          type="button"
+          aria-pressed={p.active}
+          onClick={() => onSort(p.next)}
+          className={`rounded-full border px-3 py-1 text-[13px] font-medium ${
+            p.active ? "border-foreground bg-foreground text-background" : "text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+          }`}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Cards don't carry coordinates yet, so every pin costs a lookup of its own. Map the newest ones until they do (board #44).
+const MAP_MAX = 30;
+
 function MapView({ cards, openId, onOpen }: { cards: S["OpportunityCard"][]; openId: string | null; onOpen: (id: string) => void }) {
-  const shown = useMemo(() => cards.filter((c) => !isHidden(c)), [cards]); // a likely scam's address isn't worth mapping
+  const mappable = useMemo(() => cards.filter((c) => !isHidden(c)), [cards]); // a likely scam's address isn't worth mapping
+  const shown = useMemo(() => mappable.slice(0, MAP_MAX), [mappable]);
   const { data: locations } = usePlaceLocations(shown.map((c) => c.id));
   const pins = useMemo<Pin[]>(
     () =>
@@ -123,12 +234,18 @@ function MapView({ cards, openId, onOpen }: { cards: S["OpportunityCard"][]; ope
       }),
     [shown, locations, openId],
   );
-  const missing = locations ? shown.length - pins.length : 0;
+  const missing = shown.filter((c) => locations?.[c.id] === null).length;
 
   return (
     <div className="mx-auto mt-[18px] grid w-full max-w-3xl gap-2 lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)_auto]">
       <div className="relative h-[65vh] overflow-hidden rounded-xl border bg-muted lg:h-auto lg:min-h-[420px]">
-        {locations ? <PlacesMap pins={pins} onOpen={onOpen} /> : <p className="p-4 text-sm text-muted-foreground">Finding where everything is…</p>}
+        {/* The map loads while the places are looked up, and the pins drop in when they're found. */}
+        <PlacesMap pins={pins} onOpen={onOpen} />
+        {!locations && (
+          <p role="status" className="absolute top-3 left-3 rounded-lg border bg-background px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
+            Finding where everything is…
+          </p>
+        )}
       </div>
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
@@ -141,13 +258,18 @@ function MapView({ cards, openId, onOpen }: { cards: S["OpportunityCard"][]; ope
           <span className="size-2.5 rounded-full border border-warning bg-background" aria-hidden /> Over budget
         </span>
         {missing > 0 && <span>{missing === 1 ? "1 place has" : `${missing} places have`} no map location</span>}
+        {mappable.length > shown.length && (
+          <span>
+            Showing the {shown.length} newest of {mappable.length}. List has them all.
+          </span>
+        )}
       </p>
     </div>
   );
 }
 
 function Row({ card, unread, onOpen }: { card: S["OpportunityCard"]; unread: boolean; onOpen: () => void }) {
-  const hidden = card.status === "hidden" || card.verdict.kind === "likely_scam";
+  const hidden = isHidden(card);
   const facts = hidden
     ? card.verdict.reason
     : [`${card.beds} bed${card.baths != null ? `, ${card.baths} bath` : ""}`, card.transit && transitText(card.transit), card.highlight, card.feeCallout?.label]
