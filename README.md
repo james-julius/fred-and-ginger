@@ -76,7 +76,8 @@ The routes and data shapes the app and the Worker agree on, written once as Zod 
 - **Source:** `packages/api/src/schemas.ts` (shapes) and `routes.ts` (every route). The Worker implements them in `cloud/src/v2.ts`, and TypeScript rejects a handler whose response doesn't match.
 - **Generated:** `npm run gen:api` at the repo root writes `packages/api/openapi.json` and `web/lib/api/schema.gen.ts`. Commit both; `npm run check:api` fails if they're out of date.
 - **In the app:** `import type { components } from '@/lib/api/schema.gen'`, then `components['schemas']['OpportunityCard']` and so on. The chat parts are there too: `DataSearchUpdated`, `DataScan`, `DataSuggestions`, `DataWatch`.
-- **Example data for now:** every route serves the mockup's examples (`packages/api/src/fixtures.ts`), marked with an `X-Fred-Data: example` header. `POST /api/chat` streams the mockup's chat turn in the AI SDK format, so `useChat` works against it. Routes switch to real data one at a time without changing shape.
+- **Real data:** the places routes (`/api/opportunities*`, and the counts in `/api/me`) serve real listings from D1 (`cloud/src/places.ts`): everything that passes the person's dealbreakers, the places Fred added, and anything they saved or passed on, marked `X-Fred-Data: real`. Saving or passing also writes the old grid's `votes` table, and a vote there shows in the app.
+- **Example data for the rest:** the other routes still serve the mockup's examples (`packages/api/src/fixtures.ts`), marked with an `X-Fred-Data: example` header. `POST /api/chat` streams the mockup's chat turn in the AI SDK format, so `useChat` works against it. Routes switch to real data one at a time without changing shape.
 - **Local:** `npm install` at the repo root (it's an npm workspace with `cloud` and `packages/*`; `web` keeps its own install), then `cd cloud && npx wrangler dev`.
 
 ## Crawlers (actor/)

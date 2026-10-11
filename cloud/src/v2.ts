@@ -1,6 +1,7 @@
-// The Fred API: every route in packages/api/src/routes.ts. For now each one is canned (mock.ts):
-// the example data from packages/api plus each person's changes, marked with an
-// X-Fred-Data: example header. Handlers move to Postgres one by one; the contract stays the same.
+// The Fred API: every route in packages/api/src/routes.ts. Places (and the counts in /api/me) come
+// from the real listings in D1 (places.ts) and say X-Fred-Data: real. The rest are still canned
+// (mock.ts): the example data plus each person's changes, marked X-Fred-Data: example. Handlers
+// move over one by one; the contract stays the same.
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
 import { swaggerUI } from '@hono/swagger-ui';
@@ -12,6 +13,7 @@ import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-con
 import { toAISdkStream } from '@mastra/ai-sdk';
 import { fred, DEFAULT_MODEL } from './agent/fred';
 import { detail } from './agent/listings';
+import { counts, inbox, vote } from './places';
 
 const hasModelKey = (e: Env) => !!(e.ANTHROPIC_API_KEY || e.OPENAI_API_KEY || e.GOOGLE_GENERATIVE_AI_API_KEY);
 
@@ -22,19 +24,29 @@ export const v2 = new OpenAPIHono<Ctx>({
   defaultHook: (result, c) => { if (!result.success) return c.json({ error: result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }, 400); },
 });
 
-v2.use('*', async (c, next) => { await next(); c.header('X-Fred-Data', 'example'); c.header('Cache-Control', 'no-store'); });
+v2.use('*', async (c, next) => { await next(); if (!c.res.headers.has('X-Fred-Data')) c.header('X-Fred-Data', 'example'); c.header('Cache-Control', 'no-store'); });
+const real = (c: { header(k: string, v: string): void }) => c.header('X-Fred-Data', 'real');
 
 const notFound = { error: 'not found' } as const;
 const state = (c: { env: Ctx['Bindings'] }) => load(c.env.DB, c.env.ME);
 const store = (c: { env: Ctx['Bindings'] }, st: Awaited<ReturnType<typeof load>>) => save(c.env.DB, c.env.ME, st);
+/** this person's state, the canned view, and their real inbox */
+const places = async (c: { env: Ctx['Bindings'] }) => {
+  const st = await state(c), v = view(st);
+  return { st, v, cards: await inbox(c.env.DB, c.env.ME, st, v.search) };
+};
 
 /* you */
-v2.openapi(R.getMe, async (c) => c.json(meFor(await state(c), c.env.ME), 200));
+const meWithCounts = async (c: { env: Ctx['Bindings'] }, st: Awaited<ReturnType<typeof load>>) => {
+  const v = view(st), cards = await inbox(c.env.DB, c.env.ME, st, v.search);
+  return { ...meFor(st, c.env.ME), counts: counts(cards, v.tours) };
+};
+v2.openapi(R.getMe, async (c) => c.json(await meWithCounts(c, await state(c)), 200));
 v2.openapi(R.patchMe, async (c) => {
   const st = await state(c);
   st.profile = { ...st.profile, ...c.req.valid('json') };
   await store(c, st);
-  return c.json(meFor(st, c.env.ME), 200);
+  return c.json(await meWithCounts(c, st), 200);
 });
 v2.openapi(R.getAlerts, async (c) => c.json(view(await state(c)).alerts, 200));
 v2.openapi(R.patchAlerts, async (c) => {
@@ -57,24 +69,26 @@ v2.openapi(R.patchSearch, async (c) => {
 v2.openapi(R.listOpportunities, async (c) => {
   const { view: tab, limit } = c.req.valid('query');
   // the inbox shows new places plus hidden ones (struck through, with the reason)
-  const items = view(await state(c)).cards.filter((o) => tab === 'all' || (tab === 'new' ? o.status === 'new' || o.status === 'hidden' : o.status === tab));
+  real(c);
+  const items = (await places(c)).cards.filter((o) => tab === 'all' || (tab === 'new' ? o.status === 'new' || o.status === 'hidden' : o.status === tab));
   return c.json({ items: items.slice(0, limit), nextCursor: null }, 200);
 });
 v2.openapi(R.getOpportunity, async (c) => {
-  const v = view(await state(c)), id = c.req.valid('param').id;
-  const card = v.cards.find((o) => o.id === id);
-  if (!card) return c.json(notFound, 404);
-  // examples have hand-written detail; places Fred added come from the real listing
-  const real = v.details[id] ? null : await detail(c.env.DB, card);
-  return c.json(real ?? { ...(v.details[id] ?? v.details.op_hudson), ...card }, 200);
+  real(c);
+  const { st, cards } = await places(c), id = c.req.valid('param').id;
+  const card = cards.find((o) => o.id === id), full = card && (await detail(c.env.DB, card));
+  if (!card || !full) return c.json(notFound, 404);
+  return c.json({ ...full, note: st.cards[id]?.note ?? null }, 200);
 });
 v2.openapi(R.patchOpportunity, async (c) => {
-  const st = await state(c), id = c.req.valid('param').id;
-  if (!view(st).cards.some((o) => o.id === id)) return c.json(notFound, 404);
+  real(c);
+  const { st, cards } = await places(c), id = c.req.valid('param').id;
+  const card = cards.find((o) => o.id === id);
+  if (!card) return c.json(notFound, 404);
   const p = c.req.valid('json');
   st.cards[id] = { ...st.cards[id], ...(p.seen !== undefined && { seen: p.seen }), ...(p.status && { status: p.status }), ...(p.note !== undefined && { note: p.note }) };
-  await store(c, st);
-  return c.json(view(st).cards.find((o) => o.id === id)!, 200);
+  await Promise.all([store(c, st), vote(c.env.DB, c.env.ME, card, p)]);
+  return c.json({ ...card, ...st.cards[id] }, 200);
 });
 
 /* tours */
@@ -85,10 +99,10 @@ v2.openapi(R.listTours, async (c) => {
   return c.json(tours.sort((a, b) => (a.startsAt ?? '9').localeCompare(b.startsAt ?? '9')), 200);
 });
 v2.openapi(R.createTour, async (c) => {
-  const st = await state(c), v = view(st), b = c.req.valid('json');
-  const card = v.cards.find((o) => o.id === b.opportunityId);
+  const { st, v, cards } = await places(c), b = c.req.valid('json');
+  const card = cards.find((o) => o.id === b.opportunityId);
   if (!card) return c.json(notFound, 404);
-  const tour = { id: `tour_${crypto.randomUUID().slice(0, 8)}`, opportunityId: card.id, startsAt: null, address: v.details[card.id]?.address ?? card.area,
+  const tour = { id: `tour_${crypto.randomUUID().slice(0, 8)}`, opportunityId: card.id, startsAt: null, address: (await detail(c.env.DB, card))?.address ?? card.area,
                  status: 'draft' as const, contact: null, notes: `Asked for: ${b.slots.map((s) => s.start).join(', ')}` };
   st.tours = [...v.tours, tour];
   await store(c, st);

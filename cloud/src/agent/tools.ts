@@ -7,6 +7,7 @@ import * as S from '@fng/api';
 import type { Env } from '../ingest';
 import { applySearch, load, save, summarize, view, type Card } from '../mock';
 import { detail, search, toCard } from './listings';
+import { counts, inbox, vote } from '../places';
 
 type Ctx = { requestContext?: { get(k: string): unknown }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
@@ -17,6 +18,12 @@ const who = (c: Ctx) => {
 const emit = (c: Ctx, type: string, data: unknown) => c.writer?.custom({ type, data });
 /** listing ids searchListings returned this turn; addToInbox only accepts these */
 const seen = (c: Ctx) => (c.requestContext?.get('seenListings') as Set<number> | undefined) ?? new Set<number>();
+
+/** the real inbox, the same one the app shows */
+const real = async (db: D1Database, user: string) => {
+  const st = await load(db, user), v = view(st);
+  return { st, v, cards: await inbox(db, user, st, v.search) };
+};
 
 const compact = (c: Card) => ({ id: c.id, area: c.area, price: c.price, beds: c.beds, baths: c.baths, status: c.status, seen: c.seen, verdict: c.verdict.label, highlight: c.highlight });
 
@@ -84,7 +91,7 @@ export const addToInbox = createTool({
   }),
   execute: async ({ places }, c) => {
     const { db, user } = who(c as Ctx);
-    const st = await load(db, user), existing = new Set(view(st).cards.map((x) => x.id));
+    const { st, v, cards } = await real(db, user), existing = new Set((st.created ?? []).map((x) => x.id));
     const added: Card[] = [], known = seen(c as Ctx);
     const rejected = places.filter((p) => !known.has(p.listingId)).map((p) => p.listingId);
     for (const p of places.filter((x) => known.has(x.listingId))) {
@@ -94,7 +101,8 @@ export const addToInbox = createTool({
     st.created = [...added, ...(st.created ?? [])];
     await save(db, user, st);
     return {
-      added: added.map(compact), alreadyInInbox: places.length - rejected.length - added.length, counts: view(st).me.counts,
+      added: added.map(compact), alreadyInInbox: places.length - rejected.length - added.length,
+      counts: counts([...added, ...cards.filter((x) => !added.some((a) => a.id === x.id))], v.tours),
       ...(rejected.length && { rejected, why: 'These ids were not in your searchListings results this turn. Use ids exactly as returned.' }),
     };
   },
@@ -106,7 +114,7 @@ export const listInbox = createTool({
   inputSchema: z.object({ view: z.enum(['new', 'saved', 'hidden', 'all']).default('new') }),
   execute: async ({ view: tab }, c) => {
     const { db, user } = who(c as Ctx);
-    const cards = view(await load(db, user)).cards.filter((o) => tab === 'all' || (tab === 'new' ? o.status === 'new' || o.status === 'hidden' : o.status === tab));
+    const cards = (await real(db, user)).cards.filter((o) => tab === 'all' || (tab === 'new' ? o.status === 'new' || o.status === 'hidden' : o.status === tab));
     return { places: cards.map(compact) };
   },
 });
@@ -117,9 +125,9 @@ export const getPlace = createTool({
   inputSchema: z.object({ id: z.string().describe('Place id, like op_123') }),
   execute: async ({ id }, c) => {
     const { db, user } = who(c as Ctx);
-    const v = view(await load(db, user)), card = v.cards.find((x) => x.id === id);
+    const card = (await real(db, user)).cards.find((x) => x.id === id);
     if (!card) return { error: `No place ${id} in the inbox` };
-    return v.details[id] ?? (await detail(db, card)) ?? { ...v.details.op_hudson, ...card };
+    return (await detail(db, card)) ?? { error: `Listing for ${id} is gone` };
   },
 });
 
@@ -129,11 +137,12 @@ export const updatePlace = createTool({
   inputSchema: z.object({ id: z.string(), status: S.OpportunityStatus.optional(), note: z.string().nullable().optional() }),
   execute: async ({ id, status, note }, c) => {
     const { db, user } = who(c as Ctx);
-    const st = await load(db, user);
-    if (!view(st).cards.some((x) => x.id === id)) return { error: `No place ${id} in the inbox` };
+    const { st, v, cards } = await real(db, user), card = cards.find((x) => x.id === id);
+    if (!card) return { error: `No place ${id} in the inbox` };
     st.cards[id] = { ...st.cards[id], ...(status && { status }), ...(note !== undefined && { note }) };
-    await save(db, user, st);
-    return { place: compact(view(st).cards.find((x) => x.id === id)!), counts: view(st).me.counts };
+    await Promise.all([save(db, user, st), vote(db, user, card, { status, note })]);
+    const next = cards.map((x) => (x.id === id ? { ...x, ...st.cards[id] } : x));
+    return { place: compact(next.find((x) => x.id === id)!), counts: counts(next, v.tours) };
   },
 });
 
@@ -143,9 +152,9 @@ export const requestTour = createTool({
   inputSchema: z.object({ placeId: z.string(), slots: z.array(z.object({ start: z.string().describe('ISO date-time'), end: z.string() })).min(1) }),
   execute: async ({ placeId, slots }, c) => {
     const { db, user } = who(c as Ctx);
-    const st = await load(db, user), v = view(st), card = v.cards.find((x) => x.id === placeId);
+    const { st, v, cards } = await real(db, user), card = cards.find((x) => x.id === placeId);
     if (!card) return { error: `No place ${placeId} in the inbox` };
-    const tour = { id: `tour_${crypto.randomUUID().slice(0, 8)}`, opportunityId: card.id, startsAt: null, address: v.details[card.id]?.address ?? card.area,
+    const tour = { id: `tour_${crypto.randomUUID().slice(0, 8)}`, opportunityId: card.id, startsAt: null, address: (await detail(db, card))?.address ?? card.area,
                    status: 'draft' as const, contact: null, notes: `Asked for: ${slots.map((s) => s.start).join(', ')}` };
     st.tours = [...v.tours, tour];
     await save(db, user, st);
