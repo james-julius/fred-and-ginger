@@ -11,12 +11,13 @@ import { counts, inbox, vote } from '../places';
 import { readPage, webSearch } from '../nimble';
 import { factsFrom, mergeFacts, type Facts } from '../facts';
 import { checkSites, crawlStatus } from './crawl';
+import { AlertError, examplePlaces, patchAlerts, sendTest, verifyCode } from '../alerts';
 
 type Ctx = { requestContext?: { get(k: string): unknown }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
   const env = c.requestContext?.get('env') as (Env & { ME: string }) | undefined;
   if (!env) throw new Error('No request context: tools must run inside a signed-in request');
-  return { db: env.DB, user: env.ME, nimble: env.NIMBLE_API_KEY };
+  return { db: env.DB, user: env.ME, nimble: env.NIMBLE_API_KEY, env };
 };
 const emit = (c: Ctx, type: string, data: unknown) => c.writer?.custom({ type, data });
 /** listing ids searchListings returned this turn; addToInbox only accepts these */
@@ -82,7 +83,9 @@ export const searchListings = createTool({
     for (const l of r.found) seen(c as Ctx).add(l.listingId);
     const where = input.areas?.length ? input.areas.join(', ') : 'all of NYC';
     await emit(c as Ctx, 'data-scan', { checked: r.total, matched: r.found.length, hidden: 0, steps: [{ label: `Searched ${where}${input.maxRent ? ` up to $${input.maxRent.toLocaleString('en-US')}` : ''}`, toolCallId: null }] });
-    return { matching: r.total, showing: r.found.length, listings: r.found };
+    // Ids are "op_317", the same as inbox places and place: links. A bare number sat next to
+    // addresses like "1584 Bushwick Ave" and Fred mixed the two up.
+    return { matching: r.total, showing: r.found.length, listings: r.found.map(({ listingId, ...l }) => ({ id: `op_${listingId}`, ...l })) };
   },
 });
 
@@ -91,22 +94,23 @@ export const addToInbox = createTool({
   description: "Put listings from searchListings into the user's inbox as places, each with your verdict. Use likely_scam to hide a suspicious one with the reason. Over-budget ones can still go in with over_budget_with_fees.",
   inputSchema: z.object({
     places: z.array(z.object({
-      listingId: z.number(),
+      id: z.string().regex(/^op_\d+$/).describe('The id from searchListings, like "op_317"'),
       verdict: S.Verdict.shape.kind,
       fit: z.number().min(0).max(100).describe('How well it fits this user'),
       highlight: z.string().nullable().optional().describe('The one feature this user will care about most, e.g. "Washer/dryer in unit"'),
       reason: z.string().nullable().optional().describe('Short reason shown on the card, mainly for warnings'),
     })).min(1).max(20),
   }),
-  execute: async ({ places }, c) => {
+  execute: async ({ places: picked }, c) => {
     const { db, user } = who(c as Ctx);
+    const places = picked.map((p) => ({ ...p, listingId: Number(p.id.slice(3)) }));
     const { st, v, cards } = await real(db, user);
     // Fred's verdict replaces an earlier one for the same place
     const redo = new Set(places.filter((p) => seen(c as Ctx).has(p.listingId)).map((p) => `op_${p.listingId}`));
     st.created = (st.created ?? []).filter((x) => !redo.has(x.id));
     const existing = new Set<string>();
     const added: Card[] = [], known = seen(c as Ctx);
-    const rejected = places.filter((p) => !known.has(p.listingId)).map((p) => p.listingId);
+    const rejected = places.filter((p) => !known.has(p.listingId)).map((p) => p.id);
     for (const p of places.filter((x) => known.has(x.listingId))) {
       const card = await toCard(db, p.listingId, p);
       if (card && !existing.has(card.id)) { added.push(card); existing.add(card.id); }
@@ -177,14 +181,52 @@ export const requestTour = createTool({
 
 export const setAlerts = createTool({
   id: 'setAlerts',
-  description: 'Change how the user hears about new places: instant_strong (strong fits right away), daily (one digest) or off.',
-  inputSchema: z.object({ mode: S.AlertMode, channel: z.enum(['email', 'sms', 'push']).optional() }),
+  description: "Turn alerts on or off, choose how often, and set where they go. Giving a new email address saves it unverified and emails it a 6-digit code; then ask the user for the code. Texts aren't available yet: a phone number can be saved, but nothing is sent to it.",
+  inputSchema: z.object({
+    mode: S.AlertMode.optional().describe('instant_strong: strong fits right away; daily: one digest; off'),
+    email: z.string().email().optional().describe('Where to email alerts'),
+    emailOn: z.boolean().optional().describe('Turn email alerts on or off (only sends once the address is verified)'),
+    phone: z.string().optional().describe('For texts later. US numbers can be 10 digits.'),
+    quietHours: z.object({ start: z.string(), end: z.string() }).nullable().optional().describe('New York time, HH:MM'),
+  }),
   execute: async (input, c) => {
-    const { db, user } = who(c as Ctx);
-    const st = await load(db, user);
-    st.alerts = { ...view(st).alerts, ...input };
-    await save(db, user, st);
-    return st.alerts;
+    const { env } = who(c as Ctx), user = env.ME;
+    try {
+      const { alerts, codeSent } = await patchAlerts(env, user, {
+        mode: input.mode, quietHours: input.quietHours,
+        email: input.email !== undefined || input.emailOn !== undefined ? { address: input.email, enabled: input.emailOn } : undefined,
+        sms: input.phone !== undefined ? { number: input.phone } : undefined,
+      });
+      return { alerts, ...(codeSent && { codeSentTo: codeSent.sentTo, next: 'Ask the user for the 6-digit code from that email, then call verifyAlerts.' }),
+        ...(input.phone && { note: "Saved the number. Texts aren't available yet, so alerts go by email for now." }) };
+    } catch (e) {
+      if (e instanceof AlertError) return { error: e.message };
+      throw e;
+    }
+  },
+});
+
+export const verifyAlerts = createTool({
+  id: 'verifyAlerts',
+  description: 'Check the 6-digit code the user got by email. On success, alerts to that address are on.',
+  inputSchema: z.object({ channel: S.AlertChannel.default('email'), code: z.string().regex(/^\d{6}$/) }),
+  execute: async ({ channel, code }, c) => {
+    const { env } = who(c as Ctx);
+    try { return { verified: true, alerts: await verifyCode(env, env.ME, channel, code) }; }
+    catch (e) { if (e instanceof AlertError) return { verified: false, error: e.message }; throw e; }
+  },
+});
+
+export const sendTestAlert = createTool({
+  id: 'sendTestAlert',
+  description: 'Email an example alert with the best places in their inbox, so they can see what alerts look like. Only after the address is verified.',
+  inputSchema: z.object({}),
+  execute: async (_in, c) => {
+    const { env, db } = who(c as Ctx), user = env.ME;
+    try {
+      const st = await load(db, user), v = view(st);
+      return await sendTest(env, user, 'email', await examplePlaces(db, await inbox(db, user, st, v.search)), summarize(v.search));
+    } catch (e) { if (e instanceof AlertError) return { error: e.message }; throw e; }
   },
 });
 
@@ -245,4 +287,4 @@ export const readListingPage = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus };
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus };

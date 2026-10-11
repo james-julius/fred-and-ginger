@@ -157,31 +157,26 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        mode?: components["schemas"]["AlertMode"];
-                        /** @enum {string} */
-                        channel?: "email" | "sms" | "push";
-                        /**
-                         * @example {
-                         *       "start": "22:00",
-                         *       "end": "08:00"
-                         *     }
-                         */
-                        quietHours?: {
-                            start: string;
-                            end: string;
-                        } | null;
-                    };
+                    "application/json": components["schemas"]["AlertsPatch"];
                 };
             };
             responses: {
-                /** @description Updated */
+                /** @description Updated. A new email address gets a verification code automatically. */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": components["schemas"]["Alerts"];
+                    };
+                };
+                /** @description Invalid address or number */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
                 /** @description Signed out */
@@ -204,6 +199,251 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/alerts/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AlertsVerify"];
+                };
+            };
+            responses: {
+                /** @description Verified */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Alerts"];
+                    };
+                };
+                /** @description Wrong or expired code */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many tries */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AlertsChannelRequest"];
+                };
+            };
+            responses: {
+                /** @description Code sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CodeSent"];
+                    };
+                };
+                /** @description No address yet, or already verified */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Wait before asking again */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Texts aren't available yet */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AlertsChannelRequest"];
+                };
+            };
+            responses: {
+                /** @description Sent an example alert */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            sentTo: string;
+                        };
+                    };
+                };
+                /** @description Not verified yet */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Wait before asking again */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Texts aren't available yet */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/search": {
@@ -1129,9 +1369,8 @@ export interface components {
         };
         Alerts: {
             mode: components["schemas"]["AlertMode"];
-            /** @enum {string} */
-            channel: "email" | "sms" | "push";
             /**
+             * @description New York time; alerts wait until it ends
              * @example {
              *       "start": "22:00",
              *       "end": "08:00"
@@ -1141,12 +1380,37 @@ export interface components {
                 start: string;
                 end: string;
             } | null;
+            email: components["schemas"]["EmailAlerts"];
+            sms: components["schemas"]["SmsAlerts"];
         };
         /**
          * @description instant_strong = message me about strong fits right away; daily = one digest; off = only in the app
          * @enum {string}
          */
         AlertMode: "instant_strong" | "daily" | "off";
+        EmailAlerts: {
+            /** @example erin@example.com */
+            address: string | null;
+            /** @description The person wants alerts here. Nothing is sent until verified is true too. */
+            enabled: boolean;
+            /** @description They entered the code sent to this address or number */
+            verified: boolean;
+            /** @description False when we can't send on this channel yet (texts, for now) */
+            available: boolean;
+        };
+        SmsAlerts: {
+            /**
+             * @description E.164
+             * @example +12125551234
+             */
+            number: string | null;
+            /** @description The person wants alerts here. Nothing is sent until verified is true too. */
+            enabled: boolean;
+            /** @description They entered the code sent to this address or number */
+            verified: boolean;
+            /** @description False when we can't send on this channel yet (texts, for now) */
+            available: boolean;
+        };
         Error: {
             error: string;
         };
@@ -1154,6 +1418,46 @@ export interface components {
             name?: string;
             /** @description null removes the photo */
             photo?: string | null;
+        };
+        AlertsPatch: {
+            mode?: components["schemas"]["AlertMode"];
+            /**
+             * @description New York time; alerts wait until it ends
+             * @example {
+             *       "start": "22:00",
+             *       "end": "08:00"
+             *     }
+             */
+            quietHours?: {
+                start: string;
+                end: string;
+            } | null;
+            /** @description A new address is saved unverified and a 6-digit code is emailed to it */
+            email?: {
+                /** Format: email */
+                address?: string;
+                enabled?: boolean;
+            };
+            /** @description A new number is saved unverified. US numbers can be given as 10 digits. */
+            sms?: {
+                number?: string;
+                enabled?: boolean;
+            };
+        };
+        AlertsVerify: {
+            channel: components["schemas"]["AlertChannel"];
+            code: string;
+        };
+        /** @enum {string} */
+        AlertChannel: "email" | "sms";
+        CodeSent: {
+            /** @example j•••@gmail.com */
+            sentTo: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        AlertsChannelRequest: {
+            channel: components["schemas"]["AlertChannel"];
         };
         OpportunityPage: {
             items: components["schemas"]["OpportunityCard"][];
