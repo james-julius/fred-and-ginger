@@ -8,6 +8,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject }
 import { FredMark } from "@/components/fred-mark";
 import { refreshPlaces, useThread, useThreads, type S } from "@/lib/api/client";
 import { dealbreakerChips } from "@/lib/format";
+import { linkPlaces, placeIdsIn, usePlaceNames } from "./place-links";
 import { asTool, changesPlaces, Steps } from "./steps";
 
 // Fred's custom chat parts, as the API streams them (data-<key> in the AI SDK).
@@ -305,6 +306,7 @@ function Reply({ message, latest, busy, streaming, onPick, onPlace }: {
 }) {
   const tools = message.parts.map(asTool).filter((t) => t !== null);
   const scans = message.parts.flatMap((p) => (p.type === "data-scan" ? [p.data] : []));
+  const named = usePlaceNames(placeIdsIn(message.parts)); // so the addresses Fred writes open their places
   // Reply pills and "Watching…" go under the words, even though Fred decides on them before it writes.
   const atEnd = (p: FredMessage["parts"][number]) => p.type === "data-suggestions" || p.type === "data-watch";
   const parts = [...message.parts.filter((p) => !atEnd(p)), ...message.parts.filter(atEnd)];
@@ -340,7 +342,7 @@ function Reply({ message, latest, busy, streaming, onPick, onPlace }: {
             if (i < textFrom) return null;
             return part.text.split(/\n{2,}/).map((para, j) => (
               <p key={`${i}-${j}`} className="max-w-[60ch] text-[15px] leading-relaxed">
-                {withLinks(para, onPlace)}
+                {withLinks(linkPlaces(para, named), onPlace)}
               </p>
             ));
           case "data-suggestions":
