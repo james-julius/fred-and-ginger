@@ -16,12 +16,17 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 export const shortDate = (isoDate: string) =>
   new Date(isoDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-/** "Tomorrow, 8:30 AM" or "Sat, Oct 18, 11:00 AM". */
+// Every listing is in New York, so tour times are New York times wherever you're looking from.
+const NYC = "America/New_York";
+const nycDay = (d: Date) => new Date(d.toLocaleDateString("en-US", { timeZone: NYC })).getTime();
+
+/** "Tomorrow, 8:30 AM" or "Sat, Oct 18, 11:00 AM", in New York time. */
 export function tourTime(iso: string, now = new Date()) {
   const d = new Date(iso);
-  const ahead = Math.round((startOfDay(d) - startOfDay(now)) / 86_400_000);
-  const day = ahead === 0 ? "Today" : ahead === 1 ? "Tomorrow" : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  return `${day}, ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+  const ahead = Math.round((nycDay(d) - nycDay(now)) / 86_400_000);
+  const day =
+    ahead === 0 ? "Today" : ahead === 1 ? "Tomorrow" : d.toLocaleDateString("en-US", { timeZone: NYC, weekday: "short", month: "short", day: "numeric" });
+  return `${day}, ${d.toLocaleTimeString("en-US", { timeZone: NYC, hour: "numeric", minute: "2-digit" })}`;
 }
 
 /** Ask Unsplash for a size that fits. Real listing photo URLs come as they are. */
