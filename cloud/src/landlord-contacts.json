@@ -1,1 +1,902 @@
-{}
+{
+ "avalonbay": {
+  "company": {
+   "email": null,
+   "phone": null,
+   "url": "https://www.avaloncommunities.com/"
+  },
+  "buildings": [
+   {
+    "building": "Avalon Riverview",
+    "street": "4-89 48th Avenue 2C",
+    "email": "riverview@avalonbay.com",
+    "phone": "(718) 937-1390",
+    "form": null,
+    "url": "https://www.avaloncommunities.com/new-york/long-island-city-apartments/avalon-riverview/",
+    "confidence": "high",
+    "note": "Email is the \"Email Us\" link on the community page. Page also shows rotating call-tracking numbers; phone here is the office number from the page data. Displayed tracking numbers: (917) 634-3009 / (917) 456-8483. Official address is 4-75 48th Ave."
+   },
+   {
+    "building": "AVA Fort Greene",
+    "street": "343 Gold Street",
+    "email": "avafortgreene@avaapartments.com",
+    "phone": "(718) 596-3143",
+    "form": null,
+    "url": "https://www.avaloncommunities.com/new-york/brooklyn-apartments/ava-fort-greene/",
+    "confidence": "high",
+    "note": "Page also shows rotating call-tracking numbers; phone here is the office number from the page data."
+   },
+   {
+    "building": "Avalon Midtown West",
+    "street": "250 West 50th St",
+    "email": "midtownwest@avalonbay.com",
+    "phone": "(212) 245-5050",
+    "form": null,
+    "url": "https://www.avaloncommunities.com/new-york/new-york-city-apartments/avalon-midtown-west/",
+    "confidence": "high",
+    "note": "Page also shows rotating call-tracking numbers; phone here is the office number from the page data."
+   },
+   {
+    "building": "AVA DoBro",
+    "street": "100 Willoughby Street",
+    "email": "DoBro@avaapartments.com",
+    "phone": "(718) 643-1581",
+    "form": null,
+    "url": "https://www.avaloncommunities.com/new-york/brooklyn-apartments/ava-dobro/",
+    "confidence": "high",
+    "note": "Page also shows rotating call-tracking numbers; phone here is the office number from the page data."
+   },
+   {
+    "building": "Avalon Willoughby Square",
+    "street": "214 Duffield Street",
+    "email": "avalonwilloughbysquare@avalonbay.com",
+    "phone": "(718) 643-6464",
+    "form": null,
+    "url": "https://www.avaloncommunities.com/new-york/brooklyn-apartments/avalon-willoughby-square/",
+    "confidence": "high",
+    "note": "Page also shows rotating call-tracking numbers; phone here is the office number from the page data."
+   }
+  ]
+ },
+ "bozzuto": {
+  "company": {
+   "email": null,
+   "phone": "301.220.0100",
+   "url": "https://www.bozzuto.com/contact-us"
+  },
+  "buildings": [
+   {
+    "building": "Maven",
+    "street": "2413 Third Avenue",
+    "email": null,
+    "phone": "844.548.7435",
+    "form": "https://www.bozzuto.com/apartments-for-rent/ny/bronx/maven",
+    "url": "https://www.bozzuto.com/apartments-for-rent/ny/bronx/maven",
+    "confidence": "medium",
+    "note": "No email published; Bozzuto page has inquiry form and tour scheduler. Company phone 301.220.0100 is Bozzuto HQ (Maryland), not leasing."
+   },
+   {
+    "building": "Riverbank",
+    "street": "560 West 43rd Street",
+    "email": null,
+    "phone": "646.891.4514",
+    "form": "https://www.riverbankny.com/contact/",
+    "url": "https://www.riverbankny.com/",
+    "confidence": "medium",
+    "note": "Official building site riverbankny.com; no email, contact form + tour scheduler."
+   }
+  ]
+ },
+ "brodsky": {
+  "company": {
+   "email": "inquiries@brodsky.com",
+   "phone": "212-315-5555",
+   "url": "https://www.brodsky.com/contact"
+  },
+  "buildings": [
+   {
+    "building": "499 President",
+    "street": "499 President Street",
+    "email": "info@499president.com",
+    "phone": "718.400.0499",
+    "form": null,
+    "url": "https://499president.com/",
+    "confidence": "high",
+    "note": "Email in building site footer. Brodsky leasing-inquiries list also gives (718) 400-0499."
+   },
+   {
+    "building": "City Tower",
+    "street": "10 City Point",
+    "email": "inquiries@brodsky.com",
+    "phone": "(718) 230-8800",
+    "form": "https://www.brodsky.com/contact",
+    "url": "https://www.brodsky.com/contact",
+    "confidence": "medium",
+    "note": "Building-specific leasing phone from Brodsky \"Leasing Inquiries\" list; email is company-wide general inquiries address. citytowerbk.com did not resolve."
+   },
+   {
+    "building": "420 West 42nd Street",
+    "street": "420 West 42nd Street",
+    "email": "inquiries@brodsky.com",
+    "phone": "(212) 245-0000",
+    "form": "https://www.brodsky.com/contact",
+    "url": "https://www.brodsky.com/contact",
+    "confidence": "medium",
+    "note": "Building-specific leasing phone from Brodsky \"Leasing Inquiries\" list; email is company-wide general inquiries address."
+   }
+  ]
+ },
+ "brookfield": {
+  "company": {
+   "email": null,
+   "phone": null,
+   "url": "https://rent.brookfieldproperties.com/contact/"
+  },
+  "buildings": [
+   {
+    "building": "Lincoln at Bankside",
+    "street": "5 Lincoln Ave",
+    "email": null,
+    "phone": "929.419.2913",
+    "form": "https://rent.brookfieldproperties.com/property/lincoln-at-bankside/#contact",
+    "url": "https://rent.brookfieldproperties.com/property/lincoln-at-bankside/",
+    "confidence": "medium",
+    "note": "No email published; building page has contact form (and Meet Elise tour link). Phone from building page."
+   },
+   {
+    "building": "Third at Bankside",
+    "street": "2385 3rd Ave",
+    "email": null,
+    "phone": "929.521.6271",
+    "form": "https://rent.brookfieldproperties.com/property/third-at-bankside/#contact",
+    "url": "https://rent.brookfieldproperties.com/property/third-at-bankside/",
+    "confidence": "medium",
+    "note": "No email published; contact form only."
+   },
+   {
+    "building": "Waterside",
+    "street": "30 Waterside Plaza",
+    "email": null,
+    "phone": "332.286.2414",
+    "form": "https://rent.brookfieldproperties.com/property/waterside/#contact",
+    "url": "https://rent.brookfieldproperties.com/property/waterside/",
+    "confidence": "medium",
+    "note": "watersideplaza.com redirects to Brookfield page; no email, contact form only."
+   },
+   {
+    "building": "One Blue Slip",
+    "street": "1 Blue Slip",
+    "email": null,
+    "phone": "929.531.5932",
+    "form": "https://rent.brookfieldproperties.com/property/one-blue-slip/#contact",
+    "url": "https://rent.brookfieldproperties.com/property/one-blue-slip/",
+    "confidence": "medium",
+    "note": "oneblueslip.com redirects to Brookfield page; no email, contact form only."
+   },
+   {
+    "building": "The Bellslip",
+    "street": "1 Bell Slip",
+    "email": null,
+    "phone": "929.640.3634",
+    "form": "https://rent.brookfieldproperties.com/property/the-bellslip/#contact",
+    "url": "https://rent.brookfieldproperties.com/property/the-bellslip/",
+    "confidence": "medium",
+    "note": "thebellslip.com redirects to Brookfield page; no email, contact form only."
+   }
+  ]
+ },
+ "dalan": {
+  "company": {
+   "email": "Rentals@DalanRe.com",
+   "phone": "(212) 929-0510",
+   "url": "https://dalanre.com/services/rentals"
+  },
+  "buildings": [
+   {
+    "building": "The Centra",
+    "street": "230 East 44th Street",
+    "email": "Rentals@DalanRe.com",
+    "phone": "(212) 929-0510",
+    "form": null,
+    "url": "https://dalanre.com/services/rentals",
+    "confidence": "medium",
+    "note": "Company-wide: Dalan Rentals in-house leasing email from dalanre.com. dalanrentals.com (building listings) blocked by Cloudflare, so no building-specific contact verified. Phone is Dalan main office."
+   },
+   {
+    "building": "10 Lexington Avenue",
+    "street": "10 Lexington Avenue",
+    "email": "Rentals@DalanRe.com",
+    "phone": "(212) 929-0510",
+    "form": null,
+    "url": "https://dalanre.com/services/rentals",
+    "confidence": "medium",
+    "note": "Company-wide: Dalan Rentals in-house leasing email from dalanre.com. dalanrentals.com (building listings) blocked by Cloudflare, so no building-specific contact verified. Phone is Dalan main office."
+   },
+   {
+    "building": "260 Gold",
+    "street": "260 Gold Street",
+    "email": "Rentals@DalanRe.com",
+    "phone": "(212) 929-0510",
+    "form": null,
+    "url": "https://dalanre.com/services/rentals",
+    "confidence": "medium",
+    "note": "Company-wide: Dalan Rentals in-house leasing email from dalanre.com. dalanrentals.com (building listings) blocked by Cloudflare, so no building-specific contact verified. Phone is Dalan main office."
+   },
+   {
+    "building": "Astoria",
+    "street": "30-44 32nd Street",
+    "email": "Rentals@DalanRe.com",
+    "phone": "(212) 929-0510",
+    "form": null,
+    "url": "https://dalanre.com/services/rentals",
+    "confidence": "medium",
+    "note": "Company-wide: Dalan Rentals in-house leasing email from dalanre.com. dalanrentals.com (building listings) blocked by Cloudflare, so no building-specific contact verified. Phone is Dalan main office."
+   },
+   {
+    "building": "75 Ralph Avenue",
+    "street": "75 Ralph Avenue",
+    "email": "Rentals@DalanRe.com",
+    "phone": "(212) 929-0510",
+    "form": null,
+    "url": "https://dalanre.com/services/rentals",
+    "confidence": "medium",
+    "note": "Company-wide: Dalan Rentals in-house leasing email from dalanre.com. dalanrentals.com (building listings) blocked by Cloudflare, so no building-specific contact verified. Phone is Dalan main office."
+   },
+   {
+    "building": "1520 Fulton Street",
+    "street": "1520 Fulton Street",
+    "email": "Rentals@DalanRe.com",
+    "phone": "(212) 929-0510",
+    "form": null,
+    "url": "https://dalanre.com/services/rentals",
+    "confidence": "medium",
+    "note": "Company-wide: Dalan Rentals in-house leasing email from dalanre.com. dalanrentals.com (building listings) blocked by Cloudflare, so no building-specific contact verified. Phone is Dalan main office."
+   },
+   {
+    "building": "1134 Fulton Street",
+    "street": "1134 Fulton Street",
+    "email": "Rentals@DalanRe.com",
+    "phone": "(212) 929-0510",
+    "form": null,
+    "url": "https://dalanre.com/services/rentals",
+    "confidence": "medium",
+    "note": "Company-wide: Dalan Rentals in-house leasing email from dalanre.com. dalanrentals.com (building listings) blocked by Cloudflare, so no building-specific contact verified. Phone is Dalan main office."
+   }
+  ]
+ },
+ "douglaston": {
+  "company": {
+   "email": null,
+   "phone": null,
+   "url": null
+  },
+  "buildings": [
+   {
+    "building": "AtlanticBK",
+    "street": "1057 Atlantic Avenue",
+    "email": "info@atlanticbk.com",
+    "phone": "(718) 400-1057",
+    "form": null,
+    "url": "https://www.atlanticbk.com/",
+    "confidence": "high",
+    "note": "Email and phone in building site footer and structured data. Leasing by MNS / Clinton Management per listing data."
+   }
+  ]
+ },
+ "durst": {
+  "company": {
+   "email": null,
+   "phone": null,
+   "url": "https://www.durst.org/properties/halletts-point"
+  },
+  "buildings": [
+   {
+    "building": "30 Halletts Point",
+    "street": "30 Halletts Point",
+    "email": "HLPleasing@durst.org",
+    "phone": "929-373-5555",
+    "form": null,
+    "url": "https://www.durst.org/properties/halletts-point",
+    "confidence": "high",
+    "note": "Residential leasing contact for the Halletts Point campus (shared by 10/20/30), listed on durst.org and hallettspoint.com."
+   },
+   {
+    "building": "Sven",
+    "street": "29-59 Northern Boulevard",
+    "email": "svenleasing@durst.org",
+    "phone": "718.751.3457",
+    "form": null,
+    "url": "https://www.svenlic.com/",
+    "confidence": "high",
+    "note": "Shown in building site footer."
+   },
+   {
+    "building": null,
+    "street": "10 Halletts Point",
+    "email": "HLPleasing@durst.org",
+    "phone": "929-373-5555",
+    "form": null,
+    "url": "https://www.durst.org/properties/halletts-point",
+    "confidence": "high",
+    "note": "Halletts Point campus residential leasing office."
+   },
+   {
+    "building": "20 Halletts Point",
+    "street": "20 Halletts Point",
+    "email": "HLPleasing@durst.org",
+    "phone": "929-373-5555",
+    "form": null,
+    "url": "https://www.durst.org/properties/halletts-point",
+    "confidence": "high",
+    "note": "Halletts Point campus residential leasing office."
+   }
+  ]
+ },
+ "equity": {
+  "company": {
+   "email": null,
+   "phone": null,
+   "url": "https://www.equityapartments.com/"
+  },
+  "buildings": [
+   {
+    "building": "The Brooklyner Apartments",
+    "street": "111 Lawrence Street",
+    "email": null,
+    "phone": null,
+    "form": "https://www.equityapartments.com/new-york-city/brooklyn/the-brooklyner-apartments",
+    "url": "https://www.equityapartments.com/new-york-city/brooklyn/the-brooklyner-apartments",
+    "confidence": "low",
+    "note": "equityapartments.com blocked all fetches (Cloudflare challenge); nothing verified. Equity typically uses web forms, not published emails."
+   },
+   {
+    "building": "180 Riverside Boulevard Apartments",
+    "street": "180 Riverside Blvd",
+    "email": null,
+    "phone": null,
+    "form": null,
+    "url": null,
+    "confidence": "low",
+    "note": "equityapartments.com blocked all fetches (Cloudflare challenge); exact building URL not confirmed. Nothing verified."
+   }
+  ]
+ },
+ "glenwood": {
+  "company": {
+   "email": null,
+   "phone": "212.535.0500",
+   "url": "https://www.glenwoodnyc.com/contact/"
+  },
+  "buildings": [
+   {
+    "building": "Briar Hill",
+    "street": "600 West 246 Street",
+    "email": null,
+    "phone": "212.535.0500",
+    "form": "https://www.glenwoodnyc.com/contact/",
+    "url": "https://www.glenwoodnyc.com/contact/",
+    "confidence": "low",
+    "note": "Company-level only: Glenwood \"Uptown\" leasing line and contact form. Building site briarhillapts.com blocked (Cloudflare); Briar Hill not found on glenwoodnyc.com, so management link unverified."
+   }
+  ]
+ },
+ "goldfarb": {
+  "company": {
+   "email": null,
+   "phone": null,
+   "url": "https://www.goldfarbproperties.com/contact-us"
+  },
+  "buildings": [
+   {
+    "building": "939 Woodycrest Avenue & 930 Ogden Avenue",
+    "street": "939 Woodycrest Avenue",
+    "email": null,
+    "phone": "718.713.1091",
+    "form": "https://www.goldfarbproperties.com/contact-us",
+    "url": "https://www.goldfarbproperties.com/contact-us",
+    "confidence": "medium",
+    "note": "Bronx regional office phone; leasing inquiry form (select region/building). Only email published is commercial@goldprop.com (commercial leasing)."
+   },
+   {
+    "building": "920 Riverside Drive",
+    "street": "920 Riverside Dr",
+    "email": null,
+    "phone": "212.262.1675",
+    "form": "https://www.goldfarbproperties.com/contact-us",
+    "url": "https://www.goldfarbproperties.com/contact-us",
+    "confidence": "medium",
+    "note": "Manhattan regional office phone; leasing inquiry form."
+   },
+   {
+    "building": "20-02 to 20-57 Seagirt Boulevard",
+    "street": "20-47 Seagirt Boulevard",
+    "email": null,
+    "phone": "718.471.7800",
+    "form": "https://www.goldfarbproperties.com/contact-us",
+    "url": "https://www.goldfarbproperties.com/contact-us",
+    "confidence": "medium",
+    "note": "Rockaway regional office (20-10 Seagirt Blvd) phone; leasing inquiry form."
+   }
+  ]
+ },
+ "gotham": {
+  "company": {
+   "email": "info@gothamorg.com",
+   "phone": "212 599 0520",
+   "url": "https://www.gothamorg.com/contact"
+  },
+  "buildings": [
+   {
+    "building": "Gotham Point",
+    "street": "1-15 57th Avenue",
+    "email": "Leasing@GothamPoint.com",
+    "phone": "332.244.4223",
+    "form": null,
+    "url": "https://gothampoint.com/",
+    "confidence": "high",
+    "note": "Email is a mailto link on the building site. Phone appears to be a rotating tracking number (also saw 646.867.8933)."
+   },
+   {
+    "building": "The Ashland",
+    "street": "250 Ashland Pl",
+    "email": "leasing@theashlandbk.com",
+    "phone": "(718) 306-6824",
+    "form": null,
+    "url": "https://www.theashlandbk.com/",
+    "confidence": "high",
+    "note": "mailto link on building site."
+   }
+  ]
+ },
+ "greystar": {
+  "company": {
+   "email": null,
+   "phone": null,
+   "url": "https://www.greystar.com/en/contact-us"
+  },
+  "buildings": [
+   {
+    "building": "The Octagon",
+    "street": "888 Main Street",
+    "email": "theoctagon@greystar.com",
+    "phone": "(332) 284-1167",
+    "form": null,
+    "url": "https://octagonnyc.com/contact/",
+    "confidence": "high",
+    "note": "Shown on building site contact page and greystar.com."
+   },
+   {
+    "building": "Hearthstone",
+    "street": "44-01 Northern Blvd",
+    "email": "hearthstone@greystar.com",
+    "phone": "(844) 620-8256",
+    "form": "https://hearthstoneastoria.com/contact/",
+    "url": "https://www.greystar.com/hearthstone-queens-ny/p_21595",
+    "confidence": "medium",
+    "note": "Email from greystar.com property page contact data; building site hearthstoneastoria.com has form only, phone (866) 518-2834."
+   },
+   {
+    "building": "Ray Harlem",
+    "street": "2035 5th Avenue",
+    "email": "rayharlem@greystar.com",
+    "phone": "646-978-9435",
+    "form": null,
+    "url": "https://www.greystar.com/ray-harlem-new-york-ny/p_21739",
+    "confidence": "medium",
+    "note": "From greystar.com property contact data (email + office phone; tracking phone (844) 494-1694 is shown). rayharlem.com has no contact info."
+   },
+   {
+    "building": "The Brook",
+    "street": "567 Fulton Street",
+    "email": "info@brookbk.com",
+    "phone": "718 795 2732",
+    "form": "https://brookbk.com/inquire",
+    "url": "https://brookbk.com/",
+    "confidence": "high",
+    "note": "Building site email. greystar.com also lists thebrook@greystar.com."
+   },
+   {
+    "building": "1 Flatbush",
+    "street": "558 Fulton St, Suite 301",
+    "email": "1flatbush@greystar.com",
+    "phone": "(718) 550-5585",
+    "form": "https://1flatbushbk.com/contact/",
+    "url": "https://www.greystar.com/1-flatbush-brooklyn/p_16991",
+    "confidence": "medium",
+    "note": "Email from greystar.com property contact data; building site 1flatbushbk.com shows phone 718-855-2313 and a form, no email."
+   }
+  ]
+ },
+ "lefrak": {
+  "company": {
+   "email": null,
+   "phone": "212 708 6600",
+   "url": "https://www.lefrak.com/contact-us/"
+  },
+  "buildings": [
+   {
+    "building": "Brussels",
+    "street": "98-01 67th Avenue",
+    "email": null,
+    "phone": "888.813.2903",
+    "form": "https://www.lefrakcity.com/contact-us/",
+    "url": "https://www.lefrakcity.com/contact-us/",
+    "confidence": "medium",
+    "note": "LeFrak City complex leasing; contact form only, no email."
+   },
+   {
+    "building": "163 Washington",
+    "street": "163 Washington Ave",
+    "email": null,
+    "phone": "866.692.4496",
+    "form": "https://www.kingsqueensapts.com/brooklyn/contact-us/",
+    "url": "https://www.kingsqueensapts.com/brooklyn/contact-us/",
+    "confidence": "medium",
+    "note": "Leased via LeFrak's Kings & Queens Apartments (site lists \"163 Washington Ave\"); form only. RAinfo@realtyoperations.com on page is for reasonable-accommodation requests only, not leasing."
+   },
+   {
+    "building": "Singapore",
+    "street": "98-17 Horace Harding Ex.",
+    "email": null,
+    "phone": "888.813.2903",
+    "form": "https://www.lefrakcity.com/contact-us/",
+    "url": "https://www.lefrakcity.com/contact-us/",
+    "confidence": "medium",
+    "note": "LeFrak City complex leasing; contact form only, no email."
+   },
+   {
+    "building": "Pennsylvania",
+    "street": "31-35 Crescent Street",
+    "email": null,
+    "phone": "866.692.4496",
+    "form": "https://www.kingsqueensapts.com/contact-us/",
+    "url": "https://www.kingsqueensapts.com/astoria-queens-ny-apts/",
+    "confidence": "low",
+    "note": "Assumed to be a Kings & Queens (LeFrak) Astoria building; building not individually confirmed. Form only."
+   },
+   {
+    "building": "Paris",
+    "street": "96-04 57th Avenue",
+    "email": null,
+    "phone": "888.813.2903",
+    "form": "https://www.lefrakcity.com/contact-us/",
+    "url": "https://www.lefrakcity.com/contact-us/",
+    "confidence": "medium",
+    "note": "LeFrak City complex leasing; contact form only, no email."
+   },
+   {
+    "building": "Canada",
+    "street": "97-20 57th Avenue",
+    "email": null,
+    "phone": "888.813.2903",
+    "form": "https://www.lefrakcity.com/contact-us/",
+    "url": "https://www.lefrakcity.com/contact-us/",
+    "confidence": "medium",
+    "note": "LeFrak City complex leasing; contact form only, no email."
+   },
+   {
+    "building": "Brazil",
+    "street": "97-07 Horace Harding Ex.",
+    "email": null,
+    "phone": "888.813.2903",
+    "form": "https://www.lefrakcity.com/contact-us/",
+    "url": "https://www.lefrakcity.com/contact-us/",
+    "confidence": "medium",
+    "note": "LeFrak City complex leasing; contact form only, no email."
+   }
+  ]
+ },
+ "manhattan-skyline": {
+  "company": {
+   "email": null,
+   "phone": "212 977 4813",
+   "url": "https://manhattanskyline.com/contact-manhattan-skyline"
+  },
+  "buildings": [
+   {
+    "building": "CD 280®",
+    "street": "280 E 2 Street",
+    "email": null,
+    "phone": "347-449-3848",
+    "form": "https://manhattanskyline.com/contact-manhattan-skyline",
+    "url": "https://manhattanskyline.com/contact-manhattan-skyline",
+    "confidence": "medium",
+    "note": "Building leasing phone from contact page; messaging via form only."
+   },
+   {
+    "building": "115 Sullivan Street",
+    "street": "115 Sullivan Street",
+    "email": null,
+    "phone": "646-342-2211",
+    "form": "https://manhattanskyline.com/contact-manhattan-skyline",
+    "url": "https://manhattanskyline.com/contact-manhattan-skyline",
+    "confidence": "medium",
+    "note": "Sullivan Mews leasing phone; form only."
+   }
+  ]
+ },
+ "related": {
+  "company": {
+   "email": "info@relatedrentals.com",
+   "phone": "888.710.9968",
+   "url": "https://www.relatedrentals.com/contact"
+  },
+  "buildings": [
+   {
+    "building": "Riverwalk Point",
+    "street": "480 Main Street",
+    "email": "info@relatedrentals.com",
+    "phone": "646.992.4144",
+    "form": "https://www.relatedrentals.com/apartment-rentals/new-york-city/roosevelt-island/riverwalk-point",
+    "url": "https://www.relatedrentals.com/apartment-rentals/new-york-city/roosevelt-island/riverwalk-point",
+    "confidence": "medium",
+    "note": "Building-specific phone; email is the company-wide Related Rentals address shown on the building page."
+   },
+   {
+    "building": "Riverwalk Crossing",
+    "street": "405 Main Street",
+    "email": "info@relatedrentals.com",
+    "phone": "646.992.4143",
+    "form": "https://www.relatedrentals.com/apartment-rentals/new-york-city/roosevelt-island/riverwalk-crossing",
+    "url": "https://www.relatedrentals.com/apartment-rentals/new-york-city/roosevelt-island/riverwalk-crossing",
+    "confidence": "medium",
+    "note": "Building-specific phone; email is the company-wide Related Rentals address."
+   }
+  ]
+ },
+ "rockrose": {
+  "company": {
+   "email": null,
+   "phone": "212.847.3700",
+   "url": "https://rockrose.com/contact/"
+  },
+  "buildings": [
+   {
+    "building": "Linc LIC",
+    "street": "43-10 Crescent Street",
+    "email": null,
+    "phone": "(718) 606-6677",
+    "form": "https://rockrose.com/building/linc-lic/",
+    "url": "https://rockrose.com/building/linc-lic/",
+    "confidence": "medium",
+    "note": "No email; building page inquiry form. LIC leasing office line."
+   },
+   {
+    "building": "The Cove",
+    "street": "43-12 Hunter St",
+    "email": null,
+    "phone": "(718) 606-6677",
+    "form": "https://rockrose.com/building/the-cove/",
+    "url": "https://rockrose.com/building/the-cove/",
+    "confidence": "medium",
+    "note": "No email; building page inquiry form."
+   },
+   {
+    "building": "Hayden",
+    "street": "43-25 Hunter Street",
+    "email": null,
+    "phone": "(718) 606-6677",
+    "form": "https://rockrose.com/building/hayden/",
+    "url": "https://rockrose.com/building/hayden/",
+    "confidence": "medium",
+    "note": "No email; building page inquiry form."
+   },
+   {
+    "building": "Eagle Lofts",
+    "street": "43-22 Queens Street",
+    "email": null,
+    "phone": "(718) 606-6677",
+    "form": "https://rockrose.com/building/eagle-lofts/",
+    "url": "https://rockrose.com/building/eagle-lofts/",
+    "confidence": "medium",
+    "note": "No email; building page inquiry form."
+   },
+   {
+    "building": "47-05 Center Boulevard",
+    "street": "47-05 Center Blvd",
+    "email": null,
+    "phone": "(718) 606-1879",
+    "form": "https://rockrose.com/building/47-05-center-boulevard/",
+    "url": "https://rockrose.com/building/47-05-center-boulevard/",
+    "confidence": "medium",
+    "note": "No email; building page inquiry form."
+   }
+  ]
+ },
+ "rose": {
+  "company": {
+   "email": null,
+   "phone": "212-210-6666",
+   "url": "https://rosenyc.com/contact/"
+  },
+  "buildings": [
+   {
+    "building": "The Smile",
+    "street": "158 East 126th Street",
+    "email": "info@Rosenyc.com",
+    "phone": "212-210-6666",
+    "form": "https://rosenyc.com/contact/",
+    "url": "https://rosenyc.com/contact/",
+    "confidence": "low",
+    "note": "No building site found (thesmilenyc.com is an unrelated restaurant). Company-wide general email/phone only."
+   },
+   {
+    "building": "Forty Six Fifty",
+    "street": "4650 Broadway",
+    "email": null,
+    "phone": "(646) 503-5881",
+    "form": "https://www.fortysixfifty.com/contact",
+    "url": "https://www.fortysixfifty.com/contact",
+    "confidence": "medium",
+    "note": "Building site has contact form + phone, no email. Company fallback: info@Rosenyc.com."
+   },
+   {
+    "building": "The Maximilian",
+    "street": "5-11 47th Avenue",
+    "email": "info@Rosenyc.com",
+    "phone": "212-210-6666",
+    "form": "https://rosenyc.com/contact/",
+    "url": "https://rosenyc.com/contact/",
+    "confidence": "low",
+    "note": "Building site themaximilianlic.com did not load. Company-wide general email/phone only."
+   }
+  ]
+ },
+ "stellar": {
+  "company": {
+   "email": null,
+   "phone": "212-406-0030",
+   "url": "https://www.stellarmanagement.com/no-fee-NYC-rentals/contact"
+  },
+  "buildings": [
+   {
+    "building": "501 West 110th Street",
+    "street": "501 West 110th Street",
+    "email": null,
+    "phone": "212-406-0030",
+    "form": "https://www.stellarmanagement.com/no-fee-NYC-rentals/contact",
+    "url": "https://www.stellarmanagement.com/no-fee-NYC-rentals/contact",
+    "confidence": "low",
+    "note": "Company-level only: Stellar leasing office phone and contact form; no email published."
+   },
+   {
+    "building": "236 East 13th Street",
+    "street": "236 East 13th Street",
+    "email": null,
+    "phone": "212-406-0030",
+    "form": "https://www.stellarmanagement.com/no-fee-NYC-rentals/contact",
+    "url": "https://www.stellarmanagement.com/no-fee-NYC-rentals/contact",
+    "confidence": "low",
+    "note": "Company-level only: Stellar leasing office phone and contact form; no email published."
+   },
+   {
+    "building": "23-25 East 124th Street",
+    "street": "23-25 East 124th St",
+    "email": null,
+    "phone": "212-406-0030",
+    "form": "https://www.stellarmanagement.com/no-fee-NYC-rentals/contact",
+    "url": "https://www.stellarmanagement.com/no-fee-NYC-rentals/contact",
+    "confidence": "low",
+    "note": "Company-level only: Stellar leasing office phone and contact form; no email published."
+   }
+  ]
+ },
+ "stonehenge": {
+  "company": {
+   "email": null,
+   "phone": "212-977-5000",
+   "url": "https://www.stonehengenyc.com/contact-us"
+  },
+  "buildings": [
+   {
+    "building": "1 QPS",
+    "street": "42-20 24th Street",
+    "email": null,
+    "phone": "212-977-5000",
+    "form": "https://www.stonehengenyc.com/buildings/1-qps",
+    "url": "https://www.stonehengenyc.com/buildings/1-qps",
+    "confidence": "medium",
+    "note": "Building page has inquiry forms only; phone is Stonehenge main office."
+   },
+   {
+    "building": "Stonehenge 70",
+    "street": "210 West 70th Street",
+    "email": null,
+    "phone": "212-977-5000",
+    "form": "https://www.stonehengenyc.com/buildings/stonehenge-70",
+    "url": "https://www.stonehengenyc.com/buildings/stonehenge-70",
+    "confidence": "medium",
+    "note": "Building page has inquiry forms only; phone is Stonehenge main office."
+   }
+  ]
+ },
+ "tf-cornerstone": {
+  "company": {
+   "email": "tfc@tfc.com",
+   "phone": "212-672-1000",
+   "url": "https://tfc.com/contact-tf-cornerstone"
+  },
+  "buildings": [
+   {
+    "building": "4610 Center Blvd",
+    "street": "4610 Center Blvd",
+    "email": null,
+    "phone": "718-606-9440",
+    "form": null,
+    "url": "https://tfc.com/apartments/4610-center-blvd",
+    "confidence": "high",
+    "note": "Named leasing agent email under \"Contact a Leasing Agent\" on building page. Individual agent address, may change with staffing. Named staff address left out (public repo); the company inbox is used."
+   },
+   {
+    "building": "4720 Center Blvd",
+    "street": "4720 Center Blvd",
+    "email": null,
+    "phone": "718-606-9440",
+    "form": null,
+    "url": "https://tfc.com/apartments/4720-center-blvd",
+    "confidence": "high",
+    "note": "Named leasing agent email under \"Contact a Leasing Agent\" on building page. Individual agent address, may change with staffing. Named staff address left out (public repo); the company inbox is used."
+   },
+   {
+    "building": "4545 Center Blvd",
+    "street": "4545 Center Blvd",
+    "email": null,
+    "phone": "718-606-9440",
+    "form": null,
+    "url": "https://tfc.com/apartments/4545-center-blvd",
+    "confidence": "high",
+    "note": "Named leasing agent email under \"Contact a Leasing Agent\" on building page. Individual agent address, may change with staffing. Named staff address left out (public repo); the company inbox is used."
+   },
+   {
+    "building": "4540 Center Blvd",
+    "street": "4540 Center Blvd",
+    "email": null,
+    "phone": "718-606-9440",
+    "form": null,
+    "url": "https://tfc.com/apartments/4540-center-blvd",
+    "confidence": "high",
+    "note": "Named leasing agent email under \"Contact a Leasing Agent\" on building page. Individual agent address, may change with staffing. Named staff address left out (public repo); the company inbox is used."
+   },
+   {
+    "building": "Plaza West",
+    "street": "444 W 35 St",
+    "email": null,
+    "phone": "347-491-2441",
+    "form": null,
+    "url": "https://tfc.com/apartments/plaza-west",
+    "confidence": "high",
+    "note": "Named leasing agent email under \"Contact a Leasing Agent\" on building page. Individual agent address, may change with staffing. Named staff address left out (public repo); the company inbox is used."
+   },
+   {
+    "building": "5241 Center Blvd",
+    "street": "5241 Center Blvd",
+    "email": null,
+    "phone": "212-353-5850",
+    "form": null,
+    "url": "https://tfc.com/apartments/5241-center-blvd",
+    "confidence": "high",
+    "note": "Named leasing agent email under \"Contact a Leasing Agent\" on building page. Individual agent address, may change with staffing. Named staff address left out (public repo); the company inbox is used."
+   },
+   {
+    "building": "455 W 37th St",
+    "street": "455 W 37th St",
+    "email": null,
+    "phone": "877-505-3737",
+    "form": null,
+    "url": "https://tfc.com/apartments/455w37",
+    "confidence": "high",
+    "note": "Named leasing agent email under \"Contact a Leasing Agent\" on building page. Individual agent address, may change with staffing. Named staff address left out (public repo); the company inbox is used."
+   },
+   {
+    "building": "33 Bond St",
+    "street": "33 Bond St",
+    "email": null,
+    "phone": "718.330.0330",
+    "form": null,
+    "url": "https://tfc.com/apartments/33-bond-street-brooklyn",
+    "confidence": "high",
+    "note": "Named leasing agent email under \"Contact a Leasing Agent\" on building page. Individual agent address, may change with staffing. Named staff address left out (public repo); the company inbox is used."
+   }
+  ]
+ }
+}
