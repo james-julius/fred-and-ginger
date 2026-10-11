@@ -1059,6 +1059,13 @@ export interface components {
              *     ]
              */
             areas: string[];
+            /**
+             * @description Borough or neighbourhood slugs to leave out, even inside `areas`
+             * @example [
+             *       "central-harlem"
+             *     ]
+             */
+            excludeAreas?: string[];
             /** @description Budget including required monthly fees */
             maxTotalMonthly: number | null;
             minBeds: number | null;
@@ -1095,6 +1102,13 @@ export interface components {
                  *     ]
                  */
                 areas?: string[];
+                /**
+                 * @description Borough or neighbourhood slugs to leave out, even inside `areas`
+                 * @example [
+                 *       "central-harlem"
+                 *     ]
+                 */
+                excludeAreas?: string[];
                 /** @description Budget including required monthly fees */
                 maxTotalMonthly?: number | null;
                 minBeds?: number | null;
