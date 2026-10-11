@@ -431,8 +431,10 @@ v2.post('/api/mock/sentry-test', (c) => {
 });
 v2.post('/api/mock/reset', async (c) => {
   await reset(c.env.DB, c.env.ME);
-  // local dev only: alert settings are real data, so production resets leave them alone
-  if (c.env.FRED_DEV === '1') for (const t of ['alert_settings', 'alert_codes', 'alert_log']) await c.env.DB.prepare(`DELETE FROM ${t} WHERE user=?`).bind(c.env.ME).run();
+  // local dev only: alerts and votes (saves and passes keep a place in the inbox) are real data, so production resets leave them alone
+  if (c.env.FRED_DEV === '1') {
+    for (const t of ['alert_settings', 'alert_codes', 'alert_log', 'votes']) await c.env.DB.prepare(`DELETE FROM ${t} WHERE user=?`).bind(c.env.ME).run();
+  }
   return c.json({ ok: true });
 });
 
