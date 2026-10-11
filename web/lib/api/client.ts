@@ -1,6 +1,6 @@
 "use client";
 
-import useSWR, { mutate } from "swr";
+import useSWR, { mutate, useSWRConfig } from "swr";
 import type { components } from "./schema.gen";
 
 // Types come from James's contract (packages/api). Regenerate with `npm run gen:api` at the repo root.
@@ -38,19 +38,30 @@ export const useThread = (id: string | null) =>
   useSWR<{ thread: S["Thread"]; messages: unknown[] }>(id ? `/api/threads/${id}` : null, get, opts);
 
 /**
- * Where each place is, for the map. Cards don't carry coordinates yet, so this reads each place's
- * detail, which does, and keeps those details for the listing modal so opening one is instant.
+ * Where each place is, for the map, or null if it has no location. Cards don't carry coordinates yet, so this reads each
+ * place's detail, which does, and keeps those details for the listing modal so opening one is instant. A place never
+ * moves, so a detail already fetched is reused, and saving or passing one doesn't look the rest up again.
  */
-export const usePlaceLocations = (ids: string[]) =>
-  useSWR(
+export function usePlaceLocations(ids: string[]) {
+  const { cache } = useSWRConfig();
+  return useSWR(
     ids.length ? ["locations", ...ids] : null,
     async () => {
-      const details = await Promise.all(ids.map((id) => api<S["OpportunityDetail"]>(`/api/opportunities/${id}`).catch(() => null)));
-      for (const d of details) if (d) void mutate(`/api/opportunities/${d.id}`, d, { revalidate: false });
-      return Object.fromEntries(details.flatMap((d) => (d?.location ? [[d.id, d.location] as const] : [])));
+      const detail = async (id: string) => {
+        const key = `/api/opportunities/${id}`;
+        const known = cache.get(key)?.data as S["OpportunityDetail"] | undefined;
+        if (known) return known;
+        const d = await api<S["OpportunityDetail"]>(key).catch(() => null);
+        if (d) void mutate(key, d, { revalidate: false });
+        return d;
+      };
+      const details = await Promise.all(ids.map(detail));
+      return Object.fromEntries(ids.map((id, i) => [id, details[i]?.location ?? null]));
     },
-    opts,
+    // Keep the pins up while a changed list is looked up, instead of starting the map over.
+    { ...opts, keepPreviousData: true },
   );
+}
 
 /** Save, pass, hide or mark seen, then refresh the inbox and the sidebar counts. */
 export async function updateOpportunity(id: string, patch: S["OpportunityPatch"]) {

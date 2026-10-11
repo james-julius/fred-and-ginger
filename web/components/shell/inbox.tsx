@@ -230,12 +230,18 @@ function MapView({ cards, openId, onOpen }: { cards: S["OpportunityCard"][]; ope
       }),
     [shown, locations, openId],
   );
-  const missing = locations ? shown.length - pins.length : 0;
+  const missing = shown.filter((c) => locations?.[c.id] === null).length;
 
   return (
     <div className="mx-auto mt-[18px] grid w-full max-w-3xl gap-2 lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)_auto]">
       <div className="relative h-[65vh] overflow-hidden rounded-xl border bg-muted lg:h-auto lg:min-h-[420px]">
-        {locations ? <PlacesMap pins={pins} onOpen={onOpen} /> : <p className="p-4 text-sm text-muted-foreground">Finding where everything is…</p>}
+        {/* The map loads while the places are looked up, and the pins drop in when they're found. */}
+        <PlacesMap pins={pins} onOpen={onOpen} />
+        {!locations && (
+          <p role="status" className="absolute top-3 left-3 rounded-lg border bg-background px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
+            Finding where everything is…
+          </p>
+        )}
       </div>
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">

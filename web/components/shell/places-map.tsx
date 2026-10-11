@@ -37,6 +37,7 @@ const pinClass = (p: Pin) =>
 export default function PlacesMap({ pins, onOpen }: { pins: Pin[]; onOpen: (id: string) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
+  const framed = useRef(false);
   const open = useRef(onOpen);
   useEffect(() => {
     open.current = onOpen;
@@ -46,13 +47,14 @@ export default function PlacesMap({ pins, onOpen }: { pins: Pin[]; onOpen: (id: 
   useEffect(() => {
     const { map: m, remove } = mount(box.current!, { center: MANHATTAN, zoom: 11 });
     map.current = m;
+    framed.current = false;
     return () => {
       remove();
       map.current = null;
     };
   }, []);
 
-  // A pill per place, and frame them all.
+  // A pill per place. Frame them all the first time only, so opening, saving or passing one leaves the map where you put it.
   useEffect(() => {
     const m = map.current;
     if (!m) return;
@@ -72,10 +74,11 @@ export default function PlacesMap({ pins, onOpen }: { pins: Pin[]; onOpen: (id: 
       el.append(pill);
       return new Marker({ element: el, anchor: "bottom" }).setLngLat([p.lon, p.lat]).addTo(m);
     });
-    if (pins.length) {
+    if (pins.length && !framed.current) {
       const bounds = new LngLatBounds();
       for (const p of pins) bounds.extend([p.lon, p.lat]);
       m.fitBounds(bounds, { padding: 72, maxZoom: 15, duration: 0 });
+      framed.current = true;
     }
     return () => markers.forEach((mk) => mk.remove());
   }, [pins]);
