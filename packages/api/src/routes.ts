@@ -56,6 +56,19 @@ export const getOpportunity = createRoute({ method: 'get', path: '/api/opportuni
 export const patchOpportunity = createRoute({ method: 'patch', path: '/api/opportunities/{id}', tags: ['places'],
   request: { params: idParam, ...body(S.OpportunityPatch) }, responses: { 200: json(S.OpportunityCard, 'Updated card'), ...errors } });
 
+/* saved places */
+export const listSaved = createRoute({ method: 'get', path: '/api/saved', tags: ['saved'],
+  responses: { 200: json(z.array(S.SavedPlace), 'Most recently saved first'), ...errors } });
+export const createSaved = createRoute({ method: 'post', path: '/api/saved', tags: ['saved'],
+  request: body(S.SavedPlaceCreate),
+  responses: { 201: json(S.SavedPlace, 'Saved'), 200: json(S.SavedPlace, 'Already saved; the note is updated if one was sent'), ...errors } });
+export const getSaved = createRoute({ method: 'get', path: '/api/saved/{id}', tags: ['saved'],
+  request: { params: idParam }, responses: { 200: json(S.SavedPlace, 'The saved place'), ...errors } });
+export const patchSaved = createRoute({ method: 'patch', path: '/api/saved/{id}', tags: ['saved'],
+  request: { params: idParam, ...body(S.SavedPlacePatch) }, responses: { 200: json(S.SavedPlace, 'Updated'), ...errors } });
+export const deleteSaved = createRoute({ method: 'delete', path: '/api/saved/{id}', tags: ['saved'],
+  request: { params: idParam }, responses: { 204: { description: 'Unsaved. The place goes back to the inbox, marked seen.' }, ...errors } });
+
 /* tours */
 export const listTours = createRoute({ method: 'get', path: '/api/tours', tags: ['tours'],
   request: { query: z.object({ when: z.enum(['upcoming', 'past', 'all']).default('upcoming') }) },
