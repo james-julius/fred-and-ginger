@@ -54,7 +54,48 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MePatch"];
+                };
+            };
+            responses: {
+                /** @description Your name and photo, updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Me"];
+                    };
+                };
+                /** @description Signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/alerts": {
@@ -1072,6 +1113,8 @@ export interface components {
                 id: string;
                 name: string;
                 initials: string;
+                /** @description Profile photo: an https image URL, or a data:image URL the app sends (small, about 256px square) */
+                photo: string | null;
             };
             /** @example Manhattan · 2 bed, 2 bath */
             summary: string;
@@ -1106,6 +1149,11 @@ export interface components {
         AlertMode: "instant_strong" | "daily" | "off";
         Error: {
             error: string;
+        };
+        MePatch: {
+            name?: string;
+            /** @description null removes the photo */
+            photo?: string | null;
         };
         OpportunityPage: {
             items: components["schemas"]["OpportunityCard"][];

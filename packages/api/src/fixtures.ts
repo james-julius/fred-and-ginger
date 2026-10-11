@@ -93,7 +93,7 @@ export function fixtures(now = new Date()) {
   ] };
 
   const me: T<'Me'> = {
-    user: { id: 'user_demo', name: 'Jordan Lee', initials: 'JL' },
+    user: { id: 'user_demo', name: 'Jordan Lee', initials: 'JL', photo: null },
     summary: 'Manhattan · 2 bed, 2 bath',
     counts: { new: cards.filter((c) => c.status === 'new' && !c.seen).length, saved: 0, tours: tours.length },
     alerts,

@@ -18,7 +18,12 @@ export const Alerts = z.object({
 }).openapi('Alerts');
 
 export const Me = z.object({
-  user: z.object({ id: z.string(), name: z.string(), initials: z.string() }),
+  user: z.object({
+    id: z.string(),
+    name: z.string(),
+    initials: z.string(),
+    photo: z.string().nullable().openapi({ description: 'Profile photo: an https image URL, or a data:image URL the app sends (small, about 256px square)' }),
+  }),
   summary: z.string().openapi({ example: 'Manhattan · 2 bed, 2 bath' }),
   counts: z.object({
     new: z.number().int().openapi({ description: 'Unseen places in the inbox' }),
@@ -27,6 +32,12 @@ export const Me = z.object({
   }),
   alerts: Alerts,
 }).openapi('Me');
+
+export const MePatch = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  photo: z.string().max(300_000).regex(/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/, 'an https or data:image URL')
+    .nullable().optional().openapi({ description: 'null removes the photo' }),
+}).openapi('MePatch');
 
 /* ── your search ─────────────────────────────────────────────────────── */
 
