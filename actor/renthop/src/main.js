@@ -13,6 +13,12 @@
 //
 // Everything except renthop.com and the Cloudflare challenge is blocked, as are
 // images, fonts and media.
+//
+// Photos: photos.renthop.com challenges any page that isn't RentHop, so our app can't
+// show them. Unless savePhotos is off, each listing's photos are opened once in a tab of
+// the cleared browser and kept in the named store nest-renthop-photos (key photoKey(url)),
+// which the nest Worker copies to R2. Photos already in the store are skipped, so the
+// shared proxy only carries new ones.
 import { Actor, log } from 'apify';
 import { PlaywrightCrawler } from 'crawlee';
 import * as cheerio from 'cheerio';
@@ -23,6 +29,28 @@ const maxItems = input.maxItems ?? 100;
 const fetchDetails = input.fetchDetails ?? true;
 const noFeeOnly = !!input.noFeeOnly;
 const debug = !!input.debug;
+const savePhotos = input.savePhotos ?? true;
+const photoStore = savePhotos ? await Actor.openKeyValueStore('nest-renthop-photos') : null;
+// must match photoKey() in cloud/src/photos.ts
+const photoKey = (u) => `renthop-${new URL(u).pathname.split('/').pop().replace(/\.[a-z]+$/i, '')}`.replace(/[^a-zA-Z0-9!_.'()-]/g, '-').slice(0, 250);
+let photosSaved = 0;
+
+/** Open each photo not yet in the store in a tab of this (cleared) browser and keep it. */
+async function keepPhotos(page, urls) {
+    let tab = null;
+    try {
+        for (const u of urls) {
+            const key = photoKey(u);
+            if (await photoStore.recordExists(key)) continue;
+            tab ??= await page.context().newPage();
+            const res = await tab.goto(u, { timeout: 30000 }).catch(() => null);
+            const type = res?.headers()['content-type'] ?? '';
+            if (!res || res.status() !== 200 || !type.startsWith('image/')) { log.warning(`photo ${u}: ${res?.status() ?? 'no response'} ${type}`); continue; }
+            await photoStore.setValue(key, await res.body(), { contentType: type });
+            photosSaved += 1;
+        }
+    } finally { await tab?.close().catch(() => {}); }
+}
 
 const BOROUGHS = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'];
 const slug = (s) => String(s).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
@@ -353,6 +381,7 @@ const crawler = new PlaywrightCrawler({
                 else log.warning(`detail ${card.url}: status ${r.status}`);
                 await page.waitForTimeout(400 + Math.random() * 600);
             }
+            if (photoStore && detail?.photos?.length) await keepPhotos(page, detail.photos.slice(0, 8));
             await Actor.pushData(toRow(card, detail, rank, { label }));
             pushed += 1;
         }
@@ -366,5 +395,5 @@ const crawler = new PlaywrightCrawler({
 });
 
 await crawler.run(searches.map((s) => ({ url: s.url, userData: { label: s.label, searchUrl: s.url, anyPath: !!s.anyPath, page: 1, rankBase: 0 } })));
-log.info(`done: ${pushed} rows`);
+log.info(`done: ${pushed} rows, ${photosSaved} photos saved`);
 await Actor.exit();

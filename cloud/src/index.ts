@@ -186,7 +186,7 @@ const handler = {
       return json({ ok: true });
     }
     // listing photos from sites that block other pages from showing them (src/photos.ts); public for alert emails
-    if (url.pathname === '/api/photo' && req.method === 'GET') return servePhoto(req, env.PHOTOS);
+    if (url.pathname === '/api/photo' && req.method === 'GET') return servePhoto(req, env);
     if (url.pathname === '/login') {
       if (req.method === 'POST') return login(req, env);
       return new Response(LOGIN(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
@@ -213,8 +213,8 @@ const handler = {
     // strong-fit email alerts on every run: each place is claimed before sending, so overlap is safe (src/alerts.ts)
     ctx.waitUntil(sendDueAlerts(env).then((r) => { if (r.some((x) => x.sent || x.error)) console.log('alerts', JSON.stringify(r)); }));
     // area safety: two NYPD queries per ~100 m cell, on its own run so it has its own request budget
-    // and RentHop photos copied to our own storage (they 403 on our pages)
-    if (fiveMinute) ctx.waitUntil(Promise.all([checkAreas(env.DB, 20), savePhotos(env.DB, env.PHOTOS)]));
+    // and RentHop photos copied from the crawler's store to R2 (they 403 on our pages; src/photos.ts)
+    if (fiveMinute) ctx.waitUntil(Promise.all([checkAreas(env.DB, 20), savePhotos(env)]));
     // ~50 outbound requests per invocation: one dataset page, then geocodes, then building checks
     else ctx.waitUntil((async () => {
       const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3);
