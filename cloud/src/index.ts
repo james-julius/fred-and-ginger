@@ -195,6 +195,8 @@ export default {
       const res = await v2.fetch(req, { ...env, ME: me }, ctx);
       return res.headers.get('X-Fred-Route') === 'none' ? api(req, env, me, url) : res;
     }
+    // fredandginger.* serves the new app (web/, the fred-web Worker); nest.* keeps the old grid
+    if (env.WEB && url.hostname.startsWith('fredandginger.')) return env.WEB.fetch(req);
     return env.ASSETS.fetch(req);
   },
   async scheduled(ev: ScheduledEvent, env: Env, ctx: ExecutionContext) {
