@@ -3,7 +3,8 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { ArrowUp, Mic, Pencil, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useRouter } from "next/navigation";
+import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { FredMark } from "@/components/fred-mark";
 import { refreshPlaces, useThread, useThreads, type S } from "@/lib/api/client";
 import { dealbreakerChips } from "@/lib/format";
@@ -46,6 +47,13 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
   composerRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const [draft, setDraft] = useState("");
+  const router = useRouter();
+  // Open a place's modal from a link in Fred's text. On New places, keep the current view (list or map).
+  const openPlace = (id: string) => {
+    const params = new URLSearchParams(window.location.pathname === "/" ? window.location.search : "");
+    params.set("place", id);
+    router.push(`/?${params}`, { scroll: false });
+  };
   const [transport] = useState(
     () =>
       new DefaultChatTransport<FredMessage>({
@@ -112,7 +120,7 @@ function Thread({ threadId, initial, context, onClearContext, composerRef }: {
           m.role === "user" ? (
             <UserMessage key={m.id} message={m} disabled={busy} onEdit={(text) => edit(m.id, text)} />
           ) : (
-            <Reply key={m.id} message={m} latest={m === lastAssistant} busy={busy} streaming={status === "streaming" && m === last} onPick={send} />
+            <Reply key={m.id} message={m} latest={m === lastAssistant} busy={busy} streaming={status === "streaming" && m === last} onPick={send} onPlace={openPlace} />
           ),
         )}
         {pending && (
@@ -248,18 +256,52 @@ function UserMessage({ message, disabled, onEdit }: { message: FredMessage; disa
   );
 }
 
+/**
+ * Fred names places as [72 West 126th St #B2](place:op_532): those become buttons that open the listing.
+ * Plain web links work too. A link still streaming in shows only its text until it's complete.
+ */
+function withLinks(text: string, onPlace: (id: string) => void): ReactNode {
+  const tidy = text.replace(/\[([^\]]*)\]\([^)\s]*$/, "$1").replace(/\[([^\]]*)$/, "$1");
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of tidy.matchAll(/\[([^\]]+)\]\((place:([\w-]+)|https?:\/\/[^)\s]+)\)/g)) {
+    out.push(tidy.slice(last, m.index));
+    const [, label, target, placeId] = m;
+    out.push(
+      placeId ? (
+        <button
+          key={m.index}
+          type="button"
+          onClick={() => onPlace(placeId)}
+          className="font-medium underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground"
+        >
+          {label}
+        </button>
+      ) : (
+        <a key={m.index} href={target} target="_blank" rel="noopener" className="underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground">
+          {label}
+        </a>
+      ),
+    );
+    last = m.index + m[0].length;
+  }
+  out.push(tidy.slice(last));
+  return out.map((piece, k) => <Fragment key={k}>{piece}</Fragment>);
+}
+
 /** Parts that put something on screen. message-metadata and suggestReplies calls don't. */
 const shows = (p: FredMessage["parts"][number]) =>
   (p.type === "text" && p.text.trim() !== "") || p.type.startsWith("data-") || (asTool(p) !== null && asTool(p)!.name !== "suggestReplies");
 
 // One of Fred's replies. Each custom part becomes a piece of the design.
-function Reply({ message, latest, busy, streaming, onPick }: {
+function Reply({ message, latest, busy, streaming, onPick, onPlace }: {
   message: FredMessage;
   latest: boolean;
   busy: boolean;
   /** This reply is still coming in. */
   streaming: boolean;
   onPick: (text: string) => void;
+  onPlace: (id: string) => void;
 }) {
   const tools = message.parts.map(asTool).filter((t) => t !== null);
   const scans = message.parts.flatMap((p) => (p.type === "data-scan" ? [p.data] : []));
@@ -298,7 +340,7 @@ function Reply({ message, latest, busy, streaming, onPick }: {
             if (i < textFrom) return null;
             return part.text.split(/\n{2,}/).map((para, j) => (
               <p key={`${i}-${j}`} className="max-w-[60ch] text-[15px] leading-relaxed">
-                {para}
+                {withLinks(para, onPlace)}
               </p>
             ));
           case "data-suggestions":

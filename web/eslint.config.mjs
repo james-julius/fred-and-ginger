@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Cloudflare build output (OpenNext and wrangler)
     ".open-next/**",
     ".wrangler/**",
+    // MapLibre's worker, copied in by scripts/copy-maplibre-worker.mjs
+    "public/maplibre/**",
   ]),
 ]);
 
