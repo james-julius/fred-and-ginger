@@ -16,6 +16,7 @@ import { checkSites, crawlStatus } from './crawl';
 import { AlertError, examplePlaces, patchAlerts, sendTest, verifyCode } from '../alerts';
 import { write as writeMemory } from '../memory';
 import { search as searchChats } from '../recall';
+import { examine } from '../vision';
 
 type Ctx = { requestContext?: { get(k: string): unknown; set?(k: string, v: unknown): void }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
@@ -337,6 +338,22 @@ export const readListingPage = createTool({
   },
 });
 
+export const examinePhotos = createTool({
+  id: 'examinePhotos',
+  description: "Look at a place's photos with a vision model. Returns what each photo shows; light, kitchen (updated, dishwasher), laundry, outdoor space, visible condition problems; whether the photos match the listed beds and baths; and red flags that they aren't this apartment (renders, staging, stock or another unit's photos). Pass question for something specific (\"is there a window in the bedroom?\", \"gas or electric stove?\"). Takes 5-20s the first time, then it's cached.",
+  inputSchema: z.object({
+    id: z.string().describe('Place id like op_123, or a listing id from searchListings'),
+    question: z.string().optional().describe('Something specific to look for in the photos'),
+  }),
+  execute: async ({ id, question }, c) => {
+    const { env } = who(c as Ctx);
+    const listingId = Number(String(id).replace(/^op_/, ''));
+    if (!Number.isFinite(listingId)) return { error: `Not a place id: ${id}` };
+    await emit(c as Ctx, 'data-scan', { checked: 0, matched: 0, hidden: 0, steps: [{ label: 'Looking through the photos', toolCallId: null }] });
+    try { return await examine(env, listingId, question); } catch (e) { return { error: String(e).slice(0, 200) }; }
+  },
+});
+
 export const updateMemory = createTool({
   id: 'updateMemory',
   description: `Keep your notes on this person: what they like, dislike and need in a place, their life (work, partner, pets, commute), timing, and how they like you to work. Your current notes come with each message, with ids.
@@ -414,4 +431,4 @@ export const updateTour = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, recallChats, updateProfile, listTours, updateTour };
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, examinePhotos, checkSites, crawlStatus, updateMemory, recallChats, updateProfile, listTours, updateTour };

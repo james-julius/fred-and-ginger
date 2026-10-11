@@ -19,6 +19,7 @@ export interface Env {
   CF_VERSION_METADATA?: WorkerVersionMetadata; // the deployed version id, as Sentry's release
   FRED_DEV?: string;                      // '1' only in cloud/.dev.vars: enables eval-only overrides and routes
   ANTHROPIC_API_KEY?: string; OPENAI_API_KEY?: string; GOOGLE_GENERATIVE_AI_API_KEY?: string;
+  VISION_MODEL?: string;                  // provider/model for examinePhotos (src/vision.ts); default Gemini when its key is set
 }
 
 const now = () => Math.floor(Date.now() / 1000);
