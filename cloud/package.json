@@ -16,6 +16,8 @@
     "@fng/api": "*",
     "@hono/swagger-ui": "^0.6.1",
     "@hono/zod-openapi": "1.6.3",
+    "@mastra/ai-sdk": "^1.10.7",
+    "@mastra/core": "^1.75.0",
     "ai": "7.0.137",
     "hono": "4.13.13",
     "zod": "4.6.6"

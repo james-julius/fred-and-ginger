@@ -6,6 +6,8 @@ export interface Env {
   DB: D1Database; ASSETS: Fetcher;
   APIFY_TOKEN: string; SESSION_KEY: string; HOOK_SECRET: string;
   PASSWORD_JAMES?: string; PASSWORD_ERIN?: string;
+  FRED_MODEL?: string;                    // provider/model for the agent; its API key is a secret too
+  ANTHROPIC_API_KEY?: string; OPENAI_API_KEY?: string; GOOGLE_GENERATIVE_AI_API_KEY?: string;
 }
 
 const now = () => Math.floor(Date.now() / 1000);
