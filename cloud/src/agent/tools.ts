@@ -11,6 +11,7 @@ import { counts, inbox, vote } from '../places';
 import { readPage, webSearch } from '../nimble';
 import { factsFrom, mergeFacts, type Facts } from '../facts';
 import { checkSites, crawlStatus } from './crawl';
+import { write as writeMemory } from '../memory';
 
 type Ctx = { requestContext?: { get(k: string): unknown }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
@@ -245,4 +246,65 @@ export const readListingPage = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus };
+export const updateMemory = createTool({
+  id: 'updateMemory',
+  description: `Keep your notes on this person: what they like, dislike and need in a place, their life (work, partner, pets, commute), timing, and how they like you to work. Your current notes come with each message, with ids.
+Write what you understood, not what they said: "I'm ok with 1 bath" becomes "Prefers 2 baths; 1 is acceptable" (likes, strong). One fact per note, third person, under 160 characters.
+When something refines or contradicts a note, update that note; don't add a second one. Remove notes they take back ("forget that", "actually I don't care about X").
+from: "said" when they told you, "inferred" when you read it from their saves and passes (use mild, and only once the pattern is clear).`,
+  inputSchema: z.object({
+    add: z.array(z.object({ kind: S.MemoryKind, text: z.string(), strength: S.Memory.shape.strength, from: S.Memory.shape.from.optional() })).optional(),
+    update: z.array(z.object({ id: z.string(), text: z.string().optional(), kind: S.MemoryKind.optional(), strength: S.Memory.shape.strength.optional() })).optional(),
+    remove: z.array(z.string()).optional().describe('Note ids to forget'),
+  }),
+  execute: async (input, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user);
+    const said = (c as Ctx).requestContext?.get('said') as string | undefined;
+    const { notes, refused } = writeMemory(st, input, said);
+    await save(db, user, st);
+    return { notes: notes.map((n) => `${n.id} ${n.kind} (${n.strength}${n.from === 'inferred' ? ', inferred' : ''}): ${n.text}`),
+             ...(refused.length ? { refused, fix: 'Rewrite the refused ones and call updateMemory again.' } : {}) };
+  },
+});
+
+export const updateProfile = createTool({
+  id: 'updateProfile',
+  description: 'Change the name the app shows for this person, when they ask ("call me Jim").',
+  inputSchema: z.object({ name: S.MePatch.shape.name.unwrap() }),
+  execute: async ({ name }, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user);
+    st.profile = { ...st.profile, name };
+    await save(db, user, st);
+    return { name };
+  },
+});
+
+export const listTours = createTool({
+  id: 'listTours',
+  description: 'The tours this person has: drafts, requested, confirmed, done and cancelled, with their place ids and times.',
+  inputSchema: z.object({}),
+  execute: async (_in, c) => {
+    const { db, user } = who(c as Ctx);
+    return { tours: view(await load(db, user)).tours };
+  },
+});
+
+export const updateTour = createTool({
+  id: 'updateTour',
+  description: 'Change a tour when the user tells you about it: the confirmed time, a status (requested once they sent it, confirmed, done, cancelled), or notes. You never contact anyone; this only records it.',
+  inputSchema: z.object({ id: z.string().describe('Tour id, like tour_1a2b3c4d'), status: S.Tour.shape.status.optional(),
+                          startsAt: z.string().nullable().optional().describe('ISO date-time, New York time'), notes: z.string().nullable().optional() }),
+  execute: async ({ id, ...patch }, c) => {
+    const { db, user } = who(c as Ctx);
+    const st = await load(db, user), v = view(st), t = v.tours.find((x) => x.id === id);
+    if (!t) return { error: `No tour ${id}. listTours shows their tours.` };
+    const next = { ...t, ...Object.fromEntries(Object.entries(patch).filter(([, x]) => x !== undefined)) };
+    st.tours = v.tours.map((x) => (x.id === id ? next : x));
+    await save(db, user, st);
+    return { tour: next };
+  },
+});
+
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, updateProfile, listTours, updateTour };

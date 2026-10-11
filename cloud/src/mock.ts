@@ -24,6 +24,8 @@ export type MockState = {
   created?: Card[];
   threads: Record<string, { title: string; updatedAt: string; messages: Message[] }>;
   profile?: { name?: string; photo?: string | null };
+  /** what Fred remembers about this person (memory.ts) */
+  memory?: import('./memory').Memory[];
 };
 
 const empty = (): MockState => ({ cards: {}, threads: {} });

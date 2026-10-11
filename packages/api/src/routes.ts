@@ -19,6 +19,14 @@ export const getAlerts = createRoute({ method: 'get', path: '/api/alerts', tags:
 export const patchAlerts = createRoute({ method: 'patch', path: '/api/alerts', tags: ['you'],
   request: body(S.Alerts.partial()), responses: { 200: json(S.Alerts, 'Updated'), ...errors } });
 
+/* what Fred remembers (he keeps it himself; the person can correct or delete it) */
+export const listMemory = createRoute({ method: 'get', path: '/api/memory', tags: ['you'],
+  responses: { 200: json(S.MemoryList, 'What Fred remembers about you, newest first'), ...errors } });
+export const patchMemory = createRoute({ method: 'patch', path: '/api/memory/{id}', tags: ['you'],
+  request: { params: idParam, ...body(S.MemoryPatch) }, responses: { 200: json(S.Memory, 'Corrected'), ...errors } });
+export const deleteMemory = createRoute({ method: 'delete', path: '/api/memory/{id}', tags: ['you'],
+  request: { params: idParam }, responses: { 204: { description: 'Forgotten' }, ...errors } });
+
 /* search */
 export const getSearch = createRoute({ method: 'get', path: '/api/search', tags: ['search'],
   responses: { 200: json(S.Search, 'Your search'), ...errors } });

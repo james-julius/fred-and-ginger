@@ -14,6 +14,7 @@ import { toAISdkStream } from '@mastra/ai-sdk';
 import { fred, DEFAULT_MODEL, type Harness } from './agent/fred';
 import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
+import { recall, taste } from './memory';
 
 /** Keep only text written after the last tool call: a draft Fred wrote mid-turn and then corrected
  *  shouldn't come back on reload or be reread as history. The app shows the same thing live. */
@@ -54,6 +55,23 @@ v2.openapi(R.patchMe, async (c) => {
   st.profile = { ...st.profile, ...c.req.valid('json') };
   await store(c, st);
   return c.json(await meWithCounts(c, st), 200);
+});
+/* what Fred remembers: he writes it, the person can correct or delete it */
+v2.openapi(R.listMemory, async (c) => c.json({ items: (await state(c)).memory ?? [] }, 200));
+v2.openapi(R.patchMemory, async (c) => {
+  const st = await state(c), id = c.req.valid('param').id, n = (st.memory ?? []).find((x) => x.id === id);
+  if (!n) return c.json(notFound, 404);
+  // the person's own correction is taken as written
+  Object.assign(n, c.req.valid('json'), { from: 'said', updatedAt: new Date().toISOString() });
+  await store(c, st);
+  return c.json(n, 200);
+});
+v2.openapi(R.deleteMemory, async (c) => {
+  const st = await state(c), id = c.req.valid('param').id;
+  if (!(st.memory ?? []).some((x) => x.id === id)) return c.json(notFound, 404);
+  st.memory = st.memory!.filter((x) => x.id !== id);
+  await store(c, st);
+  return c.body(null, 204);
 });
 v2.openapi(R.getAlerts, async (c) => c.json(view(await state(c)).alerts, 200));
 v2.openapi(R.patchAlerts, async (c) => {
@@ -177,14 +195,18 @@ v2.openapi(R.chat, async (c) => {
     // Sending the current search saves Fred a getSearch round trip.
     const now = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'full', timeStyle: 'short' });
     const s = view(st).search;
+    const known = recall(st.memory), pattern = await taste(c.env.DB, st).catch(() => null);
     const note = [
       `(Now: ${now}, New York.)`,
       `(Saved search: ${JSON.stringify({ ...s.dealbreakers, preferences: s.preferences.map((p) => p.weight === 'important' ? `${p.label} (important)` : p.label) })})`,
       context?.opportunityId && `(The user has place ${context.opportunityId} open.)`,
+      `(What you remember about them:\n${known ?? 'Nothing yet.'})`,
+      pattern && `(From their saves and passes, hints to confirm, not facts:\n${pattern})`,
     ].filter(Boolean).join('\n');
     const rc = new RequestContext();
     rc.set('env', c.env);
     rc.set(MASTRA_RESOURCE_ID_KEY, c.env.ME);
+    rc.set('said', said);   // updateMemory turns away notes that just repeat this
     // addToInbox takes ids from this turn's search, and the open place: Fred's verdict on it replaces the first take
     const open = Number(String(context?.opportunityId ?? '').replace(/^op_/, ''));
     rc.set('seenListings', new Set<number>(Number.isFinite(open) && open > 0 ? [open] : []));

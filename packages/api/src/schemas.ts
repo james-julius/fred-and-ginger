@@ -39,6 +39,29 @@ export const MePatch = z.object({
     .nullable().optional().openapi({ description: 'null removes the photo' }),
 }).openapi('MePatch');
 
+/* ── what Fred remembers about you ───────────────────────────────────── */
+
+export const MemoryKind = z.enum(['likes', 'dislikes', 'needs', 'life', 'timing', 'working_style']).openapi('MemoryKind', {
+  description: 'likes/dislikes: in a place; needs: must be true; life: who they are (work, partner, pets, commute); timing: move dates, lease ends; working_style: how they like Fred to work',
+});
+
+export const Memory = z.object({
+  id: z.string().openapi({ example: 'm_3fa9c1' }),
+  kind: MemoryKind,
+  text: z.string().openapi({ example: 'Prefers 2 baths; 1 is acceptable', description: 'Distilled by Fred in his own words, never a quote' }),
+  strength: z.enum(['must', 'strong', 'mild']),
+  from: z.enum(['said', 'inferred']).openapi({ description: 'said: the person told Fred; inferred: Fred read it from what they saved and passed' }),
+  updatedAt: iso,
+}).openapi('Memory');
+
+export const MemoryList = z.object({ items: z.array(Memory) }).openapi('MemoryList');
+
+export const MemoryPatch = z.object({
+  text: z.string().trim().min(3).max(160).optional(),
+  kind: MemoryKind.optional(),
+  strength: Memory.shape.strength.optional(),
+}).openapi('MemoryPatch');
+
 /* ── your search ─────────────────────────────────────────────────────── */
 
 export const Dealbreakers = z.object({
