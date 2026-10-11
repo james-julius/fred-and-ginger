@@ -10,9 +10,10 @@ import { detail, search, toCard } from './listings';
 import { counts, inbox, vote } from '../places';
 import { readPage, webSearch } from '../nimble';
 import { factsFrom, mergeFacts, type Facts } from '../facts';
+import { knownArea } from '../areas';
 import { checkSites, crawlStatus } from './crawl';
 
-type Ctx = { requestContext?: { get(k: string): unknown }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
+type Ctx = { requestContext?: { get(k: string): unknown; set?(k: string, v: unknown): void }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
   const env = c.requestContext?.get('env') as (Env & { ME: string }) | undefined;
   if (!env) throw new Error('No request context: tools must run inside a signed-in request');
@@ -50,25 +51,34 @@ export const updateSearch = createTool({
     importantPreferences: z.array(z.string()).optional().describe('Preferences the user says matter a lot; adds them or raises existing ones to important'),
     removePreferences: z.array(z.string()).optional(),
   }),
-  execute: async (input, c) => {
-    const { db, user } = who(c as Ctx);
-    const st = await load(db, user), cur = view(st).search;
-    const prefs = cur.preferences.filter((p) => !(input.removePreferences ?? []).some((r) => r.toLowerCase() === p.label.toLowerCase()));
-    for (const label of input.addPreferences ?? []) if (!prefs.some((p) => p.label.toLowerCase() === label.toLowerCase())) prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'nice' });
-    for (const label of input.importantPreferences ?? []) {
-      const p = prefs.find((x) => x.label.toLowerCase() === label.toLowerCase());
-      if (p) p.weight = 'important'; else prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'important' });
-    }
-    st.search = applySearch(cur, { dealbreakers: input.dealbreakers, preferences: prefs });
-    await save(db, user, st);
-    await emit(c as Ctx, 'data-search-updated', { changed: Object.keys(input.dealbreakers ?? {}), dealbreakers: st.search.dealbreakers });
-    return { summary: summarize(st.search), dealbreakers: st.search.dealbreakers, preferences: prefs.map((p) => `${p.label} (${p.weight})`) };
+  execute: (input, c) => {
+    // searchListings in the same step waits for this, so it searches the new search
+    const saving = changeSearch(input, c as Ctx);
+    (c as Ctx).requestContext?.set?.('savingSearch', saving.catch(() => {}));
+    return saving;
   },
 });
 
+async function changeSearch(input: { dealbreakers?: Partial<z.infer<typeof S.Dealbreakers>>; addPreferences?: string[]; importantPreferences?: string[]; removePreferences?: string[] }, c: Ctx) {
+  const { db, user } = who(c);
+  const st = await load(db, user), cur = view(st).search;
+  const prefs = cur.preferences.filter((p) => !(input.removePreferences ?? []).some((r) => r.toLowerCase() === p.label.toLowerCase()));
+  for (const label of input.addPreferences ?? []) if (!prefs.some((p) => p.label.toLowerCase() === label.toLowerCase())) prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'nice' });
+  for (const label of input.importantPreferences ?? []) {
+    const p = prefs.find((x) => x.label.toLowerCase() === label.toLowerCase());
+    if (p) p.weight = 'important'; else prefs.push({ id: `p_${crypto.randomUUID().slice(0, 6)}`, label, weight: 'important' });
+  }
+  st.search = applySearch(cur, { dealbreakers: input.dealbreakers, preferences: prefs });
+  await save(db, user, st);
+  await emit(c, 'data-search-updated', { changed: Object.keys(input.dealbreakers ?? {}), dealbreakers: st.search.dealbreakers });
+  const d = st.search.dealbreakers, unknown = [...d.areas, ...(d.excludeAreas ?? [])].filter((a) => !knownArea(a));
+  return { summary: summarize(st.search), dealbreakers: d, preferences: prefs.map((p) => `${p.label} (${p.weight})`),
+           ...(unknown.length && { unknownAreas: unknown, note: 'Not neighbourhoods I know; these only match listings whose neighbourhood says exactly that. Check the spelling with the user.' }) };
+}
+
 export const searchListings = createTool({
   id: 'searchListings',
-  description: "Search the real NYC rental listings Fred has collected from StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and landlord sites. Each match comes with highlights (deal vs the area's usual rent, laundry, outdoor space, pets, light), and a buildingWarning only when the city record is bad. Areas are neighbourhood or borough names.",
+  description: "Search the real NYC rental listings Fred has collected from StreetEasy, Zillow, RentHop, Zumper, Craigslist, Compass, Nooklyn and landlord sites. It always searches inside the saved search (areas, excluded areas, budget, beds, baths, pets, fee); your filters can only narrow it. To look outside it, updateSearch first. Results come best fit first. Each match comes with highlights (deal vs the area's usual rent, laundry, outdoor space, pets, light), and a buildingWarning only when the city record is bad. Areas are neighbourhood or borough names.",
   inputSchema: z.object({
     areas: z.array(z.string()).optional().describe('e.g. ["williamsburg", "greenpoint"] or ["brooklyn"]'),
     maxRent: z.number().optional(), minBeds: z.number().optional(), minBaths: z.number().optional(),
@@ -77,12 +87,15 @@ export const searchListings = createTool({
     limit: z.number().optional().describe('Default 15, max 40'),
   }),
   execute: async (input, c) => {
-    const { db } = who(c as Ctx);
-    const r = await search(db, input);
+    const { db, user } = who(c as Ctx);
+    await (c as Ctx).requestContext?.get('savingSearch');
+    const saved = view(await load(db, user)).search, r = await search(db, saved, input);
     for (const l of r.found) seen(c as Ctx).add(l.listingId);
-    const where = input.areas?.length ? input.areas.join(', ') : 'all of NYC';
+    const areas = input.areas?.length ? input.areas : saved.dealbreakers.areas;
+    const where = areas.length ? areas.join(', ') : 'all of NYC';
     await emit(c as Ctx, 'data-scan', { checked: r.total, matched: r.found.length, hidden: 0, steps: [{ label: `Searched ${where}${input.maxRent ? ` up to $${input.maxRent.toLocaleString('en-US')}` : ''}`, toolCallId: null }] });
-    return { matching: r.total, showing: r.found.length, listings: r.found };
+    return { matching: r.total, showing: r.found.length, listings: r.found,
+             ...(r.outside.length && { outsideSearch: r.outside, note: 'These areas are outside the saved search, so nothing there was searched. If the user wants them, updateSearch first.' }) };
   },
 });
 

@@ -21,6 +21,7 @@ export function d1() {
     };
     return st;
   };
-  const db = { prepare, batch: async (sts: any[]) => { for (const s of sts) await s.run(); } };
+  // like D1, a batch runs in order and returns each statement's results
+  const db = { prepare, batch: async (sts: any[]) => { const out = []; for (const s of sts) out.push(await s.all()); return out; } };
   return { env: { DB: db } as any, sql };
 }
