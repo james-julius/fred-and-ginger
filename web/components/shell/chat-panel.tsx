@@ -35,12 +35,27 @@ export function ChatPanel(props: { context: Context; onClearContext: () => void;
   return (
     <section aria-label="Conversation with Fred" className="flex flex-col border-b bg-chat lg:min-h-0 lg:border-r lg:border-b-0">
       {ready ? (
-        <Thread key={threadId} threadId={threadId} initial={(thread?.messages ?? []) as FredMessage[]} {...props} />
+        <Thread key={threadId} threadId={threadId} initial={asEdited((thread?.messages ?? []) as FredMessage[])} {...props} />
       ) : (
         <p className="p-5 text-sm text-muted-foreground">{error ? "Couldn’t load your conversation." : "Loading…"}</p>
       )}
     </section>
   );
+}
+
+/**
+ * A message id that comes up twice in a saved thread was edited before the server replaced edits properly,
+ * so it kept both copies (two `m1`s break React's keys). Read it the way an edit works now: the later copy
+ * replaces the earlier one, and what came between them goes.
+ */
+function asEdited(messages: FredMessage[]) {
+  const out: FredMessage[] = [];
+  for (const m of messages) {
+    const at = out.findIndex((x) => x.id === m.id);
+    if (at !== -1) out.length = at;
+    out.push(m);
+  }
+  return out;
 }
 
 function Thread({ threadId, initial, context, onClearContext, composerRef }: {
