@@ -1702,6 +1702,8 @@ export interface components {
             area: string;
             beds: number;
             baths: number | null;
+            /** @description Square feet, when a site says */
+            sqft?: number | null;
             transit: components["schemas"]["Transit"];
             /** @example Washer/dryer in unit */
             highlight: string | null;
@@ -1924,9 +1926,9 @@ export interface components {
             nextCursor: string | null;
         };
         OpportunityDetail: components["schemas"]["OpportunityCard"] & {
+            sqft: number | null;
             address: string;
             unit: string | null;
-            sqft: number | null;
             /** Format: date */
             available: string | null;
             description: string | null;

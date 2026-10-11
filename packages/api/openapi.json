@@ -566,6 +566,13 @@
               "null"
             ]
           },
+          "sqft": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Square feet, when a site says"
+          },
           "transit": {
             "$ref": "#/components/schemas/Transit"
           },
@@ -1256,18 +1263,18 @@
           {
             "type": "object",
             "properties": {
+              "sqft": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "address": {
                 "type": "string"
               },
               "unit": {
                 "type": [
                   "string",
-                  "null"
-                ]
-              },
-              "sqft": {
-                "type": [
-                  "integer",
                   "null"
                 ]
               },
@@ -1387,9 +1394,9 @@
               }
             },
             "required": [
+              "sqft",
               "address",
               "unit",
-              "sqft",
               "available",
               "description",
               "photos",

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/cloudflare';
 // The Fred API: every route in packages/api/src/routes.ts. Places (and the counts in /api/me) come
 // from the real listings in D1 (places.ts) and say X-Fred-Data: real. The rest are still canned
 // (mock.ts): the example data plus each person's changes, marked X-Fred-Data: example. Handlers
@@ -16,6 +17,7 @@ import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
 import { AlertError, examplePlaces, getAlerts, patchAlerts, sendCode, sendDueAlerts, sendTest, verifyCode } from './alerts';
 import { recall, taste } from './memory';
+import { backfill, exchanges, forget, placesIn, remember, worthRemembering } from './recall';
 
 /** Keep only text written after the last tool call: a draft Fred wrote mid-turn and then corrected
  *  shouldn't come back on reload or be reread as history. The app shows the same thing live. */
@@ -31,6 +33,13 @@ type Ctx = { Bindings: Env & { ME: string } };
 export const v2 = new OpenAPIHono<Ctx>({
   // invalid requests get the same { error } shape as everything else
   defaultHook: (result, c) => { if (!result.success) return c.json({ error: result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }, 400); },
+});
+
+// Hono turns a thrown error into a 500 itself, so Sentry's wrapper never sees it: report it here
+v2.onError((err, c) => {
+  Sentry.captureException(err, { tags: { route: `${c.req.method} ${c.req.routePath}` } });
+  console.error(err);
+  return c.json({ error: 'Something went wrong on our side. Try again in a moment.' }, 500);
 });
 
 v2.use('*', async (c, next) => { await next(); if (!c.res.headers.has('X-Fred-Data')) c.header('X-Fred-Data', 'example'); c.header('Cache-Control', 'no-store'); });
@@ -247,6 +256,12 @@ v2.openapi(R.chat, async (c) => {
     // Save the user's message now, so an edit sticks even if the reply fails or they leave mid-reply.
     st.threads[threadId] = { title, updatedAt: new Date().toISOString(), messages: [...kept, userMsg] };
     await store(c, st);
+    // recall: an edit drops the exchanges it replaced; old chats get indexed the first time
+    const dropped = (prior?.messages ?? []).slice(kept.length), me = c.env.ME, threads = st.threads;
+    c.executionCtx.waitUntil((async () => {
+      if (dropped.length) await forget(c.env, me, dropped);
+      await backfill(c.env, me, threads);
+    })().catch((e) => console.error('recall', e)));
     // history as plain text for now; Mastra memory in Postgres replaces this
     type Turn = { role: 'user'; content: string } | { role: 'assistant'; content: string };
     const history: Turn[] = kept.flatMap((m): Turn[] => {
@@ -279,7 +294,8 @@ v2.openapi(R.chat, async (c) => {
     const rc = new RequestContext();
     rc.set('env', c.env);
     rc.set(MASTRA_RESOURCE_ID_KEY, c.env.ME);
-    rc.set('said', said);   // updateMemory turns away notes that just repeat this
+    rc.set('said', said);
+    rc.set('threadId', threadId);   // recallChats looks in other chats   // updateMemory turns away notes that just repeat this
     // addToInbox takes ids from this turn's search, and the open place: Fred's verdict on it replaces the first take
     const open = Number(String(context?.opportunityId ?? '').replace(/^op_/, ''));
     rc.set('seenListings', new Set<number>(Number.isFinite(open) && open > 0 ? [open] : []));
@@ -318,8 +334,11 @@ v2.openapi(R.chat, async (c) => {
         fresh.threads[threadId] = { title, updatedAt: new Date().toISOString(),
           messages: [...upTo, { id: responseMessage.id, role: 'assistant', parts: harnessV1 ? parts : finalTextOnly(parts) }] };
         await store(c, fresh);
+        // so a later chat can find this one by meaning
+        const [x] = exchanges(threadId, title, [userMsg, { id: responseMessage.id, role: 'assistant', parts: finalTextOnly(parts) }]);
+        if (x && worthRemembering(parts)) c.executionCtx.waitUntil(remember(c.env, c.env.ME, [{ ...x, places: placesIn(parts) }]).catch((e) => console.error('recall', e)));
       },
-      onError: (e) => { console.error('fred', e); return 'Fred hit a problem answering that. Try again in a moment.'; },
+      onError: (e) => { console.error('fred', e); Sentry.captureException(e, { tags: { area: 'fred-chat', model } }); return 'Fred hit a problem answering that. Try again in a moment.'; },
     });
     return createUIMessageStreamResponse({ stream }) as never;
   }
@@ -402,6 +421,13 @@ v2.post('/api/mock/run-alerts', async (c) => {
   if (c.env.FRED_DEV !== '1') return c.json(notFound, 404);
   const since = c.req.query('since');
   return c.json(await sendDueAlerts(c.env, { only: c.env.ME, since: since ? Number(since) : undefined }));
+});
+/* local dev only: send Sentry a log, a metric and an error, to check it's wired up */
+v2.post('/api/mock/sentry-test', (c) => {
+  if (c.env.FRED_DEV !== '1') return c.json(notFound, 404);
+  Sentry.logger.info('Sentry test from Fred API', { action: 'test_error_worker' });
+  Sentry.metrics.count('test_counter', 1);
+  throw new Error('Sentry test error from the Fred API (local dev)');
 });
 v2.post('/api/mock/reset', async (c) => {
   await reset(c.env.DB, c.env.ME);

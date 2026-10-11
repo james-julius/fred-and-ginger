@@ -14,6 +14,7 @@ import { canonicalArea, knownArea } from '../areas';
 import { checkSites, crawlStatus } from './crawl';
 import { AlertError, examplePlaces, patchAlerts, sendTest, verifyCode } from '../alerts';
 import { write as writeMemory } from '../memory';
+import { search as searchChats } from '../recall';
 
 type Ctx = { requestContext?: { get(k: string): unknown; set?(k: string, v: unknown): void }; writer?: { custom(part: { type: string; data: unknown }): Promise<void> } };
 const who = (c: Ctx) => {
@@ -279,10 +280,19 @@ export const researchWeb = createTool({
   description: "Search the web to research a place for the user: tenant reviews of a building (Openigloo, StreetEasy, Google), the landlord or management company, what the block is like, whether a building has an elevator or laundry. Include the street address and 'NYC' in the query. Returns titles, links and snippets; say where a claim came from.",
   inputSchema: z.object({ query: z.string().describe('e.g. "376 Graham Ave Brooklyn tenant reviews"') }),
   execute: async ({ query }, c) => {
-    const { nimble } = who(c as Ctx);
+    const { db, nimble } = who(c as Ctx);
     if (!nimble) return { error: 'Web research is not set up (no NIMBLE_API_KEY)' };
     await emit(c as Ctx, 'data-scan', { checked: 0, matched: 0, hidden: 0, steps: [{ label: `Looked up "${query}"`, toolCallId: null }] });
-    try { return { results: await webSearch(nimble, query, 5) }; } catch (e) { return { error: String(e).slice(0, 200) }; }
+    // each search is a paid call: the same question within a week reads the saved answer
+    const key = `web:${query.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`, now = Math.floor(Date.now() / 1000);
+    const hit = await db.prepare('SELECT v FROM meta WHERE k=?').bind(key).first<{ v: string }>();
+    const saved = hit && JSON.parse(hit.v);
+    if (saved && now - saved.at < WEEK) return { results: saved.results, cachedDaysAgo: Math.floor((now - saved.at) / 86400) };
+    try {
+      const results = await webSearch(nimble, query, 5);
+      await db.prepare('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)').bind(key, JSON.stringify({ at: now, results })).run();
+      return { results };
+    } catch (e) { return { error: String(e).slice(0, 200) }; }
   },
 });
 
@@ -341,6 +351,22 @@ from: "said" when they told you, "inferred" when you read it from their saves an
   },
 });
 
+export const recallChats = createTool({
+  id: 'recallChats',
+  description: 'Search this person\'s earlier chats with you by meaning, when they refer back to something ("that place with the big kitchen", "what did you say about Bushwick?", "the one near Sam\'s office"). Returns the closest exchanges with the places in them; open one with getPlace. Describe what you\'re looking for in plain words.',
+  inputSchema: z.object({ query: z.string().describe('What to look for, e.g. "apartment with a big kitchen and a dishwasher"') }),
+  execute: async ({ query }, c) => {
+    const env = (c as Ctx).requestContext?.get('env') as (Env & { ME: string }) | undefined;
+    if (!env) throw new Error('No request context: tools must run inside a signed-in request');
+    try {
+      const hits = await searchChats(env, env.ME, query, { exceptThread: (c as Ctx).requestContext?.get('threadId') as string | undefined });
+      return hits.length
+        ? { matches: hits, note: 'Old chats can be out of date: your notes and the saved search are current and win over them. Mention when something was said (the when field).' }
+        : { matches: [], note: 'Nothing close in earlier chats. Say so; don\'t guess.' };
+    } catch (e) { return { error: String(e).slice(0, 200) }; }
+  },
+});
+
 export const updateProfile = createTool({
   id: 'updateProfile',
   description: 'Change the name the app shows for this person, when they ask ("call me Jim").',
@@ -380,4 +406,4 @@ export const updateTour = createTool({
   },
 });
 
-export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, updateProfile, listTours, updateTour };
+export const tools = { getSearch, updateSearch, searchListings, addToInbox, listInbox, getPlace, updatePlace, requestTour, setAlerts, verifyAlerts, sendTestAlert, suggestReplies, researchWeb, readListingPage, checkSites, crawlStatus, updateMemory, recallChats, updateProfile, listTours, updateTour };
