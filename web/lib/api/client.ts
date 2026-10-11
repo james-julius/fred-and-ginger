@@ -41,6 +41,20 @@ export async function updateOpportunity(id: string, patch: S["OpportunityPatch"]
   return card;
 }
 
+/** Your name or photo. */
+export async function updateMe(patch: S["MePatch"]) {
+  const me = await api<S["Me"]>("/api/me", { method: "PATCH", body: JSON.stringify(patch) });
+  await mutate("/api/me", me, { revalidate: false });
+  return me;
+}
+
+/** What you're looking for. Changing it changes the inbox, so refresh that too. */
+export async function updateSearch(patch: S["SearchPatch"]) {
+  const search = await api<S["Search"]>("/api/search", { method: "PATCH", body: JSON.stringify(patch) });
+  await refreshPlaces();
+  return search;
+}
+
 /** After anything that can change the inbox: a vote, a chat reply that edits the search. */
 export const refreshPlaces = () =>
   mutate((key) => typeof key === "string" && (key.startsWith("/api/opportunities") || key === "/api/me" || key === "/api/search"));

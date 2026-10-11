@@ -12,6 +12,8 @@ const stream = (description: string) => ({ content: { 'text/event-stream': { sch
 /* you */
 export const getMe = createRoute({ method: 'get', path: '/api/me', tags: ['you'],
   responses: { 200: json(S.Me, 'You, your search in one line, sidebar counts'), ...errors } });
+export const patchMe = createRoute({ method: 'patch', path: '/api/me', tags: ['you'],
+  request: body(S.MePatch), responses: { 200: json(S.Me, 'Your name and photo, updated'), ...errors } });
 export const getAlerts = createRoute({ method: 'get', path: '/api/alerts', tags: ['you'],
   responses: { 200: json(S.Alerts, 'Alert settings'), ...errors } });
 export const patchAlerts = createRoute({ method: 'patch', path: '/api/alerts', tags: ['you'],

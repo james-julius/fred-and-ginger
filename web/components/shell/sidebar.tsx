@@ -1,11 +1,16 @@
-import { Bookmark, CalendarDays, FileText, Inbox, PanelLeft, SlidersHorizontal } from "lucide-react";
+"use client";
+
+import { Bookmark, CalendarDays, FileText, Inbox, PanelLeft, UserRound } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Avatar } from "@/components/avatar";
 import { FredMark } from "@/components/fred-mark";
 import type { S } from "@/lib/api/client";
 
 const icon = { size: 18, strokeWidth: 1.25, "aria-hidden": true } as const;
 
 export function Sidebar({ me }: { me: S["Me"] | undefined }) {
+  const path = usePathname();
   return (
     <aside className="hidden flex-col gap-1 border-r border-sidebar-border bg-sidebar px-2.5 py-3.5 text-sidebar-foreground lg:flex">
       <div className="flex items-center gap-2.5 px-2 pt-1 pb-3.5 text-[17px] font-semibold tracking-tight">
@@ -14,31 +19,30 @@ export function Sidebar({ me }: { me: S["Me"] | undefined }) {
         <PanelLeft {...icon} className="ml-auto text-muted-foreground" />
       </div>
 
-      {/* Only New places exists so far. The rest are placeholders for the screens to come. */}
+      {/* Saved, Tours and Application packet don't have pages yet; they lead home for now. */}
       <nav className="grid gap-0.5 text-[14.5px]">
-        <NavItem current icon={<Inbox {...icon} />} label="New places" count={me?.counts.new} />
-        <NavItem icon={<Bookmark {...icon} />} label="Saved" count={me?.counts.saved} quiet />
-        <NavItem icon={<CalendarDays {...icon} />} label="Tours" count={me?.counts.tours} quiet />
-        <NavItem icon={<FileText {...icon} />} label="Application packet" />
-        <NavItem icon={<SlidersHorizontal {...icon} />} label="Search settings" />
+        <NavItem href="/" current={path === "/"} icon={<Inbox {...icon} />} label="New places" count={me?.counts.new} />
+        <NavItem href="/" icon={<Bookmark {...icon} />} label="Saved" count={me?.counts.saved} quiet />
+        <NavItem href="/" icon={<CalendarDays {...icon} />} label="Tours" count={me?.counts.tours} quiet />
+        <NavItem href="/profile" current={path === "/profile"} icon={<UserRound {...icon} />} label="Profile" />
+        <NavItem href="/" icon={<FileText {...icon} />} label="Application packet" />
       </nav>
 
       {me && (
-        <div className="mt-auto flex items-center gap-2.5 border-t border-sidebar-border px-2 pt-3">
-          <span className="grid size-[30px] shrink-0 place-items-center rounded-full bg-stone text-xs font-semibold text-highlight-foreground" aria-hidden>
-            {me.user.initials}
-          </span>
+        <Link href="/profile" className="mt-auto flex items-center gap-2.5 rounded-lg border-t border-sidebar-border px-2 pt-3 pb-1 hover:bg-muted/60">
+          <Avatar user={me.user} size={30} />
           <div className="min-w-0 leading-tight">
             <span className="block truncate">{me.user.name}</span>
             <small className="block truncate text-xs text-muted-foreground">{me.summary}</small>
           </div>
-        </div>
+        </Link>
       )}
     </aside>
   );
 }
 
-function NavItem({ icon, label, count, current, quiet }: {
+function NavItem({ href, icon, label, count, current, quiet }: {
+  href: string;
   icon: React.ReactNode;
   label: string;
   count?: number;
@@ -47,7 +51,7 @@ function NavItem({ icon, label, count, current, quiet }: {
 }) {
   return (
     <Link
-      href="/"
+      href={href}
       aria-current={current ? "page" : undefined}
       className={`flex items-center gap-2.5 rounded-lg px-2 py-[7px] ${current ? "bg-muted font-medium" : "hover:bg-muted/60"}`}
     >

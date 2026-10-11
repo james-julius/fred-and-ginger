@@ -7,7 +7,7 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { routes as R } from '@fng/api';
 import * as S from '@fng/api';
 import type { Env } from './ingest';
-import { applySearch, load, reset, reply, save, view, type Message } from './mock';
+import { applySearch, load, meFor, reset, reply, save, view, type Message } from './mock';
 import { RequestContext, MASTRA_RESOURCE_ID_KEY } from '@mastra/core/request-context';
 import { toAISdkStream } from '@mastra/ai-sdk';
 import { fred, DEFAULT_MODEL } from './agent/fred';
@@ -29,7 +29,13 @@ const state = (c: { env: Ctx['Bindings'] }) => load(c.env.DB, c.env.ME);
 const store = (c: { env: Ctx['Bindings'] }, st: Awaited<ReturnType<typeof load>>) => save(c.env.DB, c.env.ME, st);
 
 /* you */
-v2.openapi(R.getMe, async (c) => c.json(view(await state(c)).me, 200));
+v2.openapi(R.getMe, async (c) => c.json(meFor(await state(c), c.env.ME), 200));
+v2.openapi(R.patchMe, async (c) => {
+  const st = await state(c);
+  st.profile = { ...st.profile, ...c.req.valid('json') };
+  await store(c, st);
+  return c.json(meFor(st, c.env.ME), 200);
+});
 v2.openapi(R.getAlerts, async (c) => c.json(view(await state(c)).alerts, 200));
 v2.openapi(R.patchAlerts, async (c) => {
   const st = await state(c);

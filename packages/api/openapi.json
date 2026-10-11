@@ -769,12 +769,20 @@
               },
               "initials": {
                 "type": "string"
+              },
+              "photo": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Profile photo: an https image URL, or a data:image URL the app sends (small, about 256px square)"
               }
             },
             "required": [
               "id",
               "name",
-              "initials"
+              "initials",
+              "photo"
             ]
           },
           "summary": {
@@ -875,6 +883,25 @@
         "required": [
           "error"
         ]
+      },
+      "MePatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "photo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300000,
+            "pattern": "^(https:\\/\\/|data:image\\/(png|jpeg|webp);base64,)",
+            "description": "null removes the photo"
+          }
+        }
       },
       "OpportunityPage": {
         "type": "object",
@@ -1440,6 +1467,53 @@
         "responses": {
           "200": {
             "description": "You, your search in one line, sidebar counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "you"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Your name and photo, updated",
             "content": {
               "application/json": {
                 "schema": {

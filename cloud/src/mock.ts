@@ -23,6 +23,7 @@ export type MockState = {
   /** places Fred added from real listings, newest first */
   created?: Card[];
   threads: Record<string, { title: string; updatedAt: string; messages: Message[] }>;
+  profile?: { name?: string; photo?: string | null };
 };
 
 const empty = (): MockState => ({ cards: {}, threads: {} });
@@ -62,6 +63,14 @@ export function view(st: MockState, now = new Date()) {
   } };
   const threads: MockState['threads'] = { thread_1: { title: f.threads[0].title, updatedAt: f.threads[0].updatedAt, messages: f.messages as Message[] }, ...st.threads };
   return { ...f, search, alerts, tours, cards, me, threads };
+}
+
+/** /api/me for the signed-in person: their own name (default: their login) and photo. */
+export function meFor(st: MockState, user: string, now = new Date()) {
+  const me = view(st, now).me;
+  const name = st.profile?.name ?? user.charAt(0).toUpperCase() + user.slice(1);
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+  return { ...me, user: { id: user, name, initials, photo: st.profile?.photo ?? null } };
 }
 
 /* ── chat ─────────────────────────────────────────────────────────────── */
