@@ -16,6 +16,7 @@ import { fred, DEFAULT_MODEL, type Harness } from './agent/fred';
 import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
 import * as outbox from './outbox';
+import { DEMO_NOTE, demoTurnAllowed, isDemo } from './demo';
 import { AlertError, examplePlaces, getAlerts, patchAlerts, sendCode, sendDueAlerts, sendTest, verifyCode } from './alerts';
 import { recall, taste } from './memory';
 import { backfill, exchanges, forget, placesIn, remember, worthRemembering } from './recall';
@@ -258,6 +259,15 @@ v2.openapi(R.chat, async (c) => {
   const said = (user.parts ?? []).filter((p) => p.type === 'text').map((p) => String(p.text ?? '')).join(' ');
   const userMsg: Message = { id: user.id ?? crypto.randomUUID(), role: 'user', parts: user.parts ?? [{ type: 'text', text: said }] };
 
+  // demo people get a daily allowance of Fred turns (src/demo.ts)
+  if (isDemo(c.env.ME) && hasModelKey(c.env) && !(await demoTurnAllowed(c.env.DB, c.env.ME))) {
+    const stream = createUIMessageStream({ execute: ({ writer }) => {
+      writer.write({ type: 'start' }); writer.write({ type: 'text-start', id: 't' });
+      writer.write({ type: 'text-delta', id: 't', delta: "That's the demo's chat allowance for today. Thanks for trying Fred! Start a fresh demo from the sign-in page to keep going." });
+      writer.write({ type: 'text-end', id: 't' }); writer.write({ type: 'finish' });
+    } });
+    return createUIMessageStreamResponse({ stream }) as never;
+  }
   if (hasModelKey(c.env)) {
     // an id already in the thread means the user edited that message: Fred sees only what came before it
     const keep = (msgs: Message[] = []) => { const i = user.id ? msgs.findIndex((m) => m.id === user.id) : -1; return i === -1 ? msgs : msgs.slice(0, i); };
@@ -296,6 +306,7 @@ v2.openapi(R.chat, async (c) => {
     const known = recall(st.memory), pattern = await taste(c.env.DB, st).catch(() => null);
     const note = [
       `(Now: ${now}, New York.)`,
+      isDemo(c.env.ME) && DEMO_NOTE,
       `(Alerts: ${alertsLine(await getAlerts(c.env.DB, c.env.ME))})`,
       // tool results aren't replayed, so Fred learns the drafts waiting for a yes from here
       ...(await outbox.list(c.env.DB, c.env.ME, 10)).filter((m) => m.status === 'draft')

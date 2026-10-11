@@ -218,6 +218,7 @@ export const sendMessage = createTool({
     try {
       const m = await outbox.send(env, env.ME, draftId, { turn: (rc?.get('turn') as string) ?? null, senderName: (rc?.get('senderName') as string) ?? 'the renter' });
       await (c as Ctx).writer?.custom({ type: 'data-draft', id: m.id, data: m } as never);
+      if ('simulated' in m) return { sent: true, simulated: true, to: m.to, note: 'Demo account: marked sent, but nothing was emailed. Say so.' };
       return m.status === 'sent' ? { sent: true, to: m.to, note: 'Their reply goes to the user’s email, not to you.' } : { sent: false, error: m.error };
     } catch (e) { if (e instanceof AlertError) return { sent: false, error: e.message }; throw e; }
   },

@@ -5,6 +5,7 @@
 import { AlertError, getAlerts } from './alerts';
 import { contactFor } from './contacts';
 import { sendEmail, type Email } from './email';
+import { isDemo } from './demo';
 
 type Env = { DB: D1Database; EMAIL?: SendEmail; FRED_DEV?: string };
 export type OutboxRow = {
@@ -79,6 +80,11 @@ export async function send(env: Env, user: string, id: string, o: { turn: string
   // claim it first, so a double click or a retry can't send it twice
   const claim = await env.DB.prepare("UPDATE outbox SET status='sent', sent_at=? WHERE user=? AND id=? AND status='draft'").bind(now(), user, id).run();
   if (!claim.meta.changes) throw new AlertError(400, 'That message was just sent or cancelled.');
+  // demo people: everything above runs for real, but nothing is emailed
+  if (isDemo(user)) {
+    await env.DB.prepare('UPDATE outbox SET message_id=? WHERE user=? AND id=?').bind('demo:not-sent', user, id).run();
+    return { ...shape((await get(env.DB, user, id))!), simulated: true as const };
+  }
   const res = await sendEmail(env, r.to_email, letter(r, o.senderName), { replyTo: r.reply_to, fromName: `Fred, for ${o.senderName}` });
   if (res.error) {
     await env.DB.prepare("UPDATE outbox SET status='failed', error=? WHERE user=? AND id=?").bind(res.error, user, id).run();

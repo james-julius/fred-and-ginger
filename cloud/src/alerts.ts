@@ -8,6 +8,7 @@ import type { z } from '@hono/zod-openapi';
 import { alertEmail, codeEmail, sendEmail, type AlertPlace } from './email';
 import { detail } from './agent/listings';
 import { inbox } from './places';
+import { DEMO_CODE, isDemo } from './demo';
 import { load, summarize, view } from './mock';
 
 type Alerts = z.infer<typeof S.Alerts>;
@@ -106,11 +107,12 @@ export async function sendCode(env: Env, user: string, channel: Channel) {
   if (!dest) throw new AlertError(400, channel === 'email' ? 'Add an email address first.' : 'Add a phone number first.');
   if (channel === 'email' ? r.email_verified : r.phone_verified) throw new AlertError(400, 'That address is already verified.');
   await rateLimit(env.DB, user, 'code', channel);
-  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0');
+  // demo people get a fixed code and no email (src/demo.ts)
+  const code = isDemo(user) ? DEMO_CODE : String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0');
   const expires = now() + CODE_TTL;
   await env.DB.prepare('INSERT OR REPLACE INTO alert_codes (user, channel, dest, code_hash, expires, attempts) VALUES (?,?,?,?,?,0)')
     .bind(user, channel, dest, await hash(env, `${user}:${channel}:${dest}:${code}`), expires).run();
-  const res = await sendEmail(env, dest, codeEmail(code));
+  const res = isDemo(user) ? { messageId: 'demo:not-sent' } as { messageId: string; error?: string } : await sendEmail(env, dest, codeEmail(code));
   await env.DB.prepare('INSERT INTO alert_log (user, channel, kind, dest, message_id, error, at) VALUES (?,?,?,?,?,?,?)')
     .bind(user, channel, 'code', dest, res.messageId, res.error ?? null, now()).run();
   if (res.error) throw new Error(`Couldn't send the code: ${res.error}`);
@@ -149,7 +151,7 @@ export async function sendTest(env: Env, user: string, channel: Channel, places:
   if (!dest || !(channel === 'email' ? r.email_verified : r.phone_verified)) throw new AlertError(400, 'Verify the address first.');
   await rateLimit(env.DB, user, 'test', channel);
   if (!places.length) throw new AlertError(400, 'There are no places in the inbox to show yet.');
-  const res = await sendEmail(env, dest, alertEmail(places.slice(0, 3), { searchLine, example: true }));
+  const res = isDemo(user) ? { messageId: 'demo:not-sent' } as { messageId: string; error?: string } : await sendEmail(env, dest, alertEmail(places.slice(0, 3), { searchLine, example: true }));
   await env.DB.prepare('INSERT INTO alert_log (user, channel, kind, dest, message_id, error, at) VALUES (?,?,?,?,?,?,?)')
     .bind(user, channel, 'test', dest, res.messageId, res.error ?? null, now()).run();
   if (res.error) throw new Error(`Couldn't send the example: ${res.error}`);
@@ -185,7 +187,7 @@ export function quiet(start: string | null, end: string | null, at = new Date())
  * alert_log before sending, so overlapping runs can't send it twice; a failed send releases it.
  */
 export async function sendDueAlerts(env: Env, o: { only?: string; since?: number } = {}) {
-  const users = await env.DB.prepare(`SELECT * FROM alert_settings WHERE mode='instant_strong' AND email_verified=1 AND email_enabled=1 AND email IS NOT NULL${o.only ? ' AND user=?' : ''}`)
+  const users = await env.DB.prepare(`SELECT * FROM alert_settings WHERE mode='instant_strong' AND email_verified=1 AND email_enabled=1 AND email IS NOT NULL AND user NOT LIKE 'demo\\_%' ESCAPE '\\'${o.only ? ' AND user=?' : ''}`)
     .bind(...(o.only ? [o.only] : [])).all<Row & { user: string }>();
   const report: { user: string; sent: number; skipped?: string; error?: string }[] = [];
   for (const r of users.results) {

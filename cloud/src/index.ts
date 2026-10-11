@@ -8,6 +8,7 @@ import { Env, enrich, finishRun, ingestBatch, startRuns, SOURCES } from './inges
 import { report } from './building';
 import { v2 } from './v2';
 import { sendDueAlerts } from './alerts';
+import { createDemo, isDemo } from './demo';
 import { refreshFacts } from './facts';
 import { checkAreas } from './safety';
 import { photosOf, savePhotos, servePhoto } from './photos';
@@ -32,12 +33,12 @@ async function sessionUser(req: Request, env: Env): Promise<string | null> {
   if (!c) return null;
   const [u, exp, sig] = decodeURIComponent(c).split('.');
   if (!u || !exp || !sig || +exp < Date.now() / 1000) return null;
-  return same(sig, await hmac(env.SESSION_KEY, `${u}.${exp}`)) && (USERS as readonly string[]).includes(u) ? u : null;
+  return same(sig, await hmac(env.SESSION_KEY, `${u}.${exp}`)) && ((USERS as readonly string[]).includes(u) || isDemo(u)) ? u : null;
 }
-async function cookieFor(u: string, env: Env) {
-  const exp = Math.floor(Date.now() / 1000) + 90 * DAY;
+async function cookieFor(u: string, env: Env, days = 90) {
+  const exp = Math.floor(Date.now() / 1000) + days * DAY;
   const v = `${u}.${exp}.${await hmac(env.SESSION_KEY, `${u}.${exp}`)}`;
-  return `nest_s=${encodeURIComponent(v)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${90 * DAY}`;
+  return `nest_s=${encodeURIComponent(v)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${days * DAY}`;
 }
 
 const json = (d: unknown, status = 200) => new Response(JSON.stringify(d), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -54,7 +55,8 @@ input[type=password]{height:48px;border-radius:12px;border:1px solid var(--line)
 button{height:48px;border:0;border-radius:12px;background:var(--ink);color:var(--bg);font:600 15px Inter,sans-serif;cursor:pointer}.err{color:var(--accent);min-height:1.2em}</style></head>
 <body><form method="post" action="/login"><h1>Fred <i>&amp;</i> Ginger</h1><p>Finding our place in New York.</p>
 <div class="who"><label><input type="radio" name="user" value="james" required><span>James</span></label><label><input type="radio" name="user" value="erin"><span>Erin</span></label></div>
-<input type="password" name="password" placeholder="Password" autocomplete="current-password" required><button>Sign in</button><div class="err">${msg}</div></form></body></html>`;
+<input type="password" name="password" placeholder="Password" autocomplete="current-password" required><button>Sign in</button><div class="err">${msg}</div>
+<a href="/demo" style="text-align:center;color:var(--soft);font-weight:500">Just looking? Try the demo →</a></form></body></html>`;
 
 async function login(req: Request, env: Env) {
   const ip = req.headers.get('CF-Connecting-IP') || '?';
@@ -187,6 +189,15 @@ const handler = {
     }
     // listing photos from sites that block other pages from showing them (src/photos.ts); public for alert emails
     if (url.pathname === '/api/photo' && req.method === 'GET') return servePhoto(req, env);
+    // "Try the demo": a fresh demo person per visit, signed in for a day (src/demo.ts). 20 a day per visitor.
+    if (url.pathname === '/demo' && req.method === 'GET') {
+      const ip = req.headers.get('CF-Connecting-IP') || '?', key = `demo:ip:${ip}:${new Date().toISOString().slice(0, 10)}`;
+      const n = Number((await env.DB.prepare('SELECT v FROM meta WHERE k=?').bind(key).first<{ v: string }>())?.v ?? 0);
+      if (n >= 20) return new Response('Too many demos from here today. Try again tomorrow.', { status: 429 });
+      await env.DB.prepare('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)').bind(key, String(n + 1)).run();
+      const user = await createDemo(env.DB);
+      return new Response(null, { status: 303, headers: { Location: '/', 'Set-Cookie': await cookieFor(user, env, 1) } });
+    }
     if (url.pathname === '/login') {
       if (req.method === 'POST') return login(req, env);
       return new Response(LOGIN(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
