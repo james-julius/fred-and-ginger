@@ -1,6 +1,7 @@
 {
   // The Next app as its own Worker, built by OpenNext. James's API Worker is `nest` in cloud/.
-  // No domain yet: it deploys to workers.dev until we decide how it shares fredandginger.jamesjuliusdarby.com.
+  // Served on fredandginger.jamesjuliusdarby.com through nest's WEB service binding: nest keeps /api, /login,
+  // /logout and /hooks and hands every other path here. Deploy this before nest the first time.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "fred-web",
   "main": ".open-next/worker.js",
