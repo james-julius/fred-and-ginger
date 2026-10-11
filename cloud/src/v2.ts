@@ -144,10 +144,14 @@ v2.openapi(R.chat, async (c) => {
   if (hasModelKey(c.env)) {
     // an id already in the thread means the user edited that message: Fred sees only what came before it
     const keep = (msgs: Message[] = []) => { const i = user.id ? msgs.findIndex((m) => m.id === user.id) : -1; return i === -1 ? msgs : msgs.slice(0, i); };
-    const prior = view(st).threads[threadId];
+    const prior = view(st).threads[threadId], kept = keep(prior?.messages);
+    const title = kept.length && prior?.title ? prior.title : (said.slice(0, 60) || 'New chat');
+    // Save the user's message now, so an edit sticks even if the reply fails or they leave mid-reply.
+    st.threads[threadId] = { title, updatedAt: new Date().toISOString(), messages: [...kept, userMsg] };
+    await store(c, st);
     // history as plain text for now; Mastra memory in Postgres replaces this
     type Turn = { role: 'user'; content: string } | { role: 'assistant'; content: string };
-    const history: Turn[] = keep(prior?.messages).flatMap((m): Turn[] => {
+    const history: Turn[] = kept.flatMap((m): Turn[] => {
       const content = m.parts.filter((p) => p.type === 'text').map((p) => String(p.text)).join('\n');
       return !content ? [] : [m.role === 'user' ? { role: 'user', content } : { role: 'assistant', content }];
     });
@@ -185,9 +189,13 @@ v2.openapi(R.chat, async (c) => {
         writer.write({ type: 'finish' });
       },
       onFinish: async ({ responseMessage }) => {
-        const fresh = await state(c), was = view(fresh).threads[threadId], kept = keep(was?.messages);
-        fresh.threads[threadId] = { title: kept.length && was?.title ? was.title : (said.slice(0, 60) || 'New chat'), updatedAt: new Date().toISOString(),
-          messages: [...kept, userMsg, { id: responseMessage.id, role: 'assistant', parts: responseMessage.parts as Message['parts'] }] };
+        // Nothing to keep if the reply failed before Fred said or did anything.
+        if (!responseMessage.parts.some((p) => p.type === 'text' || p.type.startsWith('tool-') || p.type.startsWith('data-'))) return;
+        // Put Fred's reply right after this user message (already saved above).
+        const fresh = await state(c), was = view(fresh).threads[threadId]?.messages ?? [];
+        const at = was.findIndex((m) => m.id === userMsg.id), upTo = at === -1 ? [...was, userMsg] : was.slice(0, at + 1);
+        fresh.threads[threadId] = { title, updatedAt: new Date().toISOString(),
+          messages: [...upTo, { id: responseMessage.id, role: 'assistant', parts: responseMessage.parts as Message['parts'] }] };
         await store(c, fresh);
       },
       onError: (e) => { console.error('fred', e); return 'Fred hit a problem answering that. Try again in a moment.'; },
