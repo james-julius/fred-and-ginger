@@ -21,6 +21,7 @@
     "@mastra/cloudflare-d1": "^1.4.1",
     "@mastra/core": "^1.75.0",
     "@mastra/memory": "^1.37.0",
+    "@sentry/cloudflare": "^11.6.0",
     "ai": "7.0.137",
     "hono": "4.13.13",
     "zod": "4.6.6"
