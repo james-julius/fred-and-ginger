@@ -5,7 +5,7 @@ import type { z } from '@hono/zod-openapi';
 import { nearby, transitLabel } from '../transit';
 import { ranking, safetyFor } from '../safety';
 import { highlights, petsLabel, petsSql, scamSigns, typicalKey, typicalRents, type Facts } from '../facts';
-import { areaSql, within } from '../areas';
+import { areaLabel, areaSql, within } from '../areas';
 import { dealbreakerWhere } from '../filter';
 import { judge } from '../places';
 
@@ -77,7 +77,7 @@ export async function search(db: D1Database, saved: Search, f: Filters) {
   const found: Found[] = rows.results.map((r, i) => {
     const fx = json<Facts | null>(r.facts, null), t = typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null, trains = nearby(r.lat, r.lon);
     return {
-      listingId: r.id, fit: Math.round(fitOf.get(r.id)!), address: [r.street, r.unit && `#${r.unit}`].filter(Boolean).join(' '), area: r.neighbourhood, borough: r.borough,
+      listingId: r.id, fit: Math.round(fitOf.get(r.id)!), address: [r.street, r.unit && `#${r.unit}`].filter(Boolean).join(' '), area: areaLabel(r.neighbourhood, r.borough), borough: r.borough,
       price: r.price, beds: r.beds, baths: r.baths, sqft: r.sqft, noFee: r.no_fee == null ? null : !!r.no_fee, available: r.available,
       sites: (r.sites ?? '').split(',').filter(Boolean), photo: json<string[]>(r.photos, [])[0] ?? null,
       highlights: highlights(fx, { price: r.price, noFee: r.no_fee, typical: t, train: trains[0] && trains[0].walkMinutes <= 6 ? transitLabel(trains[0]) : null }, { pets: f.pets }).slice(0, 5),
@@ -104,7 +104,7 @@ export async function toCard(db: D1Database, listingId: number, pick: { verdict:
   return {
     id: `op_${r.id}`, listingId: r.id, foundAt: new Date().toISOString(), seen: false,
     status: pick.verdict === 'likely_scam' ? 'hidden' : 'new',
-    price: r.price, totalMonthly: r.price, area: r.neighbourhood ?? r.borough ?? 'New York', beds: r.beds ?? 0, baths: r.baths,
+    price: r.price, totalMonthly: r.price, area: areaLabel(r.neighbourhood, r.borough), beds: r.beds ?? 0, baths: r.baths,
     transit: nearby(r.lat, r.lon)[0] ?? null, highlight: pick.highlight ?? null, thumbnail: json<string[]>(r.photos, [])[0] ?? null,
     fit: Math.max(0, Math.min(100, Math.round(pick.fit))), verdict: { kind: pick.verdict, label, tone, reason: pick.reason ?? null }, feeCallout: null,
   };
