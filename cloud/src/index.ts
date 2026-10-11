@@ -6,6 +6,7 @@
 import { Env, enrich, finishRun, ingestBatch, startRuns, SOURCES } from './ingest';
 import { report } from './building';
 import { v2 } from './v2';
+import { refreshFacts } from './facts';
 
 const USERS = ['james', 'erin'] as const;
 const NAMES: Record<string, string> = { james: 'James', erin: 'Erin' };
@@ -197,6 +198,11 @@ export default {
     await env.DB.prepare(`INSERT OR REPLACE INTO meta VALUES ('cron:' || ?, ?)`).bind(ev.cron, new Date().toISOString()).run();
     if (ev.cron.startsWith('7 ')) ctx.waitUntil(startRuns(env, 'https://fredandginger.jamesjuliusdarby.com'));
     // ~50 outbound requests per invocation: one dataset page, then geocodes, then building checks
-    else ctx.waitUntil((async () => { const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3); })());
+    else ctx.waitUntil((async () => {
+      const b = await ingestBatch(env); await enrich(env, b ? 12 : 20, b ? 2 : 3);
+      // pets, laundry, outdoor space…: D1 reads only, so a big batch fits
+      const due = await env.DB.prepare('SELECT id FROM listings WHERE facts IS NULL LIMIT 200').all<{ id: number }>();
+      await refreshFacts(env.DB, due.results.map((r) => r.id));
+    })());
   },
 };
