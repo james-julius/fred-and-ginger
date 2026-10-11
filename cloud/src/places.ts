@@ -7,8 +7,10 @@ import type { z } from '@hono/zod-openapi';
 import type { Card, MockState } from './mock';
 import { nearby, transitLabel } from './transit';
 import { cellOf, toSafety } from './safety';
+import { areaLabel } from './areas';
 import { costsOf, feeCallout, highlights, scamSigns, typicalKey, typicalRents, type Facts } from './facts';
 import { dealbreakerWhere } from './filter';
+import { photosOf } from './photos';
 
 type Search = z.infer<typeof S.Search>;
 type VerdictKind = z.infer<typeof S.Verdict>['kind'];
@@ -59,8 +61,8 @@ function card(r: any, s: Search, now: number, typical: number | null, safer = fa
   return {
     id: `op_${r.id}`, listingId: r.id, foundAt: new Date(found || now).toISOString(), seen: now - found > FRESH_MS,
     status: v.kind === 'likely_scam' ? 'hidden' : 'new', price: r.price, totalMonthly: costsOf(r.price, null, r.no_fee, json<Facts | null>(r.facts, null)).totalMonthly,
-    area: r.neighbourhood ?? r.borough ?? 'New York', beds: r.beds ?? 0, baths: r.baths, sqft: r.sqft ?? null,
-    transit: nearby(r.lat, r.lon)[0] ?? null, highlight: v.highlight, thumbnail: json<string[]>(r.photos, [])[0] ?? null,
+    area: areaLabel(r.neighbourhood, r.borough), beds: r.beds ?? 0, baths: r.baths, sqft: r.sqft ?? null,
+    transit: nearby(r.lat, r.lon)[0] ?? null, highlight: v.highlight, thumbnail: photosOf(r.photos)[0] ?? null,
     fit: Math.max(0, Math.min(100, Math.round(v.fit))), verdict: { kind: v.kind, label, tone, reason: v.reason }, feeCallout: feeCallout(r.no_fee, json<Facts | null>(r.facts, null)),
   };
 }
@@ -89,7 +91,7 @@ export async function inbox(db: D1Database, user: string, st: MockState, s: Sear
   // Fred's places stay while they still fit the search, or once this person acted on them
   const fits = new Set((fitting.results as any[]).map((r) => `op_${r.id}`)), acted = (id: string) => { const m = st.cards[id]; return !!m && (!!m.status || m.note != null); };
   const byId = new Map<string, Card>();
-  for (const c of st.created ?? []) if (fits.has(c.id) || acted(c.id)) byId.set(c.id, c);
+  for (const c of st.created ?? []) if (fits.has(c.id) || acted(c.id)) byId.set(c.id, { ...c, area: areaLabel(c.area, null) });
   for (const r of rows) {
     const id = `op_${r.id}`;
     if (!byId.has(id)) byId.set(id, card(r, s, now, typical.get(typicalKey(r.neighbourhood, r.beds)) ?? null, safer(r)));

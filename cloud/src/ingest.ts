@@ -5,6 +5,7 @@ import { locate, report } from './building';
 export interface Env {
   DB: D1Database; ASSETS: Fetcher;
   WEB?: Fetcher;                          // the new app (fred-web Worker), served on fredandginger.*
+  PHOTOS?: R2Bucket;                      // copies of listing photos from sites that block hotlinking (src/photos.ts)
   APIFY_TOKEN: string; SESSION_KEY: string; HOOK_SECRET: string;
   PASSWORD_JAMES?: string; PASSWORD_ERIN?: string;
   FRED_MODEL?: string;                    // provider/model for the agent; its API key is a secret too
@@ -13,6 +14,8 @@ export interface Env {
   EMAIL?: SendEmail;                      // Cloudflare Email Sending, from fred@jamesjuliusdarby.com
   AI?: Ai;                                // Workers AI: embeddings for chat recall (recall.ts)
   CHATS?: VectorizeIndex;                 // past chat exchanges, by meaning
+  SENTRY_DSN?: string;                    // wrangler vars; Sentry is off without it
+  CF_VERSION_METADATA?: WorkerVersionMetadata; // the deployed version id, as Sentry's release
   FRED_DEV?: string;                      // '1' only in cloud/.dev.vars: enables eval-only overrides and routes
   ANTHROPIC_API_KEY?: string; OPENAI_API_KEY?: string; GOOGLE_GENERATIVE_AI_API_KEY?: string;
 }
@@ -98,7 +101,7 @@ export async function upsert(env: Env, r: any): Promise<'new' | 'seen' | 'skip'>
 
 // ── Apify ──────────────────────────────────────────────────────────────
 const APIFY = 'https://api.apify.com/v2';
-const apify = (env: Env, path: string, init?: RequestInit) =>
+export const apify = (env: Env, path: string, init?: RequestInit) =>
   fetch(APIFY + path, { ...init, headers: { Authorization: `Bearer ${env.APIFY_TOKEN}`, 'Content-Type': 'application/json', ...(init?.headers || {}) } });
 
 export interface Criteria { maxRent?: number; minBeds?: number; areas?: string[] }

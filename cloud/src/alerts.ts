@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/cloudflare';
 // Where and when each person hears about new places: settings, verifying an email address or
 // phone number with a 6-digit code, and test alerts. Nothing goes to an address until it's
 // verified. Email sends through Cloudflare; texts aren't available yet, so phone numbers can be
@@ -215,12 +216,13 @@ export async function sendDueAlerts(env: Env, o: { only?: string; since?: number
       const res = await sendEmail(env, r.email!, alertEmail(await examplePlaces(env.DB, claimed), { searchLine: summarize(v.search) }));
       if (res.error) {
         await env.DB.prepare("DELETE FROM alert_log WHERE user=? AND kind='alert' AND at=?").bind(r.user, at).run();
+        Sentry.captureMessage(`Alert email failed: ${res.error}`, { level: 'error', tags: { area: 'alerts' } });
         report.push({ user: r.user, sent: 0, error: res.error });
       } else {
         await env.DB.prepare("UPDATE alert_log SET message_id=? WHERE user=? AND kind='alert' AND at=?").bind(res.messageId, r.user, at).run();
         report.push({ user: r.user, sent: claimed.length });
       }
-    } catch (e) { report.push({ user: r.user, sent: 0, error: String(e) }); }
+    } catch (e) { Sentry.captureException(e, { tags: { area: 'alerts' } }); report.push({ user: r.user, sent: 0, error: String(e) }); }
   }
   return report;
 }
