@@ -185,7 +185,7 @@ export default {
     }
     if (url.pathname === '/logout') return new Response(null, { status: 303, headers: { Location: '/login', 'Set-Cookie': 'nest_s=; Path=/; Max-Age=0' } });
     const me = await sessionUser(req, env);
-    if (!me) return url.pathname.startsWith('/api/') ? json({ error: 'signed out' }, 401) : Response.redirect(url.origin + '/login', 303);
+    if (!me) return url.pathname.startsWith('/api/') && url.pathname !== '/api/docs' ? json({ error: 'signed out' }, 401) : Response.redirect(url.origin + '/login', 303);
     if (url.pathname.startsWith('/api/')) {
       // the new Fred API first; paths it doesn't know go to the old routes below
       const res = await v2.fetch(req, { ...env, ME: me }, ctx);
