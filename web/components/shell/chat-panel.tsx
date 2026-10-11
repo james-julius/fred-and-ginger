@@ -267,8 +267,15 @@ function Reply({ message, latest, busy, streaming, onPick }: {
   const atEnd = (p: FredMessage["parts"][number]) => p.type === "data-suggestions" || p.type === "data-watch";
   const parts = [...message.parts.filter((p) => !atEnd(p)), ...message.parts.filter(atEnd)];
   const firstStep = parts.findIndex((p) => p.type === "data-scan" || asTool(p) !== null);
-  // Live until Fred starts writing; after that it's the summary.
-  const working = streaming && !message.parts.some((p) => p.type === "text" && p.text.trim());
+  // Fred should write once, after its last tool call. Text before a later tool call is a draft it
+  // may go on to correct, so only what follows the last tool shows. If nothing follows it once the
+  // reply is done, the last thing Fred wrote is the answer.
+  const lastTool = parts.findLastIndex((p) => asTool(p) !== null);
+  const lastText = parts.findLastIndex((p) => p.type === "text" && p.text.trim() !== "");
+  const answering = lastText > lastTool;
+  const textFrom = answering || streaming ? lastTool + 1 : lastText;
+  // Live until Fred starts writing the answer; after that it's the summary.
+  const working = streaming && !answering;
 
   return (
     <div className="grid gap-3.5">
@@ -288,6 +295,7 @@ function Reply({ message, latest, busy, streaming, onPick }: {
               </div>
             );
           case "text":
+            if (i < textFrom) return null;
             return part.text.split(/\n{2,}/).map((para, j) => (
               <p key={`${i}-${j}`} className="max-w-[60ch] text-[15px] leading-relaxed">
                 {para}
