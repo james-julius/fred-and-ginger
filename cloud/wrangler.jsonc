@@ -7,6 +7,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "account_id": "2f12b2e0013e057f81d47ff38d48a251",
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
+  // chat recall (src/recall.ts): exchanges embedded with Workers AI, searched in Vectorize, filtered by person
+  "ai": { "binding": "AI" },
+  "vectorize": [{ "binding": "CHATS", "index_name": "nest-chats" }],
   "d1_databases": [{ "binding": "DB", "database_name": "nest", "database_id": "ed551431-d43f-4986-9e5d-7e6124a7aaee" }],
   // every 2 min: ingest, geocode + building checks, a few at a time. Crawls start when Fred asks (src/agent/crawl.ts)
   "triggers": { "crons": ["*/2 * * * *", "*/5 * * * *"] },

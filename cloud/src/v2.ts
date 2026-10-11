@@ -16,6 +16,7 @@ import { detail } from './agent/listings';
 import { counts, inbox, vote } from './places';
 import { AlertError, examplePlaces, getAlerts, patchAlerts, sendCode, sendTest, verifyCode } from './alerts';
 import { recall, taste } from './memory';
+import { backfill, exchanges, forget, placesIn, remember, worthRemembering } from './recall';
 
 /** Keep only text written after the last tool call: a draft Fred wrote mid-turn and then corrected
  *  shouldn't come back on reload or be reread as history. The app shows the same thing live. */
@@ -245,6 +246,12 @@ v2.openapi(R.chat, async (c) => {
     // Save the user's message now, so an edit sticks even if the reply fails or they leave mid-reply.
     st.threads[threadId] = { title, updatedAt: new Date().toISOString(), messages: [...kept, userMsg] };
     await store(c, st);
+    // recall: an edit drops the exchanges it replaced; old chats get indexed the first time
+    const dropped = (prior?.messages ?? []).slice(kept.length), me = c.env.ME, threads = st.threads;
+    c.executionCtx.waitUntil((async () => {
+      if (dropped.length) await forget(c.env, me, dropped);
+      await backfill(c.env, me, threads);
+    })().catch((e) => console.error('recall', e)));
     // history as plain text for now; Mastra memory in Postgres replaces this
     type Turn = { role: 'user'; content: string } | { role: 'assistant'; content: string };
     const history: Turn[] = kept.flatMap((m): Turn[] => {
@@ -277,7 +284,8 @@ v2.openapi(R.chat, async (c) => {
     const rc = new RequestContext();
     rc.set('env', c.env);
     rc.set(MASTRA_RESOURCE_ID_KEY, c.env.ME);
-    rc.set('said', said);   // updateMemory turns away notes that just repeat this
+    rc.set('said', said);
+    rc.set('threadId', threadId);   // recallChats looks in other chats   // updateMemory turns away notes that just repeat this
     // addToInbox takes ids from this turn's search, and the open place: Fred's verdict on it replaces the first take
     const open = Number(String(context?.opportunityId ?? '').replace(/^op_/, ''));
     rc.set('seenListings', new Set<number>(Number.isFinite(open) && open > 0 ? [open] : []));
@@ -316,6 +324,9 @@ v2.openapi(R.chat, async (c) => {
         fresh.threads[threadId] = { title, updatedAt: new Date().toISOString(),
           messages: [...upTo, { id: responseMessage.id, role: 'assistant', parts: harnessV1 ? parts : finalTextOnly(parts) }] };
         await store(c, fresh);
+        // so a later chat can find this one by meaning
+        const [x] = exchanges(threadId, title, [userMsg, { id: responseMessage.id, role: 'assistant', parts: finalTextOnly(parts) }]);
+        if (x && worthRemembering(parts)) c.executionCtx.waitUntil(remember(c.env, c.env.ME, [{ ...x, places: placesIn(parts) }]).catch((e) => console.error('recall', e)));
       },
       onError: (e) => { console.error('fred', e); return 'Fred hit a problem answering that. Try again in a moment.'; },
     });

@@ -10,6 +10,8 @@ export interface Env {
   FRED_EFFORT?: 'low' | 'medium' | 'high'; // Anthropic effort for chat; default low, for speed
   NIMBLE_API_KEY?: string;                // web search and page reads for Fred's research tools
   EMAIL?: SendEmail;                      // Cloudflare Email Sending, from fred@jamesjuliusdarby.com
+  AI?: Ai;                                // Workers AI: embeddings for chat recall (recall.ts)
+  CHATS?: VectorizeIndex;                 // past chat exchanges, by meaning
   FRED_DEV?: string;                      // '1' only in cloud/.dev.vars: enables eval-only overrides and routes
   ANTHROPIC_API_KEY?: string; OPENAI_API_KEY?: string; GOOGLE_GENERATIVE_AI_API_KEY?: string;
 }
