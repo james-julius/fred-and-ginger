@@ -58,12 +58,16 @@ Counts are scaled by building size, then rolled into a 0–100 score with the re
 
 ## The new app (web/)
 
-A Next.js 16 app with Tailwind 4 and Geist that will replace the grid the Worker serves today. The design is in two pages; ask Erin for access: the [app shell](https://claude.ai/artifact/7uQWQmj21bLe4dhVkFe8zd) and the [research behind it](https://claude.ai/artifact/SeW3ZkN9Rm7BWNP5ckdsyA).
+A Next.js app with Tailwind 4 and Geist that will replace the grid the Worker serves today. The design is in two pages; ask Erin for access: the [app shell](https://claude.ai/artifact/7uQWQmj21bLe4dhVkFe8zd) and the [research behind it](https://claude.ai/artifact/SeW3ZkN9Rm7BWNP5ckdsyA).
 
 - **Local:** `cd web && npm install && npm run dev`, then open http://localhost:3000.
 - **Data:** `/api/*`, `/login` and `/logout` are proxied to the Worker. Production is the default. To use `wrangler dev`, put `FRED_API_URL=http://localhost:8787` in `web/.env.local`.
 - **Theme:** `web/app/globals.css`. Token names follow shadcn/ui, so shadcn and AI Elements components pick them up.
-- **Hosting:** not decided yet. The options are Vercel, or Cloudflare via OpenNext.
+- **Hosting:** Cloudflare, as its own Worker (`fred-web`) built with [OpenNext](https://opennext.js.org/cloudflare).
+  - `npm run preview` runs the Cloudflare build locally.
+  - `npm run deploy` ships it, but needs access to the Cloudflare account.
+  - It lives on workers.dev until we decide how it shares the domain with `nest`.
+  - Next is pinned to 16.3.8 because the adapter doesn't support 16.4 yet: 16.4 adds a `preview-props.json` the adapter doesn't bundle, and every page returns 500.
 
 ## Crawlers (actor/)
 
