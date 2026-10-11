@@ -74,7 +74,8 @@ export async function detail(db: D1Database, card: Card): Promise<Detail | null>
   const sights = await db.prepare('SELECT source, url, price FROM sightings WHERE listing_id=?').bind(card.listingId).all<any>();
   const rep = json<{ score?: number; flags?: string[]; good?: string[] } | null>(r.breport, null);
   const history = json<unknown[]>(r.price_history, []).flatMap((h: any) => {
-    const price = Number(h?.price ?? h?.[1]), at = h?.at ?? h?.[0];
+    // stored as [unix seconds, price]; arrays have a built-in .at, so check the shape first
+    const [at, price] = Array.isArray(h) ? [h[0], Number(h[1])] : [h?.at, Number(h?.price)];
     return Number.isFinite(price) && at ? [{ at: new Date(typeof at === 'number' ? at * 1000 : at).toISOString(), price }] : [];
   });
   return {
