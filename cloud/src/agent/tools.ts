@@ -11,6 +11,7 @@ import { counts, inbox, vote } from '../places';
 import { readPage, webSearch } from '../nimble';
 import { factsFrom, mergeFacts, type Facts } from '../facts';
 import { canonicalArea, knownArea } from '../areas';
+import { checkMusts, mustsOf } from '../musts';
 import { checkSites, crawlStatus } from './crawl';
 import { AlertError, examplePlaces, patchAlerts, sendTest, verifyCode } from '../alerts';
 import { write as writeMemory } from '../memory';
@@ -143,7 +144,11 @@ export const addToInbox = createTool({
     const existing = new Set<string>();
     const added: Card[] = [], known = seen(c as Ctx);
     const rejected = places.filter((p) => !known.has(p.listingId)).map((p) => p.id);
-    for (const p of places.filter((x) => known.has(x.listingId))) {
+    // a place that clearly lacks a must-have can't go in, whatever the verdict says
+    const musts = mustsOf(v.search), ids = places.map((p) => p.listingId).filter((id) => known.has(id));
+    const facts = musts.length && ids.length ? (await db.prepare(`SELECT id, facts FROM listings WHERE id IN (${ids.join(',')})`).all<{ id: number; facts: string | null }>()).results : [];
+    const lacks = new Map(facts.map((r) => [r.id, checkMusts(musts, r.facts ? JSON.parse(r.facts) : null).lacks]).filter(([, l]) => (l as string[]).length) as [number, string[]][]);
+    for (const p of places.filter((x) => known.has(x.listingId) && !lacks.has(x.listingId))) {
       const card = await toCard(db, p.listingId, p);
       if (card && !existing.has(card.id)) { added.push(card); existing.add(card.id); }
     }
@@ -151,7 +156,8 @@ export const addToInbox = createTool({
     await save(db, user, st);
     if (added.length) await emit(c as Ctx, 'data-places', { ids: added.map((x) => x.id), hidden: added.filter((x) => x.status === 'hidden').map((x) => x.id) });
     return {
-      added: added.map(compact), alreadyInInbox: places.length - rejected.length - added.length,
+      added: added.map(compact), alreadyInInbox: places.length - rejected.length - lacks.size - added.length,
+      ...(lacks.size && { refused: [...lacks].map(([id, l]) => ({ id: `op_${id}`, lacks: l })), refusedWhy: 'The listing says it lacks a must-have, so it stays out of the inbox.' }),
       counts: counts([...added, ...cards.filter((x) => !added.some((a) => a.id === x.id))], v.tours),
       ...(rejected.length && { rejected, why: 'These ids were not in your searchListings results this turn. Use ids exactly as returned.' }),
     };
