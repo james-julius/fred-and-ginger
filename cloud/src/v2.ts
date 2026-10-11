@@ -125,11 +125,13 @@ v2.openapi(R.patchSearch, async (c) => {
 
 /* places */
 v2.openapi(R.listOpportunities, async (c) => {
-  const { view: tab, limit } = c.req.valid('query');
+  const { view: tab, limit, cursor } = c.req.valid('query');
   // the inbox shows new places plus hidden ones (struck through, with the reason)
   real(c);
   const items = (await places(c)).cards.filter((o) => tab === 'all' || (tab === 'new' ? o.status === 'new' || o.status === 'hidden' : o.status === tab));
-  return c.json({ items: items.slice(0, limit), nextCursor: null }, 200);
+  // the cursor is how many came before, so the next page starts where this one ends
+  const from = Math.max(0, Number(cursor) || 0), to = from + limit;
+  return c.json({ items: items.slice(from, to), nextCursor: to < items.length ? String(to) : null }, 200);
 });
 v2.openapi(R.getOpportunity, async (c) => {
   real(c);

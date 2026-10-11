@@ -10,7 +10,7 @@ import { detail, search, toCard } from './listings';
 import { counts, inbox, vote } from '../places';
 import { readPage, webSearch } from '../nimble';
 import { factsFrom, mergeFacts, type Facts } from '../facts';
-import { knownArea } from '../areas';
+import { canonicalArea, knownArea } from '../areas';
 import { checkSites, crawlStatus } from './crawl';
 import { AlertError, examplePlaces, patchAlerts, sendTest, verifyCode } from '../alerts';
 import { write as writeMemory } from '../memory';
@@ -49,7 +49,10 @@ export const updateSearch = createTool({
   id: 'updateSearch',
   description: 'Change the saved search. Use when the user states or changes a requirement. Only pass what changed. Budget is total monthly cost including required fees.',
   inputSchema: z.object({
-    dealbreakers: S.Dealbreakers.partial().optional().describe('Hard filters to change'),
+    dealbreakers: S.Dealbreakers.partial().optional().describe('Hard filters to change. areas and excludeAreas here replace the whole list: use them only when the user wants exactly those ("only Williamsburg")'),
+    addAreas: z.array(z.string()).optional().describe('Areas to add to the ones already saved ("also look in Queens", "what about Williamsburg?")'),
+    removeAreas: z.array(z.string()).optional().describe('Areas to take out of the search'),
+    excludeAreas: z.array(z.string()).optional().describe('Areas to leave out, added to the ones already left out ("nothing in Harlem")'),
     addPreferences: z.array(z.string()).optional().describe('Nice-to-haves to add, e.g. "Washer/dryer in unit"'),
     importantPreferences: z.array(z.string()).optional().describe('Preferences the user says matter a lot; adds them or raises existing ones to important'),
     mustPreferences: z.array(z.string()).optional().describe('Things a place has to have ("has to have a washer/dryer", "a dealbreaker"); adds them or raises existing ones to must'),
@@ -64,7 +67,7 @@ export const updateSearch = createTool({
   },
 });
 
-async function changeSearch(input: { dealbreakers?: Partial<z.infer<typeof S.Dealbreakers>>; addPreferences?: string[]; importantPreferences?: string[]; mustPreferences?: string[]; nicePreferences?: string[]; removePreferences?: string[] }, c: Ctx) {
+async function changeSearch(input: { dealbreakers?: Partial<z.infer<typeof S.Dealbreakers>>; addAreas?: string[]; removeAreas?: string[]; excludeAreas?: string[]; addPreferences?: string[]; importantPreferences?: string[]; mustPreferences?: string[]; nicePreferences?: string[]; removePreferences?: string[] }, c: Ctx) {
   const { db, user } = who(c);
   const st = await load(db, user), cur = view(st).search;
   const prefs = cur.preferences.filter((p) => !(input.removePreferences ?? []).some((r) => r.toLowerCase() === p.label.toLowerCase()));
@@ -76,9 +79,17 @@ async function changeSearch(input: { dealbreakers?: Partial<z.infer<typeof S.Dea
     }
   };
   weigh(input.importantPreferences, 'important'); weigh(input.mustPreferences, 'must'); weigh(input.nicePreferences, 'nice');
-  st.search = applySearch(cur, { dealbreakers: input.dealbreakers, preferences: prefs });
+  // area changes add to or take from the saved lists; dealbreakers.areas would replace them
+  const patch = { ...input.dealbreakers }, slugs = (a: string[] | undefined) => (a ?? []).map(canonicalArea);
+  if (input.addAreas?.length || input.removeAreas?.length || input.excludeAreas?.length) {
+    const gone = new Set([...slugs(input.removeAreas), ...slugs(input.excludeAreas)]);
+    patch.areas = [...(patch.areas ?? cur.dealbreakers.areas), ...slugs(input.addAreas)].filter((a) => !gone.has(canonicalArea(a)));
+    const back = new Set(slugs(input.addAreas));
+    patch.excludeAreas = [...(patch.excludeAreas ?? cur.dealbreakers.excludeAreas ?? []), ...slugs(input.excludeAreas)].filter((a) => !back.has(canonicalArea(a)));
+  }
+  st.search = applySearch(cur, { dealbreakers: patch, preferences: prefs });
   await save(db, user, st);
-  await emit(c, 'data-search-updated', { changed: Object.keys(input.dealbreakers ?? {}), dealbreakers: st.search.dealbreakers });
+  await emit(c, 'data-search-updated', { changed: Object.keys(patch), dealbreakers: st.search.dealbreakers });
   const d = st.search.dealbreakers, unknown = [...d.areas, ...(d.excludeAreas ?? [])].filter((a) => !knownArea(a));
   return { summary: summarize(st.search), dealbreakers: d, preferences: prefs.map((p) => `${p.label} (${p.weight})`),
            ...(unknown.length && { unknownAreas: unknown, note: 'Not neighbourhoods I know; these only match listings whose neighbourhood says exactly that. Check the spelling with the user.' }) };
