@@ -6,7 +6,8 @@ import type * as S from '@fng/api';
 import type { z } from '@hono/zod-openapi';
 import { alertEmail, codeEmail, sendEmail, type AlertPlace } from './email';
 import { detail } from './agent/listings';
-import type { inbox } from './places';
+import { inbox } from './places';
+import { load, summarize, view } from './mock';
 
 type Alerts = z.infer<typeof S.Alerts>;
 type Patch = z.infer<typeof S.AlertsPatch>;
@@ -22,11 +23,11 @@ export class AlertError extends Error {
   constructor(public status: 400 | 429 | 501, message: string) { super(message); }
 }
 
-type Row = { mode: string; quiet_start: string | null; quiet_end: string | null; email: string | null; email_verified: number; email_enabled: number; phone: string | null; phone_verified: number; sms_enabled: number };
+type Row = { mode: string; quiet_start: string | null; quiet_end: string | null; email: string | null; email_verified: number; email_enabled: number; phone: string | null; phone_verified: number; sms_enabled: number; alerts_since: number | null };
 
 async function row(db: D1Database, user: string): Promise<Row> {
   return (await db.prepare('SELECT * FROM alert_settings WHERE user=?').bind(user).first<Row>())
-    ?? { mode: 'instant_strong', quiet_start: '22:00', quiet_end: '08:00', email: null, email_verified: 0, email_enabled: 0, phone: null, phone_verified: 0, sms_enabled: 0 };
+    ?? { mode: 'instant_strong', quiet_start: '22:00', quiet_end: '08:00', email: null, email_verified: 0, email_enabled: 0, phone: null, phone_verified: 0, sms_enabled: 0, alerts_since: null };
 }
 
 const shape = (r: Row): Alerts => ({
@@ -36,12 +37,15 @@ const shape = (r: Row): Alerts => ({
   sms: { number: r.phone, enabled: !!r.sms_enabled, verified: !!r.phone_verified, available: SMS_AVAILABLE },
 });
 
+/** Email alerts would actually go out: right mode, verified, switched on. */
+const live = (r: Row) => r.mode === 'instant_strong' && !!r.email_verified && !!r.email_enabled;
+
 export const getAlerts = async (db: D1Database, user: string) => shape(await row(db, user));
 
 async function store(db: D1Database, user: string, r: Row) {
-  await db.prepare(`INSERT OR REPLACE INTO alert_settings (user, mode, quiet_start, quiet_end, email, email_verified, email_enabled, phone, phone_verified, sms_enabled, updated)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
-    .bind(user, r.mode, r.quiet_start, r.quiet_end, r.email, r.email_verified, r.email_enabled, r.phone, r.phone_verified, r.sms_enabled, now()).run();
+  await db.prepare(`INSERT OR REPLACE INTO alert_settings (user, mode, quiet_start, quiet_end, email, email_verified, email_enabled, phone, phone_verified, sms_enabled, alerts_since, updated)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .bind(user, r.mode, r.quiet_start, r.quiet_end, r.email, r.email_verified, r.email_enabled, r.phone, r.phone_verified, r.sms_enabled, r.alerts_since, now()).run();
 }
 
 /** "(212) 555-1234", "212.555.1234", "+44 20 7946 0958" → E.164. US numbers may skip the +1. */
@@ -62,6 +66,7 @@ export function mask(channel: Channel, dest: string) {
 export async function patchAlerts(env: Env, user: string, p: Patch) {
   const r = await row(env.DB, user);
   let codeTo: string | null = null;
+  const wasLive = live(r);
   if (p.mode) r.mode = p.mode;
   if (p.quietHours !== undefined) { r.quiet_start = p.quietHours?.start ?? null; r.quiet_end = p.quietHours?.end ?? null; }
   if (p.email?.address !== undefined) {
@@ -74,6 +79,7 @@ export async function patchAlerts(env: Env, user: string, p: Patch) {
     if (number !== r.phone) { r.phone = number; r.phone_verified = 0; }
   }
   if (p.sms?.enabled !== undefined) r.sms_enabled = p.sms.enabled ? 1 : 0;
+  if (!wasLive && live(r)) r.alerts_since = now();
   await store(env.DB, user, r);
   const sent = codeTo ? await sendCode(env, user, 'email').catch((e) => (e instanceof AlertError ? null : Promise.reject(e))) : null;
   return { alerts: shape(r), codeSent: sent };
@@ -126,7 +132,9 @@ export async function verifyCode(env: Env, user: string, channel: Channel, code:
     await env.DB.prepare('UPDATE alert_codes SET attempts=attempts+1 WHERE user=? AND channel=?').bind(user, channel).run();
     throw new AlertError(400, `That code isn't right. ${MAX_TRIES - c.attempts - 1} tries left.`);
   }
+  const wasLive = live(r);
   if (channel === 'email') { r.email_verified = 1; r.email_enabled = 1; } else { r.phone_verified = 1; r.sms_enabled = 1; }
+  if (!wasLive && live(r)) r.alerts_since = now();
   await store(env.DB, user, r);
   await env.DB.prepare('DELETE FROM alert_codes WHERE user=? AND channel=?').bind(user, channel).run();
   return shape(r);
@@ -149,11 +157,70 @@ export async function sendTest(env: Env, user: string, channel: Channel, places:
 
 /** The best few new places in someone's inbox, shaped for an alert email. */
 export async function examplePlaces(db: D1Database, cards: Awaited<ReturnType<typeof inbox>>): Promise<AlertPlace[]> {
-  const top = cards.filter((x) => x.status === 'new').sort((a, b) => b.fit - a.fit).slice(0, 3);
+  const top = cards.length <= PER_EMAIL && cards.every((x) => x.status === 'new') ? cards : cards.filter((x) => x.status === 'new').sort((a, b) => b.fit - a.fit).slice(0, 3);
   return Promise.all(top.map(async (card) => {
     const d = await detail(db, card);
     return { id: card.id, price: card.price, area: card.area, address: [d?.address, d?.unit && `#${d.unit}`].filter(Boolean).join(' ') || card.area,
       beds: card.beds, baths: card.baths, buildingScore: d?.building?.score ?? null, verdict: card.verdict.label,
       why: card.highlight ?? card.verdict.reason, photo: card.thumbnail ?? d?.photos[0] ?? null, url: d?.sources[0]?.url ?? null };
   }));
+}
+
+/* ── strong fits, right away ─────────────────────────────────────────── */
+
+const WINDOW = 48 * 3600, PER_EMAIL = 5, PER_DAY = 6;
+
+/** Is it quiet hours in New York? "22:00"–"08:00" wraps midnight. */
+export function quiet(start: string | null, end: string | null, at = new Date()) {
+  if (!start || !end) return false;
+  const hm = at.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
+  return start <= end ? hm >= start && hm < end : hm >= start || hm < end;
+}
+
+/**
+ * Email each person the strong fits that turned up since their last alert. Runs every 5 minutes.
+ * A place qualifies when it's new in their inbox, rated Strong fit, appeared after alerts were
+ * switched on and within 48 hours, and they haven't opened it in the app. Each place is claimed in
+ * alert_log before sending, so overlapping runs can't send it twice; a failed send releases it.
+ */
+export async function sendDueAlerts(env: Env, o: { only?: string; since?: number } = {}) {
+  const users = await env.DB.prepare(`SELECT * FROM alert_settings WHERE mode='instant_strong' AND email_verified=1 AND email_enabled=1 AND email IS NOT NULL${o.only ? ' AND user=?' : ''}`)
+    .bind(...(o.only ? [o.only] : [])).all<Row & { user: string }>();
+  const report: { user: string; sent: number; skipped?: string; error?: string }[] = [];
+  for (const r of users.results) {
+    try {
+      if (quiet(r.quiet_start, r.quiet_end)) { report.push({ user: r.user, sent: 0, skipped: 'quiet hours' }); continue; }
+      const today = await env.DB.prepare("SELECT count(DISTINCT at) n FROM alert_log WHERE user=? AND kind='alert' AND at>? AND error IS NULL").bind(r.user, now() - 86400).first<{ n: number }>();
+      if ((today?.n ?? 0) >= PER_DAY) { report.push({ user: r.user, sent: 0, skipped: 'daily cap' }); continue; }
+      // alerts switched on before alerts_since existed: start the clock now, so there's no backlog email
+      if (r.alerts_since == null && o.since == null) {
+        await env.DB.prepare('UPDATE alert_settings SET alerts_since=? WHERE user=?').bind(now(), r.user).run();
+        report.push({ user: r.user, sent: 0, skipped: 'starting now' }); continue;
+      }
+      const since = Math.max(o.since ?? r.alerts_since!, now() - WINDOW) * 1000;
+      const st = await load(env.DB, r.user), v = view(st);
+      const done = new Set((await env.DB.prepare("SELECT listing_id FROM alert_log WHERE user=? AND kind='alert'").bind(r.user).all<{ listing_id: number }>()).results.map((x) => x.listing_id));
+      const due = (await inbox(env.DB, r.user, st, v.search))
+        .filter((c) => c.status === 'new' && !c.seen && c.verdict.kind === 'strong_fit' && Date.parse(c.foundAt) >= since && !done.has(c.listingId))
+        .sort((a, b) => b.fit - a.fit).slice(0, PER_EMAIL);
+      if (!due.length) { report.push({ user: r.user, sent: 0 }); continue; }
+      // claim first: the unique index on (user, listing_id, reason) makes a second run skip these
+      const at = now(), claimed: typeof due = [];
+      for (const c of due) {
+        const ins = await env.DB.prepare("INSERT OR IGNORE INTO alert_log (user, channel, kind, dest, listing_id, reason, at) VALUES (?,?,?,?,?,?,?)")
+          .bind(r.user, 'email', 'alert', r.email, c.listingId, 'strong_fit', at).run();
+        if (ins.meta.changes) claimed.push(c);
+      }
+      if (!claimed.length) { report.push({ user: r.user, sent: 0 }); continue; }
+      const res = await sendEmail(env, r.email!, alertEmail(await examplePlaces(env.DB, claimed), { searchLine: summarize(v.search) }));
+      if (res.error) {
+        await env.DB.prepare("DELETE FROM alert_log WHERE user=? AND kind='alert' AND at=?").bind(r.user, at).run();
+        report.push({ user: r.user, sent: 0, error: res.error });
+      } else {
+        await env.DB.prepare("UPDATE alert_log SET message_id=? WHERE user=? AND kind='alert' AND at=?").bind(res.messageId, r.user, at).run();
+        report.push({ user: r.user, sent: claimed.length });
+      }
+    } catch (e) { report.push({ user: r.user, sent: 0, error: String(e) }); }
+  }
+  return report;
 }
