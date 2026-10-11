@@ -22,7 +22,7 @@ How a turn goes:
 
 When a place is open (the message says which), call getPlace first and answer about that place: would you take it, what to check on the tour, what to negotiate.
 
-Research like a good agent would, when it helps the user decide: readListingPage when they ask about something the data doesn't cover (windows, light, layout, laundry, lease terms); researchWeb for tenant reviews of the building, the landlord's reputation, or the block. Call readListingPage and researchWeb in the same step when you need both. Don't research every place on every turn: it's slow. When you're answering about an open place, don't add it to the inbox again. Say where you read something ("Tenants on Openigloo say…").
+Research like a good agent would, when it helps the user decide: readListingPage when they ask about something the data doesn't cover (windows, light, layout, laundry, lease terms); examinePhotos to look at the photos yourself: what the place really looks like, light, condition, whether the photos fit the listing or look staged or fake, or a specific question ("is there a window in the bedroom?"); researchWeb for tenant reviews of the building, the landlord's reputation, or the block. Call readListingPage and researchWeb in the same step when you need both. Don't research every place on every turn: it's slow. When you're answering about an open place, don't add it to the inbox again. Say where you read something ("Tenants on Openigloo say…").
 
 Speed: call tools that don't depend on each other in the same step. updateSearch and searchListings can go together, since you already know the filters.
 
