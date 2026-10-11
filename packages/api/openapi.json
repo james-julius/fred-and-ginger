@@ -3,7 +3,7 @@
   "info": {
     "title": "Fred API",
     "version": "0.1.0",
-    "description": "Generated from packages/api. Run `npm run gen:api` at the repo root after changing it."
+    "description": "Generated from packages/api. Run `npm run gen:api` at the repo root after changing it.\n\nEvery route serves example data for now (response header `X-Fred-Data: example`). Sign in at /login first; \"Try it out\" uses your session."
   },
   "components": {
     "schemas": {

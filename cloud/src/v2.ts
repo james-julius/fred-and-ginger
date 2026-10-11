@@ -3,7 +3,9 @@
 // against it. Handlers move to Postgres one by one; the contract stays the same.
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
+import { swaggerUI } from '@hono/swagger-ui';
 import { fixtures, routes as R } from '@fng/api';
+import * as S from '@fng/api';
 import type { Env } from './ingest';
 
 type Ctx = { Bindings: Env & { ME: string } };
@@ -106,10 +108,23 @@ v2.openapi(R.events, (c) => {
   return c.body(body, 200, { 'Content-Type': 'text/event-stream' }) as never;
 });
 
-// unknown /api/* paths fall through to the old routes in index.ts
-v2.notFound((c) => c.json(notFound, 404, { 'X-Fred-Route': 'none' }));
-
 export const openapiDoc = {
   openapi: '3.1.0',
-  info: { title: 'Fred API', version: '0.1.0', description: 'Generated from packages/api. Run `npm run gen:api` at the repo root after changing it.' },
+  info: { title: 'Fred API', version: '0.1.0', description: [
+    'Generated from packages/api. Run `npm run gen:api` at the repo root after changing it.',
+    '',
+    'Every route serves example data for now (response header `X-Fred-Data: example`). Sign in at /login first; "Try it out" uses your session.',
+  ].join('\n') },
 };
+
+// Chat parts and live events aren't request or response bodies, so list them to get them into the spec.
+for (const [name, schema] of Object.entries({
+  DataSearchUpdated: S.DataSearchUpdated, DataScan: S.DataScan, DataSuggestions: S.DataSuggestions, DataWatch: S.DataWatch, Event: S.Event,
+})) v2.openAPIRegistry.register(name, schema);
+
+// The spec, and Swagger UI to browse and call it
+v2.doc31('/api/openapi.json', openapiDoc);
+v2.get('/api/docs', swaggerUI({ url: '/api/openapi.json', persistAuthorization: true, title: 'Fred API' }));
+
+// unknown /api/* paths fall through to the old routes in index.ts
+v2.notFound((c) => c.json(notFound, 404, { 'X-Fred-Route': 'none' }));
