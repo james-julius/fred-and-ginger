@@ -162,6 +162,7 @@ export const OpportunityCard = z.object({
   area: z.string().openapi({ example: 'Hudson Heights' }),
   beds: z.number(),
   baths: z.number().nullable(),
+  sqft: z.number().int().nullable().optional().openapi({ description: 'Square feet, when a site says' }),
   transit: Transit.nullable(),
   highlight: z.string().nullable().openapi({ example: 'Washer/dryer in unit' }),
   thumbnail: z.string().url().nullable().openapi({ description: 'Null: show the building illustration' }),

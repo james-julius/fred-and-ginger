@@ -17,6 +17,10 @@ export type Facts = {
   description: string | null;
   vsArea: string | null;         // a site's own comparison, e.g. RentHop's "24% cheaper than the median…"
   roomShare: boolean;            // a room in a share, not a whole apartment
+  fees: Fee[];                   // from the listing page (raw.detail.fees), classified
+  utilities: string[];           // included in the rent ("Heat", "Hot water")
+  leaseMonths: number | null;    // the shortest lease offered
+  floor: number | null;
   scam: string[];                // scam signs a crawler saw, in plain words
 };
 
@@ -29,10 +33,43 @@ const SCAM: Record<string, string> = {
   foreign_or_whatsapp_contact: 'Wants you on WhatsApp or a foreign number',
 };
 
+export type Fee = { kind: 'amenity' | 'pet' | 'utilities' | 'parking' | 'broker' | 'application' | 'security_deposit' | 'move_in' | 'board' | 'other';
+                    label: string; amount: number | null; period: 'monthly' | 'once'; required: boolean };
+
+// "Pet rent" -> pet; "Application fee" -> application. Optional extras (parking, storage) aren't required.
+function feeKind(name: string): Fee['kind'] {
+  const n = name.toLowerCase();
+  if (/applica|screening|credit|background/.test(n)) return 'application';
+  if (/deposit|security/.test(n)) return 'security_deposit';
+  if (/broker|agent|leasing fee|commission/.test(n)) return 'broker';
+  if (/\bpet|dog|cat/.test(n)) return 'pet';
+  if (/park|garage/.test(n)) return 'parking';
+  if (/utilit|electric|gas\b|water|heat|internet|wifi|trash/.test(n)) return 'utilities';
+  if (/amenit|gym|fitness|club|storage|bike/.test(n)) return 'amenity';
+  if (/move.?in|move.?out|elevator|key/.test(n)) return 'move_in';
+  if (/board/.test(n)) return 'board';
+  return 'other';
+}
+export function feesFrom(list: unknown): Fee[] {
+  if (!Array.isArray(list)) return [];
+  const out: Fee[] = [];
+  for (const x of list as any[]) {
+    const label = typeof x?.name === 'string' ? x.name.trim() : '';
+    if (!label || label.length > 80) continue;
+    const amount = Number.isFinite(Number(x.amount)) && Number(x.amount) > 0 ? Math.round(Number(x.amount)) : null;
+    const period = x.period === 'monthly' ? 'monthly' : 'once';
+    const kind = feeKind(label);
+    if (!out.some((f) => f.label.toLowerCase() === label.toLowerCase()))
+      out.push({ kind, label, amount, period, required: !['parking', 'amenity'].includes(kind) || /required|mandatory/i.test(label) });
+  }
+  return out;
+}
+
 const empty = (): Facts => ({
   pets: null, laundry: null, outdoor: null, noFee: null, rentStabilized: false, monthsFree: null,
   doorman: false, elevator: false, dishwasher: false, gym: false, walkUp: false,
   light: null, trains: [], amenities: [], description: null, vsArea: null, roomShare: false, scam: [],
+  fees: [], utilities: [], leaseMonths: null, floor: null,
 });
 
 /** every short string in raw (tags, badges, amenity lists), and the long ones as description */
@@ -58,8 +95,10 @@ export function factsFrom(raw: any): Facts {
 
   // pets: the most specific statement wins
   if (/no pets|pets not allowed|no dogs or cats/.test(all)) f.pets = 'none';
-  const dogs = /dogs? (are )?(ok|allowed|welcome|friendly)|dog.friendly|dogs? - wooof/.test(all);
-  const cats = /cats? (are )?(ok|allowed|welcome|friendly)|only cats|cats - purrr/.test(all);
+  // "Cats and dogs allowed" names both before the verb
+  const both = /(cats? and dogs?|dogs? and cats?|cats? & dogs?|dogs? & cats?) (are )?(ok|allowed|welcome|permitted|friendly)/.test(all);
+  const dogs = both || /dogs? (are )?(ok|allowed|welcome|permitted|friendly)|dog.friendly|dogs? - wooof/.test(all);
+  const cats = both || /cats? (are )?(ok|allowed|welcome|permitted|friendly)|only cats|cats - purrr/.test(all);
   if (dogs && cats) f.pets = 'dogs_and_cats';
   else if (dogs) f.pets = 'dogs';
   else if (cats || /only cats/.test(all)) f.pets = 'cats';
@@ -94,15 +133,32 @@ export function factsFrom(raw: any): Facts {
 
   if (Array.isArray(raw.subwayLines)) f.trains = raw.subwayLines.map(String);
 
+  // the listing's own page (actor/SCHEMA.md, raw.detail) says more than any card: it goes first
+  const d = raw.detail && typeof raw.detail === 'object' ? raw.detail : null;
   const seen = new Set<string>();
+  for (const a of Array.isArray(d?.amenities) ? d.amenities : []) {
+    const w = typeof a === 'string' ? words(a.trim()) : '';
+    if (w && w.length < 60 && !seen.has(w.toLowerCase())) { seen.add(w.toLowerCase()); f.amenities.push(w); }
+  }
   for (const t of tags) {
     const w = words(t);
     if (w.length < 40 && AMENITY.test(w) && !/manager|review|listing|\d{4}-\d\d/i.test(w) && !seen.has(w.toLowerCase())) { seen.add(w.toLowerCase()); f.amenities.push(w); }
   }
-  f.amenities = f.amenities.slice(0, 20);
+  f.amenities = f.amenities.slice(0, 30);
 
-  const desc = raw.description ?? raw.body ?? text.find((t) => t.length > 120);
-  if (typeof desc === 'string') f.description = desc.replace(/\*\*/g, '').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 1500);
+  const desc = (typeof d?.description === 'string' && d.description.trim()) || raw.description || raw.body || text.find((t) => t.length > 120);
+  if (typeof desc === 'string') f.description = desc.replace(/\*\*/g, '').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 3000);
+  if (d) {
+    f.fees = feesFrom(d.fees);
+    f.utilities = Array.isArray(d.utilities) ? [...new Set(d.utilities.filter((u: unknown) => typeof u === 'string' && u.trim()).map((u: string) => words(u.trim())))] as string[] : [];
+    const lease = String(d.leaseTerms ?? '').match(/(\d+)\s*(?:-|to|–)?\s*(?:\d+\s*)?(month|mo\b|year|yr)/i);
+    if (lease) f.leaseMonths = /y/i.test(lease[2]) ? Number(lease[1]) * 12 : Number(lease[1]);
+    if (Number.isFinite(Number(d.floor)) && d.floor !== null && d.floor !== '') f.floor = Number(d.floor);
+    if (typeof d.brokerFee === 'string') {
+      if (/no (broker )?fee|none|\$0\b/i.test(d.brokerFee)) f.noFee = true;
+      else if (/%|month|\$\d/.test(d.brokerFee)) f.noFee = false;
+    }
+  }
   if (typeof raw.priceComparison === 'string') f.vsArea = raw.priceComparison;
   const flags: string[] = Array.isArray(raw.flags) ? raw.flags : [];
   f.roomShare = flags.includes('room_or_share') || raw.roomShare === true;
@@ -127,6 +183,10 @@ export function mergeFacts(list: Facts[]): Facts {
     f.vsArea = f.vsArea ?? x.vsArea;
     f.roomShare ||= x.roomShare;
     f.scam = [...new Set([...f.scam, ...x.scam])];
+    for (const fee of x.fees) if (!f.fees.some((y) => y.label.toLowerCase() === fee.label.toLowerCase())) f.fees.push(fee);
+    f.utilities = [...new Set([...f.utilities, ...x.utilities])];
+    f.leaseMonths = f.leaseMonths ?? x.leaseMonths;
+    f.floor = f.floor ?? x.floor;
   }
   if (f.elevator) f.walkUp = false;
   return f;
@@ -158,13 +218,20 @@ const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
  * What a realtor cousin would point out first, best first: a good deal, then the things that
  * make a place nice to live in. `typical` is the area's median rent for the same bedroom count.
  */
-export function highlights(f: Facts | null, l: { price: number; noFee?: number | null; typical?: number | null; train?: string | null; safer?: boolean }, w: Wants = {}): string[] {
+// square feet that make a place roomy for its bedroom count in New York
+const ROOMY = [550, 750, 1000, 1300, 1600];
+
+export function highlights(f: Facts | null, l: { price: number; noFee?: number | null; typical?: number | null; train?: string | null; safer?: boolean; sqft?: number | null; beds?: number | null }, w: Wants = {}): string[] {
   const out: string[] = [], x = f ?? empty();
   if (x.rentStabilized) out.push('Rent stabilized');
   if (l.typical && l.price <= l.typical * 0.9) out.push(`${money(l.typical - l.price)} under the area's usual`);
   if (l.train) out.push(l.train);
   if (l.safer) out.push('Less crime than most rentals');
   if (x.monthsFree) out.push(`${x.monthsFree} month${x.monthsFree === 1 ? '' : 's'} free`);
+  const b = Math.min(4, Math.max(0, Math.floor(l.beds ?? -1)));
+  if (l.sqft && l.beds != null && l.sqft >= ROOMY[b]) out.push(`Big for a ${b ? `${b}-bed` : 'studio'}: ${l.sqft.toLocaleString('en-US')} sq ft`);
+  const heat = (x.utilities ?? []).filter((u) => /heat|hot water|gas|electric|internet|wifi/i.test(u));
+  if (heat.length) out.push(`${heat.slice(0, 2).map((u) => u.toLowerCase()).join(' and ')} included`.replace(/^\w/, (m) => m.toUpperCase()));
   const want = (re: RegExp) => (w.preferences ?? []).some((p) => re.test(p));
   const nice: [boolean, string, boolean][] = [
     [x.laundry === 'in_unit', 'Washer/dryer in unit', want(/wash|laundry|w\/d/i)],
@@ -219,3 +286,32 @@ export async function typicalRents(db: D1Database, hoods: string[]) {
   return m;
 }
 export const typicalKey = (hood: string | null, beds: number | null) => `${hood}|${Math.floor(beds ?? 0)}`;
+
+/* ── what it really costs ────────────────────────────────────────────── */
+
+/** What it really costs: required monthly fees on top of rent, and cash to move in, from the listing's own fees. */
+export function costsOf(rent: number, netEffective: number | null, noFee: number | null, fx: Partial<Facts> | null) {
+  const fees = (fx?.fees ?? []).map((f) => ({ ...f, source: 'listing' as const }));
+  const monthlyFees = fees.filter((f) => f.period === 'monthly' && f.required && f.amount).reduce((s, f) => s + f.amount!, 0);
+  const brokerFee = noFee === 1 || fx?.noFee === true ? 'none' as const
+    : noFee === 0 || fx?.noFee === false || fees.some((f) => f.kind === 'broker' && f.amount) ? 'tenant' as const : 'unknown' as const;
+  // first month plus every one-time charge the listing names; null until it names one
+  const once = fees.filter((f) => f.period === 'once' && f.required && f.amount);
+  const moveInEstimate = once.length ? rent + monthlyFees + once.reduce((s, f) => s + f.amount!, 0) : null;
+  return { rent, netEffective, monthsFree: fx?.monthsFree ?? null, leaseMonths: fx?.leaseMonths ?? null, monthlyFees,
+           totalMonthly: rent + monthlyFees, brokerFee, moveInEstimate, fees };
+}
+
+/** The one fee worth putting on a card: required monthly fees first, then a broker fee. */
+export function feeCallout(noFee: number | null, fx: Partial<Facts> | null) {
+  const fees = (fx?.fees ?? []).filter((x) => x.required && x.amount);
+  const monthly = fees.filter((x) => x.period === 'monthly');
+  if (monthly.length) {
+    const amount = monthly.reduce((s, x) => s + x.amount!, 0);
+    const what = monthly.length === 1 ? monthly[0].label.toLowerCase() : 'fees';
+    return { label: `+${money(amount)}/mo ${what}`, amount, period: 'monthly' as const };
+  }
+  const broker = fees.find((x) => x.kind === 'broker');
+  if (broker && noFee !== 1) return { label: `${money(broker.amount!)} broker fee`, amount: broker.amount!, period: 'once' as const };
+  return null;
+}

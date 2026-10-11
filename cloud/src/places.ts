@@ -8,8 +8,9 @@ import type { Card, MockState } from './mock';
 import { nearby, transitLabel } from './transit';
 import { cellOf, toSafety } from './safety';
 import { areaLabel } from './areas';
-import { highlights, scamSigns, typicalKey, typicalRents, type Facts } from './facts';
+import { costsOf, feeCallout, highlights, scamSigns, typicalKey, typicalRents, type Facts } from './facts';
 import { dealbreakerWhere } from './filter';
+import { photosOf } from './photos';
 
 type Search = z.infer<typeof S.Search>;
 type VerdictKind = z.infer<typeof S.Verdict>['kind'];
@@ -26,7 +27,7 @@ const LABELS: Record<VerdictKind, [string, 'good' | 'warn' | 'bad' | 'neutral']>
   likely_scam: ['Hidden: likely scam', 'bad'], gone: ['Gone', 'neutral'],
 };
 
-const COLS = `l.id, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.no_fee, l.photos, l.first_seen, l.status, l.price_history, l.facts, l.lat, l.lon,
+const COLS = `l.id, l.neighbourhood, l.borough, l.price, l.beds, l.baths, l.sqft, l.no_fee, l.photos, l.first_seen, l.status, l.price_history, l.facts, l.lat, l.lon,
               b.score AS bscore, b.report AS breport`;
 
 /**
@@ -39,7 +40,7 @@ export function judge(r: any, s: Search, typical: number | null, safer: boolean)
   const hist = json<any[]>(r.price_history, []).map((h) => Number(Array.isArray(h) ? h[1] : h?.price)).filter(Number.isFinite);
   const dropped = hist.length > 1 && r.price < Math.max(...hist);
   const t = nearby(r.lat, r.lon)[0];
-  const hl = highlights(f, { price: r.price, noFee: r.no_fee, typical, safer, train: t && t.walkMinutes <= 6 ? transitLabel(t) : null }, { pets: d.pets, preferences: s.preferences.map((p) => p.label) });
+  const hl = highlights(f, { price: r.price, noFee: r.no_fee, typical, safer, sqft: r.sqft, beds: r.beds, train: t && t.walkMinutes <= 6 ? transitLabel(t) : null }, { pets: d.pets, preferences: s.preferences.map((p) => p.label) });
   let fit = 55 + Math.min(25, hl.length * 6);
   if (t) fit += t.walkMinutes <= 5 ? 5 : t.walkMinutes > 12 ? -5 : 0;
   if (typical) fit += Math.max(-10, Math.min(15, ((typical - r.price) / typical) * 60));
@@ -59,9 +60,10 @@ function card(r: any, s: Search, now: number, typical: number | null, safer = fa
   const v = judge(r, s, typical, safer), [label, tone] = LABELS[v.kind], found = (r.first_seen ?? 0) * 1000;
   return {
     id: `op_${r.id}`, listingId: r.id, foundAt: new Date(found || now).toISOString(), seen: now - found > FRESH_MS,
-    status: v.kind === 'likely_scam' ? 'hidden' : 'new', price: r.price, totalMonthly: r.price, area: areaLabel(r.neighbourhood, r.borough), beds: r.beds ?? 0, baths: r.baths,
-    transit: nearby(r.lat, r.lon)[0] ?? null, highlight: v.highlight, thumbnail: json<string[]>(r.photos, [])[0] ?? null,
-    fit: Math.max(0, Math.min(100, Math.round(v.fit))), verdict: { kind: v.kind, label, tone, reason: v.reason }, feeCallout: null,
+    status: v.kind === 'likely_scam' ? 'hidden' : 'new', price: r.price, totalMonthly: costsOf(r.price, null, r.no_fee, json<Facts | null>(r.facts, null)).totalMonthly,
+    area: areaLabel(r.neighbourhood, r.borough), beds: r.beds ?? 0, baths: r.baths, sqft: r.sqft ?? null,
+    transit: nearby(r.lat, r.lon)[0] ?? null, highlight: v.highlight, thumbnail: photosOf(r.photos)[0] ?? null,
+    fit: Math.max(0, Math.min(100, Math.round(v.fit))), verdict: { kind: v.kind, label, tone, reason: v.reason }, feeCallout: feeCallout(r.no_fee, json<Facts | null>(r.facts, null)),
   };
 }
 

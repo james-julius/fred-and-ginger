@@ -7,8 +7,13 @@
   "compatibility_flags": ["nodejs_compat"],
   "account_id": "2f12b2e0013e057f81d47ff38d48a251",
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
+  // chat recall (src/recall.ts): exchanges embedded with Workers AI, searched in Vectorize, filtered by person
+  "ai": { "binding": "AI" },
+  "vectorize": [{ "binding": "CHATS", "index_name": "nest-chats" }],
   // the new app (web/): pages on fredandginger.* go to it; /api, /login, /logout and /hooks stay here
   "services": [{ "binding": "WEB", "service": "fred-web" }],
+  // copies of listing photos from sites that won't show them on our pages (src/photos.ts)
+  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "fng-photos" }],
   "d1_databases": [{ "binding": "DB", "database_name": "nest", "database_id": "ed551431-d43f-4986-9e5d-7e6124a7aaee" }],
   // every 2 min: ingest, geocode + building checks, a few at a time. Crawls start when Fred asks (src/agent/crawl.ts)
   "triggers": { "crons": ["*/2 * * * *", "*/5 * * * *"] },
@@ -17,7 +22,8 @@
   // chat model: Sonnet 5.5 at low effort had no failures in evals/isolate.ts and was the fastest (Oct 11)
   // alert emails and verification codes (jamesjuliusdarby.com is onboarded for Email Sending)
   "send_email": [{ "name": "EMAIL" }],
-  "vars": { "FRED_MODEL": "anthropic/claude-sonnet-5-5", "FRED_EFFORT": "low" }
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "vars": { "SENTRY_DSN": "https://0fd1958443b60c3f28c4bf8979296f38@o4504868195729408.ingest.us.sentry.io/4512239160590336", "FRED_MODEL": "anthropic/claude-sonnet-5-5", "FRED_EFFORT": "low" }
   // secrets: APIFY_TOKEN, SESSION_KEY, HOOK_SECRET, PASSWORD_JAMES, PASSWORD_ERIN, and the model key (e.g. ANTHROPIC_API_KEY)
   // vars: FRED_MODEL overrides the model, as provider/model
 }
